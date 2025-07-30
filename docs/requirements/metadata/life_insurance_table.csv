@@ -1,0 +1,22 @@
+Asset: life Insurance ,Description
+policy_id,Unique identifier for the life insurance policy.
+insurer_name,Name of the insurance company issuing the policy.
+policy_type,"Type of policy: e.g., 'Term', 'Whole Life', 'Universal Life'."
+policy_status,"Current status: e.g., 'Active', 'Lapsed', 'Surrendered', 'Paid-Up'."
+policy_holder_name,Name of the individual who owns the policy.
+insured_person_name,Name of the person whose life is insured under the policy.
+beneficiaries,List of beneficiaries named in the policy.
+face_value_usd,Total death benefit value in USD.
+cash_value_usd,Current cash value (for whole/universal life policies).
+monthly_premium_usd,Monthly premium amount paid by the policyholder.
+payment_frequency,"How often premiums are paid: Monthly, Quarterly, Annually."
+issue_date,Date the policy was originally issued.
+maturity_date,Date the policy matures or term ends.
+policy_term_years,Length of the policy term in years (for term life).
+rider_details,"Any optional riders attached (e.g., waiver of premium, AD&D)."
+owner_relationship_to_insured,Relationship of the policy owner to the insured person.
+digital_record,Indicates if a digital copy of the policy is available (Y/N).
+last_updated,Date when this metadata was last updated.
+insurer_contact_name,Primary contact person at the insurance company.
+insurer_contact_email,Email address for the insurance company contact.
+insurer_contact_phone,Phone number for the insurance company contact.

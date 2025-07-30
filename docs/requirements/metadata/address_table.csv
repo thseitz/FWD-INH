@@ -1,0 +1,8 @@
+Address,Description
+address_id,Unique identifier for the address record.
+address_line_1,Primary street address or PO box.
+address_line_2,"Secondary address line (e.g., apartment, unit, suite)."
+city,City or locality.
+state_or_province,"State, province, or region."
+postal_code,Postal or ZIP code.
+country,Country name or ISO 3166-1 alpha-2 code.

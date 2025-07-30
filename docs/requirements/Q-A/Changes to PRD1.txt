@@ -1,0 +1,146 @@
+Changes to PRD: 
+
+1. remove all reference and planning and database schemas to HEI integration 
+2. Change the database schema: 
+
+PRD Update: Direct Asset Ownership by Personas & Removal of FFC→Asset Mapping
+
+Hi Claude,
+
+I'd like to revise the PRD to reflect a major schema shift in how we model asset ownership and visibility across FFCs. Here’s a breakdown of the changes we need to make:
+
+Summary of Changes
+New Ownership Model: persona ↔ asset (direct)
+Replace current asset_ffc_ownership logic with a new table: asset_persona_ownership.
+
+Each asset is now directly linked to one or more personas.
+
+We track ownership percentage, type (e.g., direct, trust), and effective date at the persona level.
+
+Remove: asset_ffc_ownership table
+FFCs will no longer directly own or link to assets.
+
+Ownership is not modeled at the group level anymore.
+
+Keep: ffc_personas table
+Personas can continue to belong to one or multiple FFCs.
+
+Their role, permissions, and relationship within the FFC remain the same.
+
+Behavior Change in Product Logic
+1. Asset visibility in FFCs
+Instead of assets being manually added to an FFC, assets are now visible in an FFC if a member persona owns them.
+
+This is dynamically derived:
+assets ← asset_persona_ownership ← personas ← ffc_personas ← ffcs
+
+2. Permissions
+The existing asset_permissions table remains.
+
+This supports fine-grained read/edit/admin control, separate from ownership.
+
+3. FFC asset totals
+Asset totals shown in the context of an FFC (e.g. “$10M in holdings”) will be calculated by summing all assets owned by its active members.
+
+📐 Schema Update Required
+New table:
+
+sql
+Copy
+Edit
+CREATE TABLE asset_persona_ownership (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    asset_id UUID REFERENCES assets(id) NOT NULL,
+    persona_id UUID REFERENCES personas(id) NOT NULL,
+    ownership_percentage DECIMAL(5, 2) NOT NULL CHECK (ownership_percentage > 0 AND ownership_percentage <= 100),
+    ownership_type ownership_type_enum DEFAULT 'direct',
+    effective_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(asset_id, persona_id)
+);
+Also include a trigger to ensure total ownership of each asset does not exceed 100%.
+
+
+3. also make the following change to the DB Schema: 
+
+PRD Update: Flexible Contact + Communication Info for Personas and Other Entities
+
+Hi Claude,
+
+We need to revise the PRD to support a more flexible, entity-agnostic structure for associating contact details with personas and other components (e.g., advisor companies, accounts). The goal is to decouple phone numbers, emails, and social media from just being directly embedded in a persona record, and instead support 1:N relationships with usage context.
+
+Here’s how it works, based on the new schema visual:
+
+Key Changes to PRD
+a) Persona table remains clean and references contact_info_id
+sql
+Copy
+Edit
+contact_info_id UUID REFERENCES contact_info(id)
+This keeps persona focused on identity and delegates all contact-related metadata to the contact_info structure.
+
+b) contact_info holds references to addresses and metadata
+It links to address_id (1:1)
+
+Contains fields like language_preference, timezone, and website
+
+c) All communications (phone, email, social) are stored as usage tables
+Each has a usage table and a base table
+
+Usage tables include:
+
+linked_entity_type (e.g., 'persona', 'contact_info', 'advisor_company')
+
+linked_entity_id (the UUID of the linked entity)
+
+usage_type (e.g., 'mobile', 'login', 'notification', 'public')
+
+Example:
+
+sql
+Copy
+Edit
+phone_usage (
+  phone_usage_id UUID,
+  phone_id UUID,
+  linked_entity_type TEXT,
+  linked_entity_id UUID,
+  usage_type TEXT
+)
+This enables:
+
+One phone number to be used in multiple places (if needed)
+
+Each entity to have multiple numbers/emails/social profiles with clear purpose
+
+Reusable Resource Tables
+Each communication type is stored in its own base table:
+
+phone_number(phone_id, phone_number)
+
+email_address(email_id, email_address)
+
+social_media(social_id, platform, profile_url)
+
+These tables are normalized and time-stamped for auditability and deduplication.
+
+Address Reuse
+contact_info and advisor_company both reference a shared address table
+
+Each address is defined by address_id and fields like city, state, postal_code, etc.
+
+Future entities (e.g., trusts, legal instruments) can reuse this same address structure
+
+Benefits
+Benefit	Description
+Reusable	Email/phone/social profiles can be linked to many entity types
+Normalized	Prevents duplication and allows metadata tagging (usage_type)
+Auditable	Timestamped inserts (created_at) allow tracking of profile evolution
+Scalable	Easily supports future entity types (e.g., legal_contacts, third_party_advisors)
+
+
+
+
+
+

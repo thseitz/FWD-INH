@@ -1,0 +1,4 @@
+E-mail Address,Description
+email_id,Unique identifier for the email address record.
+email_address,Email address used by the entity.
+created_at,Timestamp of when the email was added.

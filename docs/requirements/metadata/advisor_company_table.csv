@@ -1,0 +1,6 @@
+Advisor Company,Description
+advisor_company_id,Unique identifier for the advisor company.
+company_name,Name of the advisor company.
+company_description,Brief description of the advisor company and its services.
+address_id,Foreign key referencing the global address table.
+website,Company website URL.

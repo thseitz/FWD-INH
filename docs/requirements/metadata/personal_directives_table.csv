@@ -1,0 +1,19 @@
+Instrument: Personal Directives,Description
+directive_id,Unique identifier for the directive document.
+directive_type,"Type of directive (e.g., 'POA', 'Health Directive', 'HIPAA Authorization', 'Guardianship', 'Family Directive')."
+principal_name,Name of the person who created or authorized the directive.
+agent_or_recipient_name,Name of the person receiving authority or access.
+agent_contact_email,Email address of the agent or designated person.
+agent_contact_phone,Phone number of the agent or designated person.
+effective_date,Date when the directive becomes effective.
+expiration_or_revocation,Date of expiration or revocation (if applicable).
+jurisdiction,Legal jurisdiction governing the directive.
+grants_authority,Indicates whether the directive grants decision-making authority (Y/N).
+medical_scope,Indicates if the directive includes medical authority (Y/N/Optional).
+financial_scope,Indicates if the directive includes financial authority (Y/N/Optional).
+guardian_designation,Name of designated guardian (if applicable).
+witness_names,Names of any witnesses required for the directive (if applicable).
+includes_confidential_info,Indicates if the directive includes access to confidential information (Y/N/Optional).
+digital_record,Indicates whether a digital version of the directive exists (Y/N).
+document_link,Link to the digital document.
+last_updated,Timestamp of the last metadata update.

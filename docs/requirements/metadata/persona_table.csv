@@ -1,0 +1,10 @@
+Persona,Description
+persona_id,Unique identifier for the persona.
+first_name,First name of the persona.
+middle_name,Middle name of the persona.
+last_name,Last name of the persona.
+contact_info_id,Link to contact information record.
+account_info_id,Link to login/account details record.
+date_of_birth,Date of birth of the persona.
+persona_type,"Type of persona (e.g., 'Customer', 'Wealth Advisor', 'Mortgage Agent', etc.). Note: All owners and beneficiaries are classified as 'Customer'."
+advisor_company_id,Foreign key linking to advisor company record. Only applicable if persona_type is not 'Customer'.

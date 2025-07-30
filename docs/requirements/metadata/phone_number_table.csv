@@ -1,0 +1,4 @@
+Phone Number,Description
+phone_id,Unique identifier for the phone number record.
+phone_number,Phone number in international E.164 format.
+created_at,Timestamp of when the phone number was added.

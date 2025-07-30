@@ -1,0 +1,6 @@
+Phone Number Usage,Description
+phone_usage_id,Primary key for the phone usage record.
+phone_id,Foreign key referencing the phone number.
+linked_entity_type,"Type of entity using the phone (e.g., 'contact_info', 'account_info', 'advisor_company')."
+linked_entity_id,ID of the entity associated with this usage.
+usage_type,"Purpose of the phone number (e.g., 'mfa', 'mobile', 'work', 'office', 'emergency')."

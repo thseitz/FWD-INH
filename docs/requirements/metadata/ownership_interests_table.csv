@@ -1,0 +1,18 @@
+Asset Ownership Interests,Description
+interest_id,Unique identifier for the ownership interest.
+interest_type,"Type of ownership interest (e.g., 'Business', 'Partnership', 'Franchise', 'Timeshare')."
+entity_name,"Name of the business, partnership, or asset being owned."
+ownership_percentage,Percentage of ownership held in the entity.
+ownership_type,"Structure of ownership (e.g., Sole Proprietorship, Joint Venture, LLC, Corporation)."
+registration_country,Country where the entity or agreement is registered.
+registration_state,State or region of registration (if applicable).
+registration_number,Government or legal registration number.
+valuation_usd,Estimated current value of the ownership interest in USD.
+valuation_method,"Method used for determining valuation (e.g., Market Estimate, Appraisal)."
+linked_asset_ids,"References to related assets in other categories (e.g., real estate, equipment)."
+legal_representative,Name of legal or managing representative for the interest.
+contact_email,Email address of the representative or entity.
+contact_phone,Phone number of the representative or entity.
+documents_link,Link to digital copies of agreements or certificates.
+digital_record,Indicates whether digital documentation exists (Y/N).
+last_updated,Timestamp of last metadata update.

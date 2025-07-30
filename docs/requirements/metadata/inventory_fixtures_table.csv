@@ -1,0 +1,17 @@
+Asset: Inventory/Fixtures,Description
+asset_id,Unique identifier for the inventory or fixture item.
+item_type,"Type or category of item (e.g., 'Tool', 'Appliance', 'Fixture', 'Supply')."
+description,Detailed description of the item.
+sku,Stock Keeping Unit or internal code.
+quantity,Quantity of this item in stock.
+unit_cost,Cost per unit in USD.
+total_value,Total value (quantity x unit cost) in USD.
+reorder_threshold,Minimum quantity before reordering is triggered.
+location_address,Street address where the item is stored.
+location_zip,ZIP code of the storage location.
+location_city,City of the storage location.
+location_state,State of the storage location.
+supplier_name,Name of the supplier or vendor.
+supplier_contact_name,Contact person at the supplier.
+supplier_contact_email,Email address for the supplier contact.
+supplier_contact_phone,Phone number for the supplier contact.

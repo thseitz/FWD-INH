@@ -1,0 +1,5 @@
+Social Media,Description
+social_id,Unique identifier for the social media profile.
+platform_name,"Name of the social media platform (e.g., 'Facebook', 'Instagram')."
+profile_url,Full URL to the social media profile.
+created_at,Timestamp of when the social media profile was added.

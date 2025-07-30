@@ -1,0 +1,3 @@
+Account Info,Description
+account_info_id,Unique identifier for the account record.
+account_password_encrypted,Encrypted user password for authentication.

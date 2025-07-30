@@ -1,0 +1,19 @@
+Asset: Recurring Income,Description
+income_id,Unique identifier for the recurring income asset.
+income_type,"Type of recurring income (e.g., 'Royalty', 'Residual', 'Annuity', 'Rental Income')."
+source_name,Name of the entity or individual paying the income.
+payer_type,"Type of payer (e.g., Publisher, Studio, Insurance Company, Tenant)."
+payment_frequency,"Frequency of payment (e.g., Monthly, Quarterly, Annually)."
+last_payment_date,Date the last payment was received.
+payment_amount_usd,Typical or last payment amount in USD.
+gross_income_ytd,Total gross income received year-to-date in USD.
+contract_reference,Name or ID of the contract governing the income.
+contract_terms_summary,"Brief description of the terms (e.g., duration, share %, escalation clauses)."
+transferability,Indicates whether rights can be transferred (Y/N).
+beneficiaries,List of individuals/entities entitled to receive future payments.
+contact_name,Contact person for the payer or managing organization.
+contact_email,Email address of the contact person.
+contact_phone,Phone number of the contact person.
+digital_record,Indicates if digital documentation exists (Y/N).
+document_link,Link to scanned or digital copy of the contract or rights documentation.
+last_updated,Timestamp of last metadata update.

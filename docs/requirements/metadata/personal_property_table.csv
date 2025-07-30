@@ -1,0 +1,18 @@
+Asset: Personal Property,Description
+asset_id,Unique identifier for the personal property asset.
+type,"Type of item: 'Jewelry', 'Collectibles', 'Art', 'Furniture', 'Animals / Pets', 'Precious Metals'."
+description,Detailed description of the item.
+owner_name,Name of the individual or entity who owns the item.
+estimated_value_usd,Estimated market value in USD.
+valuation_method,"Method used to determine value (e.g., Appraisal, Market Estimate)."
+purchase_date,Date the item was acquired.
+storage_address,Street address where the item is stored.
+storage_zip,ZIP code of the storage location.
+storage_city,City where the item is stored.
+storage_state,State where the item is stored.
+insurance_provider_name,Name of the insurance company (if insured).
+insurance_contact_name,Contact name at the insurance provider.
+insurance_contact_phone,Phone number of the insurance contact.
+insurance_contact_email,Email address of the insurance contact.
+digital_record,Indicates if digital documentation exists (Y/N).
+image_storage_link,Link or URL to stored images of the item.

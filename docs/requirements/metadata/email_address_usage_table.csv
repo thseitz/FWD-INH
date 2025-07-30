@@ -1,0 +1,6 @@
+E-mail Address Usage,Description
+email_usage_id,Primary key for the email usage record.
+email_id,Foreign key referencing the email address.
+linked_entity_type,"Type of entity using the email (e.g., 'contact_info', 'account_info', 'advisor_company')."
+linked_entity_id,ID of the entity associated with this usage.
+usage_type,"Purpose of the email (e.g., 'login', 'contact', 'notification', 'billing')."

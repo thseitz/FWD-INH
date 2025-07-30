@@ -1,0 +1,19 @@
+Asset: Operational Property,Description
+asset_id,Unique identifier for the titled or operational asset.
+type,"Type of item: 'Vehicle', 'Boat', 'Yacht', 'Equipment', 'Machinery'."
+make,Manufacturer of the asset.
+model,Model or version of the asset.
+serial_or_vin,Serial number or VIN (Vehicle Identification Number).
+purchase_date,Date the item was purchased or acquired.
+estimated_value_usd,Estimated current value in USD.
+insurance_provider_name,Name of the insurance company (if insured).
+insurance_contact_name,Contact name at the insurance provider.
+insurance_contact_phone,Phone number of the insurance contact.
+insurance_contact_email,Email address of the insurance contact.
+storage_address,Street address where the item is stored.
+storage_zip,ZIP code of the storage location.
+storage_city,City where the item is stored.
+storage_state,State where the item is stored.
+operational_status,"Current status of the asset: 'Operational', 'Inactive', 'Needs Repair', etc."
+last_service_date,Date the asset was last serviced or maintained.
+image_storage_link,Link or URL to stored images or documentation of the asset.

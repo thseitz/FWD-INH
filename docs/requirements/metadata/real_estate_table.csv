@@ -1,0 +1,24 @@
+Asset: Real Estate/Property,Description
+property_id,Unique identifier for the real estate asset.
+property_type,"Type of property (e.g., 'Primary Residence', 'Rental', 'Commercial', 'Vacant Land')."
+location_address,Street address of the property.
+location_city,City where the property is located.
+location_state,State where the property is located.
+location_zip,ZIP/postal code of the property.
+country,Country where the property is located.
+title_holder,Name of the person or entity holding legal title to the property.
+deed_type,"Type of deed/ownership (e.g., 'Joint Tenancy', 'Sole Ownership')."
+acquisition_date,Date when the property was acquired.
+purchase_price_usd,Original purchase price in USD.
+estimated_value_usd,Current estimated market value in USD.
+valuation_method,"Method used to estimate value (e.g., appraisal, comps, tax assessment)."
+mortgage_status,"Status of any mortgage (e.g., 'Active', 'Paid Off')."
+mortgage_lender_name,Name of the mortgage lender (if applicable).
+rental_income_usd,Monthly rental income (if applicable).
+insurance_provider_name,Name of the property insurance provider.
+insurance_contact_name,Name of the insurance contact person or agent.
+insurance_contact_email,Email of the insurance contact person.
+insurance_contact_phone,Phone number of the insurance contact person.
+document_link,"Link to deed, title, or insurance documentation."
+digital_record,Indicates whether a digital record exists (Y/N).
+last_updated,Timestamp of last metadata update.

@@ -1,0 +1,6 @@
+Social Media Usage,Description
+social_usage_id,Primary key for the social media usage record.
+social_id,Foreign key referencing the social media profile.
+linked_entity_type,"Type of entity using the social profile (e.g., 'contact_info', 'advisor_company')."
+linked_entity_id,ID of the entity associated with this usage.
+usage_type,"Purpose of the social profile (e.g., 'public', 'professional', 'personal')."

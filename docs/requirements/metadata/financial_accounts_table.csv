@@ -1,0 +1,21 @@
+Asset: Financial Accounts,Description
+account_id,Unique identifier for the financial account.
+account_type,"Type of account (e.g., 'Checking', 'Savings', 'Brokerage', 'IRA', '401k', '529', 'Crypto')."
+account_holder,Name of the individual or entity who owns the account.
+institution_name,"Name of the bank, brokerage, or crypto exchange managing the account."
+institution_contact_name,Primary contact at the financial institution.
+institution_contact_email,Email of the financial institution contact.
+institution_contact_phone,Phone number of the financial institution contact.
+account_number_masked,"Masked account number or identifier for privacy (e.g., '****1234')."
+currency,"Currency of the account (e.g., 'USD', 'BTC')."
+balance,Current account balance in account currency.
+contributions_to_date,Total contributions or deposits made to the account.
+employer_contributions,"Employer contributions (for retirement plans, if applicable)."
+beneficiaries,List of named beneficiaries on the account.
+linked_advisor_name,Name of associated financial advisor (if applicable).
+linked_advisor_email,Email of associated financial advisor.
+linked_advisor_phone,Phone number of associated financial advisor.
+linked_external_account_id,Reference to account linkage in financial software or aggregator.
+digital_access,Indicates if account is accessible online (Y/N).
+digital_record,Indicates whether digital documentation is available (Y/N).
+last_updated,Timestamp of the last metadata update.

@@ -1,0 +1,17 @@
+Asset: Loan,Description
+loan_id,Unique identifier for the loan or interfamily loan.
+loan_type,"Type of loan (e.g., 'Personal', 'Mortgage', 'Interfamily')."
+borrower_name,Name of the individual or entity receiving the loan.
+lender_name,Name of the individual or entity providing the loan.
+relationship,Relationship between borrower and lender (if applicable).
+principal_amount_usd,Original principal loan amount in USD.
+interest_rate_percent,Annual interest rate percentage (if applicable).
+loan_date,Date the loan was issued.
+maturity_date,Date the loan is due or expected to be paid back.
+repayment_frequency,"Repayment schedule (e.g., Monthly, Quarterly, Annually)."
+repayment_amount_usd,Typical amount per repayment period.
+balance_remaining_usd,Remaining balance on the loan in USD.
+payment_status,"Status of repayment (e.g., 'Current', 'Late', 'Paid Off')."
+document_link,Link to loan agreement or promissory note.
+digital_record,Indicates whether a digital record of the loan exists (Y/N).
+last_updated,Timestamp of the last metadata update.

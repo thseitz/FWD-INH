@@ -1,0 +1,17 @@
+Asset: Digital,Description
+asset_id,Unique identifier for the digital or intellectual property asset.
+asset_type,"Type of digital or IP asset (e.g., 'Patent', 'Copyright', 'Trademark', 'Domain', 'NFT', 'Crypto', 'Social Media Account')."
+title_or_name,Name or title of the asset.
+owner_name,Name of the individual or entity who owns the asset.
+registry_or_platform,"Governing body or platform where the asset is registered (e.g., USPTO, Ethereum, GoDaddy, Twitter)."
+registration_number,Registration or unique asset ID (if applicable).
+registration_date,Date of registration or issuance.
+expiration_date,Date of expiration or renewal (if applicable).
+current_value_usd,Estimated current value in USD.
+valuation_method,"Method used to determine value (e.g., market, appraised, floor price)."
+transferability,Indicates if the asset is transferable or sellable (Y/N).
+linked_wallet_or_account,"Associated wallet address or account handle (e.g., Twitter handle, ETH wallet)."
+access_credentials_location,"Location of credentials (e.g., password manager, custodian)."
+digital_record,Indicates if digital documentation or proof exists (Y/N).
+document_link,Link to legal or ownership documentation.
+last_updated,Timestamp of the last metadata update.

@@ -1,0 +1,23 @@
+Instrument: Will,Description
+will_id,Unique identifier for the will document.
+testator_name,Name of the person who created the will (testator).
+will_date,Date the will was signed and executed.
+jurisdiction,Legal jurisdiction governing the will (state or country).
+executor_name,Name of the person appointed to carry out the terms of the will.
+executor_contact_email,Email address of the executor.
+executor_contact_phone,Phone number of the executor.
+beneficiaries,List of individuals or entities designated to receive assets.
+linked_asset_ids,References to asset IDs distributed through the will.
+guardian_designation,Name of designated guardian for minors (if applicable).
+witness_names,Names of witnesses who signed the will.
+digital_record,Indicates whether a digital copy of the will exists (Y/N).
+document_link,Link to the digital copy of the will.
+last_updated,Timestamp of the last metadata update.
+,
+,
+,
+,
+,
+,
+,
+,

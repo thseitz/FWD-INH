@@ -1,0 +1,6 @@
+Contact Info,Description
+contact_info_id,Unique identifier for contact information record.
+address_id,Foreign key referencing the global address table.
+language_preference,"Preferred communication language (e.g., 'en', 'es', 'zh')."
+timezone,"Time zone (e.g., 'America/New_York', 'Europe/Paris')."
+website,Personal or organizational website link.
