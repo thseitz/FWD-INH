@@ -118,11 +118,11 @@ Based on market research and industry studies:
 #### **2. Complete FFC Onboarding Flow**
 - **User Registration** with email verification
 - **Secure Login** with session management
-- **FFC Creation** with unique naming
+- **FFC Creation** with unique naming and optional family picture upload
 - **Member Invitation System** (email-based)
 - **Mandatory Dual-Channel Verification** (email + SMS)
 - **Owner Approval Required** for all new members
-- **Mandatory Account Creation** for invited members
+- **Mandatory Account Creation** for invited members with optional profile picture upload
 - **Role Assignment**: 
   - FFC Owners (edit rights on FFC level)
   - Can add additional owners with edit rights
@@ -241,30 +241,9 @@ Based on market research and industry studies:
 - Honeypot field for bot detection
 - Server-side validation
 - Audit log for all submissions
-- **All database operations through stored procedures**:
-  ```sql
-  CREATE OR REPLACE FUNCTION capture_marketing_lead(
-      p_name VARCHAR,
-      p_email VARCHAR,
-      p_phone VARCHAR,
-      p_interest VARCHAR,
-      p_utm_source VARCHAR,
-      p_utm_campaign VARCHAR,
-      p_ip_address INET
-  ) RETURNS TABLE(
-      lead_id UUID,
-      status VARCHAR,
-      message VARCHAR
-  ) AS $$
-  BEGIN
-      -- Validate email uniqueness
-      -- Check for spam/rate limiting
-      -- Insert lead record
-      -- Queue welcome email
-      -- Return success/failure
-  END;
-  $$ LANGUAGE plpgsql SECURITY DEFINER;
-  ```
+- **All database operations through stored procedures**
+- Database implementation details are documented in architecture.md
+- See architecture.md section "Epic-Specific Stored Procedures > Epic 1: Marketing Foundation" for complete stored procedure specifications
 
 ### **Story 1.4: A/B Testing Framework**
 **As a** marketer  
@@ -913,350 +892,24 @@ Based on market research and industry studies:
 
 ## Database Schema
 
-### Core Entity Structure
+**Complete database schema designs are documented in architecture.md.**
 
-#### Tenants Table (Multi-Tenancy Support)
-```sql
-CREATE TABLE tenants (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    display_name VARCHAR(255) NOT NULL,
-    domain VARCHAR(255), -- For white-label domains
-    logo_url VARCHAR(500),
-    primary_color VARCHAR(7), -- Hex color for branding
-    secondary_color VARCHAR(7),
-    settings jsonb DEFAULT '{}',
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+### Key Components:
+- **Multi-Tenant Core Schemas**: Tenants, Personas, FFCs, Contact/Communication
+- **Enhanced Asset Management**: 13 asset categories with ownership and permissions
+- **Invitation & Verification**: Dual-channel verification system
+- **Audit & Compliance**: Comprehensive audit trails and security measures
+- **Performance Indexes**: Optimized for multi-tenant operations
 
--- Insert default Forward tenant
-INSERT INTO tenants (id, name, display_name) VALUES (1, 'forward', 'Forward');
-```
+### Reference Sections in architecture.md:
+- **Multi-Tenant Core Schemas**: Complete table definitions for tenants, personas, FFCs
+- **Contact and Communication Schema**: Flexible address, phone, and email management
+- **Enhanced Asset Management Schema**: All 13 asset categories with ownership models
+- **Invitation and Verification Schema**: Dual-channel security verification
+- **Enhanced Audit and Compliance Schema**: Comprehensive audit logging
+- **Performance Indexes**: All database indexes for optimal performance
 
-#### Personas Table
-```sql
-CREATE TABLE personas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id BIGINT REFERENCES tenants(id) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    contact_info_id UUID REFERENCES contact_info(id),
-    account_info_id UUID REFERENCES account_info(id),
-    persona_type persona_type_enum NOT NULL,
-    advisor_company_id UUID REFERENCES advisor_companies(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    is_active BOOLEAN DEFAULT true
-);
-
-CREATE TYPE persona_type_enum AS ENUM (
-    'owner_majority',
-    'owner_co',
-    'owner_minority',
-    'beneficiary',
-    'non_beneficiary',
-    'advisor',
-    'trust_grantor',
-    'trust_trustee',
-    'trust_successor_trustee',
-    'executor'
-);
-```
-
-#### Forward Family Circles (FFCs) Table
-```sql
-CREATE TABLE ffcs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id BIGINT REFERENCES tenants(id) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    creation_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    head_persona_id UUID REFERENCES personas(id) NOT NULL,
-    status ffc_status_enum DEFAULT 'active',
-    emergency_access_enabled BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TYPE ffc_status_enum AS ENUM ('active', 'inactive', 'archived');
-```
-
-#### FFC-Persona Mapping (Many-to-Many)
-```sql
-CREATE TABLE ffc_personas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ffc_id UUID REFERENCES ffcs(id) NOT NULL,
-    persona_id UUID REFERENCES personas(id) NOT NULL,
-    role ffc_role_enum NOT NULL,
-    permissions jsonb DEFAULT '{}',
-    joined_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    is_active BOOLEAN DEFAULT true,
-    UNIQUE(ffc_id, persona_id)
-);
-
-CREATE TYPE ffc_role_enum AS ENUM (
-    'head',
-    'owner',
-    'beneficiary',
-    'non_beneficiary',
-    'advisor',
-    'trust_actor'
-);
-```
-
-### Contact and Communication Schema
-
-#### Core Contact Information
-```sql
-CREATE TABLE contact_info (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    address_id UUID REFERENCES addresses(id),
-    language_preference VARCHAR(10) DEFAULT 'en',
-    timezone VARCHAR(50) DEFAULT 'America/New_York',
-    website VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE addresses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    address_line_1 VARCHAR(255) NOT NULL,
-    address_line_2 VARCHAR(255),
-    city VARCHAR(100) NOT NULL,
-    state_or_province VARCHAR(100),
-    postal_code VARCHAR(20),
-    country VARCHAR(100) DEFAULT 'United States',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-#### Flexible Communication Tables
-```sql
-CREATE TABLE phone_numbers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone_number VARCHAR(20) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE phone_usage (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone_id UUID REFERENCES phone_numbers(id) NOT NULL,
-    linked_entity_type VARCHAR(50) NOT NULL, -- 'persona', 'contact_info', 'advisor_company'
-    linked_entity_id UUID NOT NULL,
-    usage_type VARCHAR(50) NOT NULL, -- 'mobile', 'home', 'work', 'emergency'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE email_addresses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email_address VARCHAR(255) NOT NULL UNIQUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE email_usage (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email_id UUID REFERENCES email_addresses(id) NOT NULL,
-    linked_entity_type VARCHAR(50) NOT NULL, -- 'persona', 'contact_info', 'advisor_company'
-    linked_entity_id UUID NOT NULL,
-    usage_type VARCHAR(50) NOT NULL, -- 'primary', 'work', 'login', 'notification'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-### Asset Management Schema
-
-#### Assets Table (13 Categories)
-```sql
-CREATE TABLE assets (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id BIGINT REFERENCES tenants(id) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    category asset_category_enum NOT NULL,
-    subcategory VARCHAR(100),
-    description TEXT,
-    metadata jsonb DEFAULT '{}',
-    current_value DECIMAL(15, 2),
-    acquisition_date DATE,
-    acquisition_cost DECIMAL(15, 2),
-    location_info jsonb,
-    insurance_info jsonb,
-    contact_info jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    is_active BOOLEAN DEFAULT true
-);
-
-CREATE TYPE asset_category_enum AS ENUM (
-    'personal_directives',
-    'trust',
-    'will',
-    'personal_property',
-    'operational_property',
-    'inventory',
-    'real_estate',
-    'life_insurance',
-    'financial_accounts',
-    'recurring_income',
-    'digital_assets',
-    'ownership_interests',
-    'loans'
-);
-```
-
-#### Direct Asset-Persona Ownership
-```sql
-CREATE TABLE asset_persona_ownership (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID REFERENCES assets(id) NOT NULL,
-    persona_id UUID REFERENCES personas(id) NOT NULL,
-    ownership_percentage DECIMAL(5, 2) NOT NULL CHECK (ownership_percentage > 0 AND ownership_percentage <= 100),
-    ownership_type ownership_type_enum DEFAULT 'direct',
-    effective_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(asset_id, persona_id)
-);
-
-CREATE TYPE ownership_type_enum AS ENUM ('direct', 'trust', 'beneficiary', 'contingent');
-
--- Constraint to ensure total ownership doesn't exceed 100%
-CREATE OR REPLACE FUNCTION check_total_ownership()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF (SELECT SUM(ownership_percentage) 
-        FROM asset_persona_ownership 
-        WHERE asset_id = NEW.asset_id) > 100 THEN
-        RAISE EXCEPTION 'Total ownership percentage cannot exceed 100%';
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER asset_ownership_check
-    AFTER INSERT OR UPDATE ON asset_persona_ownership
-    FOR EACH ROW
-    EXECUTE FUNCTION check_total_ownership();
-```
-
-#### Permission Matrix
-```sql
-CREATE TABLE asset_permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID REFERENCES assets(id) NOT NULL,
-    persona_id UUID REFERENCES personas(id) NOT NULL,
-    permission_level permission_level_enum NOT NULL,
-    granted_by UUID REFERENCES personas(id),
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT true,
-    UNIQUE(asset_id, persona_id)
-);
-
-CREATE TYPE permission_level_enum AS ENUM ('none', 'read', 'edit', 'admin');
-```
-
-### Invitation and Verification Schema
-
-#### Invitations Table
-```sql
-CREATE TABLE ffc_invitations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ffc_id UUID REFERENCES ffcs(id) NOT NULL,
-    inviter_id UUID REFERENCES personas(id) NOT NULL,
-    invitee_email VARCHAR(255) NOT NULL,
-    invitee_phone VARCHAR(20) NOT NULL,
-    invitee_name VARCHAR(255),
-    invitation_token VARCHAR(255) UNIQUE NOT NULL,
-    sms_verification_code VARCHAR(6),
-    verification_code_sent_at TIMESTAMP WITH TIME ZONE,
-    status invitation_status_enum DEFAULT 'sent',
-    personal_message TEXT,
-    invited_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '7 days'),
-    accepted_at TIMESTAMP WITH TIME ZONE,
-    approved_at TIMESTAMP WITH TIME ZONE,
-    approved_by UUID REFERENCES personas(id)
-);
-
-CREATE TYPE invitation_status_enum AS ENUM (
-    'sent',
-    'phone_verified',
-    'accepted',
-    'approved',
-    'expired',
-    'cancelled',
-    'denied'
-);
-```
-
-#### Verification Attempts
-```sql
-CREATE TABLE verification_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    invitation_id UUID REFERENCES ffc_invitations(id) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL,
-    verification_code VARCHAR(6) NOT NULL,
-    attempt_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    success BOOLEAN DEFAULT false,
-    ip_address INET,
-    user_agent TEXT
-);
-```
-
-### Audit and Compliance Schema
-
-#### Audit Log
-```sql
-CREATE TABLE audit_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id BIGINT REFERENCES tenants(id) NOT NULL,
-    entity_type VARCHAR(50) NOT NULL, -- 'ffc', 'asset', 'persona', 'invitation'
-    entity_id UUID NOT NULL,
-    action VARCHAR(50) NOT NULL, -- 'create', 'update', 'delete', 'permission_change'
-    actor_id UUID REFERENCES personas(id),
-    changes jsonb, -- Before/after values
-    ip_address INET,
-    user_agent TEXT,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-### Performance Indexes
-
-#### Primary Performance Indexes
-```sql
--- Multi-tenant indexes (tenant isolation)
-CREATE INDEX idx_personas_tenant_id ON personas(tenant_id);
-CREATE INDEX idx_ffcs_tenant_id ON ffcs(tenant_id);
-CREATE INDEX idx_assets_tenant_id ON assets(tenant_id);
-CREATE INDEX idx_audit_log_tenant_id ON audit_log(tenant_id);
-
--- FFC and persona lookups (tenant-aware)
-CREATE INDEX idx_ffc_personas_ffc_id ON ffc_personas(ffc_id);
-CREATE INDEX idx_ffc_personas_persona_id ON ffc_personas(persona_id);
-CREATE INDEX idx_ffc_personas_active ON ffc_personas(ffc_id, is_active);
-CREATE INDEX idx_personas_tenant_type ON personas(tenant_id, persona_type);
-CREATE INDEX idx_ffcs_tenant_head ON ffcs(tenant_id, head_persona_id);
-
--- Asset ownership and permissions (tenant-aware)
-CREATE INDEX idx_asset_persona_ownership_asset_id ON asset_persona_ownership(asset_id);
-CREATE INDEX idx_asset_persona_ownership_persona_id ON asset_persona_ownership(persona_id);
-CREATE INDEX idx_asset_permissions_asset_persona ON asset_permissions(asset_id, persona_id);
-CREATE INDEX idx_assets_tenant_category ON assets(tenant_id, category);
-
--- Invitation and verification indexes
-CREATE INDEX idx_ffc_invitations_ffc_id ON ffc_invitations(ffc_id);
-CREATE INDEX idx_ffc_invitations_token ON ffc_invitations(invitation_token);
-CREATE INDEX idx_ffc_invitations_status ON ffc_invitations(status, expires_at);
-CREATE INDEX idx_verification_attempts_invitation_id ON verification_attempts(invitation_id);
-
--- Audit log indexes
-CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id);
-CREATE INDEX idx_audit_log_actor ON audit_log(actor_id, timestamp);
-CREATE INDEX idx_audit_log_timestamp ON audit_log(timestamp DESC);
-```
+**See architecture.md for complete table definitions, triggers, constraints, and indexes.**
 
 ## Success Metrics
 
@@ -1461,57 +1114,9 @@ CREATE INDEX idx_audit_log_timestamp ON audit_log(timestamp DESC);
 - Lead scoring and qualification workflow
 
 **Database Implementation**:
-All database operations must use stored procedures:
+**Database implementation details are documented in architecture.md**
 
-```sql
--- Lead capture stored procedure
-CREATE OR REPLACE FUNCTION capture_marketing_lead(
-    p_name VARCHAR,
-    p_email VARCHAR,
-    p_phone VARCHAR,
-    p_interest VARCHAR,
-    p_utm_source VARCHAR,
-    p_utm_campaign VARCHAR,
-    p_ip_address INET
-) RETURNS TABLE(
-    lead_id UUID,
-    status VARCHAR,
-    message VARCHAR
-) AS $$
-DECLARE
-    v_lead_id UUID;
-    v_existing_lead UUID;
-BEGIN
-    -- Check for existing lead
-    SELECT id INTO v_existing_lead 
-    FROM marketing_leads 
-    WHERE email = p_email;
-    
-    IF v_existing_lead IS NOT NULL THEN
-        -- Update existing lead
-        UPDATE marketing_leads 
-        SET 
-            updated_at = NOW(),
-            last_interest = p_interest,
-            utm_source = p_utm_source,
-            utm_campaign = p_utm_campaign,
-            contact_attempts = contact_attempts + 1
-        WHERE id = v_existing_lead;
-        
-        RETURN QUERY SELECT v_existing_lead, 'updated'::VARCHAR, 'Lead updated successfully'::VARCHAR;
-    ELSE
-        -- Create new lead
-        INSERT INTO marketing_leads (
-            name, email, phone, interest, utm_source, utm_campaign, ip_address
-        ) VALUES (
-            p_name, p_email, p_phone, p_interest, p_utm_source, p_utm_campaign, p_ip_address
-        ) RETURNING id INTO v_lead_id;
-        
-        RETURN QUERY SELECT v_lead_id, 'created'::VARCHAR, 'Lead captured successfully'::VARCHAR;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-```
+See architecture.md section "Epic-Specific Stored Procedures > Epic 1: Marketing Foundation" for complete stored procedure specifications including `capture_marketing_lead` function.
 
 ### Epic 2: FFC Onboarding Flow with Enhanced Security
 
@@ -1532,53 +1137,9 @@ $$ LANGUAGE plpgsql;
 - Terms of service and privacy policy acceptance
 
 **Database Implementation**:
-```sql
--- User registration stored procedure
-CREATE OR REPLACE FUNCTION register_user(
-    p_email VARCHAR,
-    p_password_hash VARCHAR,
-    p_first_name VARCHAR,
-    p_last_name VARCHAR,
-    p_ip_address INET
-) RETURNS TABLE(
-    user_id UUID,
-    verification_token VARCHAR,
-    status VARCHAR
-) AS $$
-DECLARE
-    v_user_id UUID;
-    v_token VARCHAR;
-BEGIN
-    -- Check if email already exists
-    IF EXISTS (SELECT 1 FROM users WHERE email = p_email) THEN
-        RETURN QUERY SELECT NULL::UUID, NULL::VARCHAR, 'email_exists'::VARCHAR;
-        RETURN;
-    END IF;
-    
-    -- Generate verification token
-    v_token := encode(gen_random_bytes(32), 'hex');
-    
-    -- Create user
-    INSERT INTO users (
-        email, password_hash, first_name, last_name, 
-        verification_token, status, created_from_ip
-    ) VALUES (
-        p_email, p_password_hash, p_first_name, p_last_name,
-        v_token, 'pending_verification', p_ip_address
-    ) RETURNING id INTO v_user_id;
-    
-    -- Log registration event
-    INSERT INTO audit_log (
-        user_id, action, details, ip_address
-    ) VALUES (
-        v_user_id, 'user_registered', 
-        jsonb_build_object('email', p_email), p_ip_address
-    );
-    
-    RETURN QUERY SELECT v_user_id, v_token, 'success'::VARCHAR;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 2: FFC Onboarding" for complete stored procedure specifications including `register_user` and `invite_ffc_member` functions.
 
 #### Story 2.2: FFC Creation Wizard
 **As a** verified user  
@@ -1604,69 +1165,9 @@ $$ LANGUAGE plpgsql;
 - Role assignment during invitation
 - Owner approval required for all invitations
 
-**Database Implementation**:
-```sql
--- Member invitation stored procedure
-CREATE OR REPLACE FUNCTION invite_ffc_member(
-    p_ffc_id UUID,
-    p_inviter_id UUID,
-    p_email VARCHAR,
-    p_phone VARCHAR,
-    p_role ffc_role_enum,
-    p_personal_message TEXT
-) RETURNS TABLE(
-    invitation_id UUID,
-    email_token VARCHAR,
-    sms_code VARCHAR,
-    status VARCHAR
-) AS $$
-DECLARE
-    v_invitation_id UUID;
-    v_email_token VARCHAR;
-    v_sms_code VARCHAR;
-BEGIN
-    -- Verify inviter has permission
-    IF NOT EXISTS (
-        SELECT 1 FROM ffc_personas fp
-        JOIN personas p ON fp.persona_id = p.id
-        WHERE fp.ffc_id = p_ffc_id 
-        AND p.user_id = p_inviter_id 
-        AND fp.role IN ('owner', 'admin')
-    ) THEN
-        RETURN QUERY SELECT NULL::UUID, NULL::VARCHAR, NULL::VARCHAR, 'no_permission'::VARCHAR;
-        RETURN;
-    END IF;
-    
-    -- Check for existing invitation
-    IF EXISTS (
-        SELECT 1 FROM ffc_invitations 
-        WHERE ffc_id = p_ffc_id 
-        AND email = p_email 
-        AND status = 'pending'
-    ) THEN
-        RETURN QUERY SELECT NULL::UUID, NULL::VARCHAR, NULL::VARCHAR, 'already_invited'::VARCHAR;
-        RETURN;
-    END IF;
-    
-    -- Generate tokens
-    v_email_token := encode(gen_random_bytes(32), 'hex');
-    v_sms_code := LPAD((RANDOM() * 999999)::INTEGER::TEXT, 6, '0');
-    
-    -- Create invitation
-    INSERT INTO ffc_invitations (
-        ffc_id, inviter_id, email, phone, role,
-        email_token, sms_code, personal_message,
-        expires_at, status
-    ) VALUES (
-        p_ffc_id, p_inviter_id, p_email, p_phone, p_role,
-        v_email_token, v_sms_code, p_personal_message,
-        NOW() + INTERVAL '7 days', 'pending'
-    ) RETURNING id INTO v_invitation_id;
-    
-    RETURN QUERY SELECT v_invitation_id, v_email_token, v_sms_code, 'success'::VARCHAR;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 2: FFC Onboarding" for complete `invite_ffc_member` stored procedure specification.
 
 #### Story 2.4: Phone Verification System
 **As an** invited family member  
@@ -1698,6 +1199,8 @@ $$ LANGUAGE plpgsql;
 
 **Duration**: 4 weeks (Sprints 6-9)
 
+**Database Implementation**: All stored procedures for asset management, document handling, and PII processing are documented in architecture.md section "Epic-Specific Stored Procedures > Epic 3: Asset Management & PII Protection"
+
 #### Story 3.1: Asset Category Infrastructure
 **As a** system architect  
 **I want** robust asset category support  
@@ -1723,58 +1226,9 @@ $$ LANGUAGE plpgsql;
 - Ownership history tracking
 
 **Database Implementation**:
-```sql
--- Asset creation stored procedure
-CREATE OR REPLACE FUNCTION create_asset_with_ownership(
-    p_owner_persona_id UUID,
-    p_category_id INTEGER,
-    p_asset_data JSONB,
-    p_ownership_percentage DECIMAL(5,2) DEFAULT 100.00,
-    p_ownership_type ownership_type_enum DEFAULT 'direct'
-) RETURNS TABLE(
-    asset_id UUID,
-    ownership_id UUID,
-    status VARCHAR
-) AS $$
-DECLARE
-    v_asset_id UUID;
-    v_ownership_id UUID;
-    v_category_table TEXT;
-BEGIN
-    -- Validate ownership percentage
-    IF p_ownership_percentage <= 0 OR p_ownership_percentage > 100 THEN
-        RETURN QUERY SELECT NULL::UUID, NULL::UUID, 'invalid_percentage'::VARCHAR;
-        RETURN;
-    END IF;
-    
-    -- Create main asset record
-    INSERT INTO assets (
-        category_id, created_by_persona_id, status
-    ) VALUES (
-        p_category_id, p_owner_persona_id, 'active'
-    ) RETURNING id INTO v_asset_id;
-    
-    -- Insert category-specific data
-    SELECT table_name INTO v_category_table 
-    FROM asset_categories 
-    WHERE id = p_category_id;
-    
-    EXECUTE format('
-        INSERT INTO %I (asset_id, data) 
-        VALUES ($1, $2)', v_category_table) 
-    USING v_asset_id, p_asset_data;
-    
-    -- Create ownership record
-    INSERT INTO asset_persona_ownership (
-        asset_id, persona_id, ownership_percentage, ownership_type
-    ) VALUES (
-        v_asset_id, p_owner_persona_id, p_ownership_percentage, p_ownership_type
-    ) RETURNING id INTO v_ownership_id;
-    
-    RETURN QUERY SELECT v_asset_id, v_ownership_id, 'success'::VARCHAR;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 3: Asset Management" for complete stored procedure specifications including `create_asset_with_ownership` function.
 
 #### Story 3.3: Document & Photo Management with PII Protection
 **As an** asset owner  
@@ -1791,125 +1245,9 @@ $$ LANGUAGE plpgsql;
 - Separate storage for PII-masked versions
 
 **PII Masking System Architecture**:
+**Database implementation details are documented in architecture.md**
 
-```sql
--- Document upload with PII masking stored procedure
-CREATE OR REPLACE FUNCTION upload_asset_document(
-    p_asset_id UUID,
-    p_uploader_persona_id UUID,
-    p_filename VARCHAR,
-    p_file_size BIGINT,
-    p_file_type VARCHAR,
-    p_document_category VARCHAR,
-    p_s3_key_original VARCHAR,
-    p_extracted_text TEXT DEFAULT NULL
-) RETURNS TABLE(
-    document_id UUID,
-    processing_job_id VARCHAR,
-    status VARCHAR
-) AS $$
-DECLARE
-    v_document_id UUID;
-    v_job_id VARCHAR;
-    v_contains_pii BOOLEAN := FALSE;
-BEGIN
-    -- Validate file size (10MB limit)
-    IF p_file_size > 10485760 THEN
-        RETURN QUERY SELECT NULL::UUID, NULL::VARCHAR, 'file_too_large'::VARCHAR;
-        RETURN;
-    END IF;
-    
-    -- Create document record
-    INSERT INTO asset_documents (
-        asset_id, uploader_persona_id, filename, file_size,
-        file_type, document_category, s3_key_original,
-        extracted_text, processing_status
-    ) VALUES (
-        p_asset_id, p_uploader_persona_id, p_filename, p_file_size,
-        p_file_type, p_document_category, p_s3_key_original,
-        p_extracted_text, 'processing'
-    ) RETURNING id INTO v_document_id;
-    
-    -- Queue PII detection job
-    v_job_id := 'pii_' || v_document_id::TEXT || '_' || extract(epoch from now())::TEXT;
-    
-    INSERT INTO pii_processing_jobs (
-        job_id, document_id, status, queued_at
-    ) VALUES (
-        v_job_id, v_document_id, 'queued', NOW()
-    );
-    
-    RETURN QUERY SELECT v_document_id, v_job_id, 'queued_for_processing'::VARCHAR;
-END;
-$$ LANGUAGE plpgsql;
-
--- PII masking completion stored procedure
-CREATE OR REPLACE FUNCTION complete_pii_processing(
-    p_job_id VARCHAR,
-    p_pii_entities JSONB,
-    p_masked_text TEXT,
-    p_s3_key_masked VARCHAR,
-    p_confidence_score DECIMAL(3,2)
-) RETURNS TABLE(
-    document_id UUID,
-    pii_detected BOOLEAN,
-    status VARCHAR
-) AS $$
-DECLARE
-    v_document_id UUID;
-    v_pii_detected BOOLEAN;
-BEGIN
-    -- Get document ID from job
-    SELECT document_id INTO v_document_id
-    FROM pii_processing_jobs
-    WHERE job_id = p_job_id;
-    
-    IF v_document_id IS NULL THEN
-        RETURN QUERY SELECT NULL::UUID, FALSE, 'job_not_found'::VARCHAR;
-        RETURN;
-    END IF;
-    
-    -- Determine if PII was detected
-    v_pii_detected := (jsonb_array_length(p_pii_entities) > 0);
-    
-    -- Update document with PII processing results
-    UPDATE asset_documents SET
-        pii_entities = p_pii_entities,
-        masked_text = p_masked_text,
-        s3_key_masked = p_s3_key_masked,
-        pii_confidence_score = p_confidence_score,
-        contains_pii = v_pii_detected,
-        processing_status = 'completed',
-        processed_at = NOW()
-    WHERE id = v_document_id;
-    
-    -- Update job status
-    UPDATE pii_processing_jobs SET
-        status = 'completed',
-        completed_at = NOW()
-    WHERE job_id = p_job_id;
-    
-    -- Log PII detection event
-    INSERT INTO audit_log (
-        user_id, action, details, created_at
-    ) VALUES (
-        (SELECT p.user_id FROM personas p 
-         JOIN asset_documents ad ON p.id = ad.uploader_persona_id 
-         WHERE ad.id = v_document_id),
-        'pii_processing_completed',
-        jsonb_build_object(
-            'document_id', v_document_id,
-            'pii_detected', v_pii_detected,
-            'entities_count', jsonb_array_length(p_pii_entities),
-            'confidence_score', p_confidence_score
-        ),
-        NOW()
-    );
-    
-    RETURN QUERY SELECT v_document_id, v_pii_detected, 'success'::VARCHAR;
-END;
-$$ LANGUAGE plpgsql;
-```
+See architecture.md section "Epic-Specific Stored Procedures > Epic 3: PII Protection" for complete stored procedure specifications including `upload_asset_document` and `complete_pii_processing` functions.
 
 **PII Detection Pipeline**:
 1. **Upload**: Original document encrypted and stored in S3
@@ -1973,6 +1311,8 @@ $$ LANGUAGE plpgsql;
 
 **Duration**: 3 weeks (Sprints 10-12)
 
+**Database Implementation**: All stored procedures for search, reporting, audit trails, integrations, and Quillt API functions are documented in architecture.md section "Epic-Specific Stored Procedures > Epic 4: Reporting, Analytics & Integrations" and "Integration Architecture > Quillt Integration Stored Procedures"
+
 #### Story 4.1: Advanced Search & Filtering System
 **As an** FFC member  
 **I want** powerful search capabilities across all assets and documents  
@@ -1986,66 +1326,9 @@ $$ LANGUAGE plpgsql;
 - Search result sorting and pagination
 - Search analytics and suggestions
 
-**Database Implementation**:
-```sql
--- Advanced search stored procedure
-CREATE OR REPLACE FUNCTION search_family_assets(
-    p_ffc_id UUID,
-    p_search_query TEXT,
-    p_category_filters INTEGER[],
-    p_owner_filters UUID[],
-    p_value_min DECIMAL DEFAULT NULL,
-    p_value_max DECIMAL DEFAULT NULL,
-    p_date_from DATE DEFAULT NULL,
-    p_date_to DATE DEFAULT NULL,
-    p_limit INTEGER DEFAULT 50,
-    p_offset INTEGER DEFAULT 0
-) RETURNS TABLE(
-    asset_id UUID,
-    asset_name VARCHAR,
-    category_name VARCHAR,
-    owner_name VARCHAR,
-    estimated_value DECIMAL,
-    match_score DECIMAL,
-    snippet TEXT
-) AS $$
-DECLARE
-    v_search_vector tsvector;
-    v_query tsquery;
-BEGIN
-    -- Convert search query to full-text search
-    v_query := plainto_tsquery('english', p_search_query);
-    
-    RETURN QUERY
-    WITH asset_search AS (
-        SELECT 
-            a.id as asset_id,
-            a.name as asset_name,
-            ac.name as category_name,
-            p.first_name || ' ' || p.last_name as owner_name,
-            a.estimated_value,
-            ts_rank(a.search_vector, v_query) as match_score,
-            ts_headline('english', a.description, v_query) as snippet
-        FROM assets a
-        JOIN asset_categories ac ON a.category_id = ac.id
-        JOIN asset_persona_ownership apo ON a.id = apo.asset_id
-        JOIN personas p ON apo.persona_id = p.id
-        JOIN ffc_personas fp ON p.id = fp.persona_id
-        WHERE fp.ffc_id = p_ffc_id
-        AND (v_query IS NULL OR a.search_vector @@ v_query)
-        AND (p_category_filters IS NULL OR a.category_id = ANY(p_category_filters))
-        AND (p_owner_filters IS NULL OR p.id = ANY(p_owner_filters))
-        AND (p_value_min IS NULL OR a.estimated_value >= p_value_min)
-        AND (p_value_max IS NULL OR a.estimated_value <= p_value_max)
-        AND (p_date_from IS NULL OR a.created_at >= p_date_from)
-        AND (p_date_to IS NULL OR a.created_at <= p_date_to)
-        ORDER BY match_score DESC, a.estimated_value DESC
-        LIMIT p_limit OFFSET p_offset
-    )
-    SELECT * FROM asset_search;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Advanced Features" for complete stored procedure specifications including `search_family_assets` function.
 
 #### Story 4.2: Comprehensive Reporting & Analytics
 **As an** FFC owner  
@@ -2060,69 +1343,9 @@ $$ LANGUAGE plpgsql;
 - Custom report builder
 - Export to Excel/CSV formats
 
-**Database Implementation**:
-```sql
--- Wealth summary report stored procedure
-CREATE OR REPLACE FUNCTION generate_wealth_report(
-    p_ffc_id UUID,
-    p_report_date DATE DEFAULT CURRENT_DATE,
-    p_include_projections BOOLEAN DEFAULT FALSE
-) RETURNS TABLE(
-    category_name VARCHAR,
-    asset_count INTEGER,
-    total_value DECIMAL,
-    avg_value DECIMAL,
-    top_owner VARCHAR,
-    growth_12m_percent DECIMAL
-) AS $$
-BEGIN
-    RETURN QUERY
-    WITH wealth_summary AS (
-        SELECT 
-            ac.name as category_name,
-            COUNT(a.id)::INTEGER as asset_count,
-            COALESCE(SUM(a.estimated_value), 0) as total_value,
-            COALESCE(AVG(a.estimated_value), 0) as avg_value,
-            (
-                SELECT p.first_name || ' ' || p.last_name
-                FROM personas p
-                JOIN asset_persona_ownership apo ON p.id = apo.persona_id
-                JOIN assets a2 ON apo.asset_id = a2.id
-                WHERE a2.category_id = ac.id
-                AND EXISTS (
-                    SELECT 1 FROM ffc_personas fp 
-                    WHERE fp.persona_id = p.id AND fp.ffc_id = p_ffc_id
-                )
-                GROUP BY p.id, p.first_name, p.last_name
-                ORDER BY SUM(a2.estimated_value * apo.ownership_percentage / 100) DESC
-                LIMIT 1
-            ) as top_owner,
-            COALESCE(
-                (SUM(a.estimated_value) - COALESCE(prev.total_value, 0)) / 
-                NULLIF(COALESCE(prev.total_value, 0), 0) * 100, 0
-            ) as growth_12m_percent
-        FROM asset_categories ac
-        LEFT JOIN assets a ON ac.id = a.category_id
-        LEFT JOIN asset_persona_ownership apo ON a.id = apo.asset_id
-        LEFT JOIN ffc_personas fp ON apo.persona_id = fp.persona_id
-        LEFT JOIN (
-            -- Previous year totals for growth calculation
-            SELECT 
-                category_id,
-                SUM(estimated_value) as total_value
-            FROM assets a_prev
-            WHERE a_prev.updated_at <= (p_report_date - INTERVAL '12 months')
-            GROUP BY category_id
-        ) prev ON ac.id = prev.category_id
-        WHERE (fp.ffc_id = p_ffc_id OR fp.ffc_id IS NULL)
-        AND (a.status = 'active' OR a.status IS NULL)
-        GROUP BY ac.id, ac.name, prev.total_value
-        ORDER BY total_value DESC
-    )
-    SELECT * FROM wealth_summary;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Reporting & Analytics" for complete stored procedure specifications including `generate_wealth_report` function.
 
 #### Story 4.3: Comprehensive Audit Trail System
 **As a** compliance officer  
@@ -2137,65 +1360,9 @@ $$ LANGUAGE plpgsql;
 - Audit log search and filtering
 - Suspicious activity detection and alerts
 
-**Database Implementation**:
-```sql
--- Enhanced audit logging stored procedure
-CREATE OR REPLACE FUNCTION log_audit_event(
-    p_user_id UUID,
-    p_persona_id UUID DEFAULT NULL,
-    p_action VARCHAR,
-    p_resource_type VARCHAR,
-    p_resource_id UUID DEFAULT NULL,
-    p_old_values JSONB DEFAULT NULL,
-    p_new_values JSONB DEFAULT NULL,
-    p_ip_address INET DEFAULT NULL,
-    p_user_agent TEXT DEFAULT NULL,
-    p_session_id VARCHAR DEFAULT NULL
-) RETURNS UUID AS $$
-DECLARE
-    v_audit_id UUID;
-    v_risk_score INTEGER := 0;
-BEGIN
-    -- Calculate risk score based on action type
-    v_risk_score := CASE 
-        WHEN p_action IN ('delete_asset', 'transfer_ownership', 'change_permissions') THEN 9
-        WHEN p_action IN ('create_asset', 'update_asset', 'invite_member') THEN 5
-        WHEN p_action IN ('login', 'view_asset', 'search') THEN 1
-        ELSE 3
-    END;
-    
-    -- Increase risk for sensitive operations outside business hours
-    IF EXTRACT(hour FROM NOW()) NOT BETWEEN 6 AND 22 
-       AND p_action IN ('delete_asset', 'transfer_ownership') THEN
-        v_risk_score := v_risk_score + 5;
-    END IF;
-    
-    -- Insert audit record
-    INSERT INTO audit_log (
-        user_id, persona_id, action, resource_type, resource_id,
-        old_values, new_values, ip_address, user_agent, session_id,
-        risk_score, created_at
-    ) VALUES (
-        p_user_id, p_persona_id, p_action, p_resource_type, p_resource_id,
-        p_old_values, p_new_values, p_ip_address, p_user_agent, p_session_id,
-        v_risk_score, NOW()
-    ) RETURNING id INTO v_audit_id;
-    
-    -- Trigger alert for high-risk activities
-    IF v_risk_score >= 10 THEN
-        INSERT INTO security_alerts (
-            alert_type, user_id, audit_log_id, severity, message, created_at
-        ) VALUES (
-            'high_risk_activity', p_user_id, v_audit_id, 'high',
-            format('High-risk activity detected: %s by user %s', p_action, p_user_id),
-            NOW()
-        );
-    END IF;
-    
-    RETURN v_audit_id;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Audit & Compliance" for complete stored procedure specifications including `log_audit_event` function.
 
 #### Story 4.4: Bulk Operations & Data Management
 **As an** FFC owner with many assets  
@@ -2210,82 +1377,9 @@ $$ LANGUAGE plpgsql;
 - Progress tracking for long-running operations
 - Bulk export and import functionality
 
-**Database Implementation**:
-```sql
--- Bulk asset update stored procedure
-CREATE OR REPLACE FUNCTION bulk_update_assets(
-    p_user_id UUID,
-    p_asset_updates JSONB
-) RETURNS TABLE(
-    operation_id UUID,
-    total_assets INTEGER,
-    successful_updates INTEGER,
-    failed_updates INTEGER,
-    error_details JSONB
-) AS $$
-DECLARE
-    v_operation_id UUID;
-    v_update_record JSONB;
-    v_asset_id UUID;
-    v_success_count INTEGER := 0;
-    v_error_count INTEGER := 0;
-    v_errors JSONB := '[]'::JSONB;
-    v_total_count INTEGER;
-BEGIN
-    -- Generate operation ID
-    v_operation_id := gen_random_uuid();
-    v_total_count := jsonb_array_length(p_asset_updates);
-    
-    -- Process each asset update
-    FOR v_update_record IN SELECT * FROM jsonb_array_elements(p_asset_updates)
-    LOOP
-        BEGIN
-            v_asset_id := (v_update_record->>'asset_id')::UUID;
-            
-            -- Verify user has permission to update this asset
-            IF NOT EXISTS (
-                SELECT 1 FROM assets a
-                JOIN asset_persona_ownership apo ON a.id = apo.asset_id
-                JOIN personas p ON apo.persona_id = p.id
-                WHERE a.id = v_asset_id AND p.user_id = p_user_id
-            ) THEN
-                RAISE EXCEPTION 'No permission to update asset %', v_asset_id;
-            END IF;
-            
-            -- Perform the update
-            UPDATE assets SET
-                name = COALESCE((v_update_record->>'name')::VARCHAR, name),
-                description = COALESCE((v_update_record->>'description')::TEXT, description),
-                estimated_value = COALESCE((v_update_record->>'estimated_value')::DECIMAL, estimated_value),
-                updated_at = NOW()
-            WHERE id = v_asset_id;
-            
-            -- Log the change
-            PERFORM log_audit_event(
-                p_user_id, NULL, 'bulk_update_asset', 'asset', v_asset_id,
-                NULL, v_update_record, NULL, NULL, v_operation_id::VARCHAR
-            );
-            
-            v_success_count := v_success_count + 1;
-            
-        EXCEPTION WHEN OTHERS THEN
-            v_error_count := v_error_count + 1;
-            v_errors := v_errors || jsonb_build_object(
-                'asset_id', v_asset_id,
-                'error', SQLERRM
-            );
-        END;
-    END LOOP;
-    
-    RETURN QUERY SELECT 
-        v_operation_id,
-        v_total_count,
-        v_success_count,
-        v_error_count,
-        v_errors;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Bulk Operations" for complete stored procedure specifications including `bulk_update_assets` function.
 
 #### Story 4.5: Third-Party Integration Framework
 **As a** platform administrator  
@@ -2300,68 +1394,9 @@ $$ LANGUAGE plpgsql;
 - Data synchronization job management
 - Error handling and retry logic
 
-**Database Implementation**:
-```sql
--- Integration management stored procedure
-CREATE OR REPLACE FUNCTION manage_integration(
-    p_integration_name VARCHAR,
-    p_action VARCHAR, -- 'create', 'update', 'activate', 'deactivate'
-    p_config JSONB DEFAULT NULL,
-    p_credentials JSONB DEFAULT NULL
-) RETURNS TABLE(
-    integration_id UUID,
-    status VARCHAR,
-    message VARCHAR
-) AS $$
-DECLARE
-    v_integration_id UUID;
-    v_existing_integration UUID;
-BEGIN
-    -- Check for existing integration
-    SELECT id INTO v_existing_integration
-    FROM third_party_integrations
-    WHERE name = p_integration_name;
-    
-    CASE p_action
-        WHEN 'create' THEN
-            IF v_existing_integration IS NOT NULL THEN
-                RETURN QUERY SELECT v_existing_integration, 'error'::VARCHAR, 'Integration already exists'::VARCHAR;
-                RETURN;
-            END IF;
-            
-            INSERT INTO third_party_integrations (
-                name, config, encrypted_credentials, status, created_at
-            ) VALUES (
-                p_integration_name, p_config, p_credentials, 'inactive', NOW()
-            ) RETURNING id INTO v_integration_id;
-            
-            RETURN QUERY SELECT v_integration_id, 'created'::VARCHAR, 'Integration created successfully'::VARCHAR;
-            
-        WHEN 'activate' THEN
-            IF v_existing_integration IS NULL THEN
-                RETURN QUERY SELECT NULL::UUID, 'error'::VARCHAR, 'Integration not found'::VARCHAR;
-                RETURN;
-            END IF;
-            
-            UPDATE third_party_integrations 
-            SET status = 'active', activated_at = NOW()
-            WHERE id = v_existing_integration;
-            
-            RETURN QUERY SELECT v_existing_integration, 'activated'::VARCHAR, 'Integration activated successfully'::VARCHAR;
-            
-        WHEN 'deactivate' THEN
-            UPDATE third_party_integrations 
-            SET status = 'inactive', deactivated_at = NOW()
-            WHERE id = v_existing_integration;
-            
-            RETURN QUERY SELECT v_existing_integration, 'deactivated'::VARCHAR, 'Integration deactivated successfully'::VARCHAR;
-            
-        ELSE
-            RETURN QUERY SELECT NULL::UUID, 'error'::VARCHAR, 'Invalid action'::VARCHAR;
-    END CASE;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Integration Management" for complete stored procedure specifications including `manage_integration` function.
 
 #### Story 4.6: Quillt API Integration for Financial Accounts
 **As an** FFC member  
@@ -2382,205 +1417,9 @@ $$ LANGUAGE plpgsql;
 FFC Member → Quillt Profile → Bank Connection → Multiple Accounts → Forward Assets
 ```
 
-**Database Implementation**:
-```sql
--- Quillt integration management stored procedure
-CREATE OR REPLACE FUNCTION manage_quillt_connection(
-    p_persona_id UUID,
-    p_action VARCHAR, -- 'create_profile', 'connect_bank', 'refresh_balances', 'sync_accounts'
-    p_quillt_profile_id VARCHAR DEFAULT NULL,
-    p_connection_data JSONB DEFAULT NULL
-) RETURNS TABLE(
-    operation_id UUID,
-    quillt_profile_id VARCHAR,
-    status VARCHAR,
-    accounts_synced INTEGER,
-    message VARCHAR
-) AS $$
-DECLARE
-    v_operation_id UUID;
-    v_profile_id VARCHAR;
-    v_existing_integration UUID;
-    v_account_count INTEGER := 0;
-BEGIN
-    v_operation_id := gen_random_uuid();
-    
-    -- Check for existing Quillt integration
-    SELECT quillt_integration_id INTO v_existing_integration
-    FROM quillt_integrations 
-    WHERE persona_id = p_persona_id AND status = 'active';
-    
-    CASE p_action
-        WHEN 'create_profile' THEN
-            -- Create Quillt profile mapping
-            INSERT INTO quillt_integrations (
-                persona_id, quillt_profile_id, status, created_at
-            ) VALUES (
-                p_persona_id, p_quillt_profile_id, 'active', NOW()
-            );
-            
-            v_profile_id := p_quillt_profile_id;
-            
-            RETURN QUERY SELECT v_operation_id, v_profile_id, 'profile_created'::VARCHAR, 0, 'Quillt profile created successfully'::VARCHAR;
-            
-        WHEN 'sync_accounts' THEN
-            IF v_existing_integration IS NULL THEN
-                RETURN QUERY SELECT v_operation_id, NULL::VARCHAR, 'error'::VARCHAR, 0, 'No Quillt integration found'::VARCHAR;
-                RETURN;
-            END IF;
-            
-            -- Process each account from Quillt connection
-            FOR v_account_record IN SELECT * FROM jsonb_array_elements(p_connection_data->'accounts')
-            LOOP
-                -- Create or update financial account asset
-                INSERT INTO assets (
-                    category_id, created_by_persona_id, status, external_id, external_provider
-                ) VALUES (
-                    (SELECT id FROM asset_categories WHERE name = 'Financial Accounts'),
-                    p_persona_id, 'active', 
-                    v_account_record->>'accountId', 'quillt'
-                ) ON CONFLICT (external_id, external_provider) 
-                DO UPDATE SET updated_at = NOW();
-                
-                -- Update financial account details
-                INSERT INTO financial_accounts (
-                    asset_id, account_type, institution_name, account_number_masked,
-                    current_balance, available_balance, last_synced_at
-                ) VALUES (
-                    (SELECT id FROM assets WHERE external_id = v_account_record->>'accountId'),
-                    v_account_record->>'type',
-                    v_account_record->>'institutionName',
-                    v_account_record->>'maskedAccountNumber',
-                    (v_account_record->>'currentBalance')::DECIMAL,
-                    (v_account_record->>'availableBalance')::DECIMAL,
-                    NOW()
-                ) ON CONFLICT (asset_id) 
-                DO UPDATE SET 
-                    current_balance = (v_account_record->>'currentBalance')::DECIMAL,
-                    available_balance = (v_account_record->>'availableBalance')::DECIMAL,
-                    last_synced_at = NOW();
-                
-                -- Create ownership record
-                INSERT INTO asset_persona_ownership (
-                    asset_id, persona_id, ownership_percentage, ownership_type
-                ) VALUES (
-                    (SELECT id FROM assets WHERE external_id = v_account_record->>'accountId'),
-                    p_persona_id, 100.00, 'direct'
-                ) ON CONFLICT (asset_id, persona_id) DO NOTHING;
-                
-                v_account_count := v_account_count + 1;
-            END LOOP;
-            
-            -- Update last sync timestamp
-            UPDATE quillt_integrations 
-            SET last_synced_at = NOW(), account_count = v_account_count
-            WHERE persona_id = p_persona_id;
-            
-            RETURN QUERY SELECT v_operation_id, 
-                (SELECT quillt_profile_id FROM quillt_integrations WHERE persona_id = p_persona_id),
-                'accounts_synced'::VARCHAR, v_account_count, 
-                format('%s accounts synced successfully', v_account_count)::VARCHAR;
-            
-        WHEN 'refresh_balances' THEN
-            -- Update balance refresh request timestamp
-            UPDATE quillt_integrations 
-            SET balance_refresh_requested_at = NOW()
-            WHERE persona_id = p_persona_id;
-            
-            RETURN QUERY SELECT v_operation_id, p_quillt_profile_id, 'refresh_requested'::VARCHAR, 0, 'Balance refresh requested'::VARCHAR;
-            
-        ELSE
-            RETURN QUERY SELECT v_operation_id, NULL::VARCHAR, 'error'::VARCHAR, 0, 'Invalid action'::VARCHAR;
-    END CASE;
-END;
-$$ LANGUAGE plpgsql;
+**Database implementation details are documented in architecture.md**
 
--- Quillt webhook processing stored procedure
-CREATE OR REPLACE FUNCTION process_quillt_webhook(
-    p_event_type VARCHAR,
-    p_profile_id VARCHAR,
-    p_account_id VARCHAR DEFAULT NULL,
-    p_balance_data JSONB DEFAULT NULL,
-    p_connection_data JSONB DEFAULT NULL
-) RETURNS TABLE(
-    webhook_id UUID,
-    processed BOOLEAN,
-    assets_updated INTEGER,
-    message VARCHAR
-) AS $$
-DECLARE
-    v_webhook_id UUID;
-    v_persona_id UUID;
-    v_asset_id UUID;
-    v_updates_count INTEGER := 0;
-BEGIN
-    v_webhook_id := gen_random_uuid();
-    
-    -- Get persona from Quillt profile
-    SELECT persona_id INTO v_persona_id
-    FROM quillt_integrations 
-    WHERE quillt_profile_id = p_profile_id AND status = 'active';
-    
-    IF v_persona_id IS NULL THEN
-        RETURN QUERY SELECT v_webhook_id, FALSE, 0, 'Profile not found in Forward system'::VARCHAR;
-        RETURN;
-    END IF;
-    
-    -- Log webhook receipt
-    INSERT INTO quillt_webhook_log (
-        id, event_type, profile_id, account_id, payload, processed_at
-    ) VALUES (
-        v_webhook_id, p_event_type, p_profile_id, p_account_id, 
-        jsonb_build_object('balance_data', p_balance_data, 'connection_data', p_connection_data),
-        NOW()
-    );
-    
-    CASE p_event_type
-        WHEN 'balance.created' THEN
-            -- Update specific account balance
-            SELECT id INTO v_asset_id
-            FROM assets 
-            WHERE external_id = p_account_id AND external_provider = 'quillt';
-            
-            IF v_asset_id IS NOT NULL THEN
-                UPDATE financial_accounts SET
-                    current_balance = (p_balance_data->>'current')::DECIMAL,
-                    available_balance = (p_balance_data->>'available')::DECIMAL,
-                    credit_limit = (p_balance_data->>'limit')::DECIMAL,
-                    last_synced_at = (p_balance_data->>'at')::TIMESTAMP WITH TIME ZONE,
-                    updated_at = NOW()
-                WHERE asset_id = v_asset_id;
-                
-                v_updates_count := 1;
-            END IF;
-            
-        WHEN 'profile.ready' THEN
-            -- Trigger full account sync for this profile
-            PERFORM manage_quillt_connection(
-                v_persona_id, 'sync_accounts', p_profile_id, p_connection_data
-            );
-            
-            v_updates_count := (p_connection_data->>'accountCount')::INTEGER;
-            
-        WHEN 'connection.disconnected' THEN
-            -- Mark integration as requiring re-authentication
-            UPDATE quillt_integrations 
-            SET status = 'disconnected', disconnected_at = NOW()
-            WHERE quillt_profile_id = p_profile_id;
-            
-        WHEN 'connection.synced.errored.repairable' THEN
-            -- Mark as needing re-authentication
-            UPDATE quillt_integrations 
-            SET status = 'needs_reauth', last_error_at = NOW()
-            WHERE quillt_profile_id = p_profile_id;
-            
-    END CASE;
-    
-    RETURN QUERY SELECT v_webhook_id, TRUE, v_updates_count, 
-        format('Processed %s event successfully', p_event_type)::VARCHAR;
-END;
-$$ LANGUAGE plpgsql;
-```
+See architecture.md section "Integration Architecture > Quillt Integration Stored Procedures" for complete stored procedure specifications including `manage_quillt_connection` and `process_quillt_webhook` functions.
 
 **Quillt Integration Workflow**:
 1. **Profile Creation**: Map FFC member to Quillt Profile with metadata
@@ -2617,51 +1456,9 @@ $$ LANGUAGE plpgsql;
 - **Cost Structure**: Per-call pricing vs subscription models
 - **Data Richness**: Property details, history, market trends
 
-**Database Implementation** (Placeholder - will be updated after provider selection):
-```sql
--- Real estate integration framework (provider-agnostic)
-CREATE OR REPLACE FUNCTION manage_real_estate_integration(
-    p_asset_id UUID,
-    p_action VARCHAR, -- 'lookup_property', 'update_valuation', 'sync_details'
-    p_address_data JSONB DEFAULT NULL,
-    p_provider_data JSONB DEFAULT NULL
-) RETURNS TABLE(
-    integration_id UUID,
-    estimated_value DECIMAL,
-    confidence_score DECIMAL,
-    last_updated TIMESTAMP WITH TIME ZONE,
-    status VARCHAR
-) AS $$
-DECLARE
-    v_integration_id UUID;
-    v_property_data JSONB;
-BEGIN
-    -- Implementation will depend on selected provider
-    -- Framework supports multiple providers: Zillow, CoreLogic, etc.
-    
-    CASE p_action
-        WHEN 'lookup_property' THEN
-            -- Address normalization and property lookup
-            -- Provider-specific API call implementation
-            NULL;
-            
-        WHEN 'update_valuation' THEN
-            -- Automated valuation model update
-            -- Historical value tracking
-            NULL;
-            
-        WHEN 'sync_details' THEN
-            -- Property detail synchronization
-            -- Square footage, lot size, year built, etc.
-            NULL;
-    END CASE;
-    
-    RETURN QUERY SELECT 
-        gen_random_uuid(), 0::DECIMAL, 0::DECIMAL, 
-        NOW(), 'provider_selection_pending'::VARCHAR;
-END;
-$$ LANGUAGE plpgsql;
-```
+**Database implementation details are documented in architecture.md**
+
+See architecture.md section "Integration Architecture > Real Estate Provider Integration" for complete stored procedure specifications including `manage_real_estate_integration` function.
 
 **Provider Research Tasks**:
 1. **API Comparison**: Zillow API vs CoreLogic vs RentSpree vs others

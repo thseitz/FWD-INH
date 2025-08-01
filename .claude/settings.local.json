@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(cat:*)",
+      "Bash(sed:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell:*)",
+      "Bash(del parse_tables.ps1)",
+      "Bash(Remove-Item parse_tables.ps1)"
     ],
     "deny": []
   }
