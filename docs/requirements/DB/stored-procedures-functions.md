@@ -140,8 +140,7 @@ CREATE OR REPLACE FUNCTION create_ffc(
     p_description TEXT,
     p_head_persona_id UUID,
     p_created_by UUID,
-    p_family_picture_s3_key VARCHAR(255) DEFAULT NULL,
-    p_family_picture_url VARCHAR(500) DEFAULT NULL
+    p_primary_picture_id UUID DEFAULT NULL
 ) RETURNS UUID SECURITY DEFINER
 ```
 **Purpose:** Creates new Forward Family Circle  
@@ -168,8 +167,7 @@ CREATE OR REPLACE FUNCTION create_persona(
     p_last_name VARCHAR(100),
     p_persona_type persona_type_enum,
     p_contact_info_id UUID DEFAULT NULL,
-    p_profile_picture_s3_key VARCHAR(255) DEFAULT NULL,
-    p_profile_picture_url VARCHAR(500) DEFAULT NULL,
+    p_profile_picture_id UUID DEFAULT NULL,
     p_created_by UUID
 ) RETURNS UUID SECURITY DEFINER
 ```
@@ -287,9 +285,110 @@ CREATE OR REPLACE FUNCTION update_asset_valuation(
 
 ---
 
+## Media Management
+
+### 16. **upload_media_file**
+```sql
+CREATE OR REPLACE FUNCTION upload_media_file(
+    p_tenant_id UUID,
+    p_file_type_id UUID,
+    p_mime_type VARCHAR(100),
+    p_original_filename VARCHAR(255),
+    p_s3_key VARCHAR(255),
+    p_file_size BIGINT,
+    p_metadata JSONB DEFAULT '{}',
+    p_uploaded_by UUID
+) RETURNS UUID SECURITY DEFINER
+```
+**Purpose:** Records new media file upload  
+**Returns:** Media file ID
+
+### 17. **link_media_to_entity**
+```sql
+CREATE OR REPLACE FUNCTION link_media_to_entity(
+    p_media_id UUID,
+    p_linked_entity_type VARCHAR(100),
+    p_linked_entity_id UUID,
+    p_usage_type VARCHAR(50),
+    p_caption TEXT DEFAULT NULL,
+    p_is_primary BOOLEAN DEFAULT FALSE,
+    p_created_by UUID
+) RETURNS UUID SECURITY DEFINER
+```
+**Purpose:** Links media file to entity (FFC, persona, asset)  
+**Returns:** Media usage ID
+
+### 18. **set_profile_picture**
+```sql
+CREATE OR REPLACE FUNCTION set_profile_picture(
+    p_persona_id UUID,
+    p_media_id UUID,
+    p_updated_by UUID
+) RETURNS BOOLEAN SECURITY DEFINER
+```
+**Purpose:** Sets persona's profile picture  
+**Returns:** Success status
+
+### 19. **set_ffc_picture**
+```sql
+CREATE OR REPLACE FUNCTION set_ffc_picture(
+    p_ffc_id UUID,
+    p_media_id UUID,
+    p_updated_by UUID
+) RETURNS BOOLEAN SECURITY DEFINER
+```
+**Purpose:** Sets FFC's family picture  
+**Returns:** Success status
+
+### 20. **get_entity_media**
+```sql
+CREATE OR REPLACE FUNCTION get_entity_media(
+    p_entity_type VARCHAR(100),
+    p_entity_id UUID,
+    p_usage_type VARCHAR(50) DEFAULT NULL
+) RETURNS TABLE (
+    media_id UUID,
+    file_type_name VARCHAR,
+    mime_type VARCHAR,
+    s3_url VARCHAR,
+    caption TEXT,
+    is_primary BOOLEAN,
+    uploaded_at TIMESTAMP WITH TIME ZONE,
+    file_size BIGINT
+) SECURITY DEFINER
+```
+**Purpose:** Retrieves media files for an entity  
+**Returns:** Media file details
+
+### 21. **create_media_processing_job**
+```sql
+CREATE OR REPLACE FUNCTION create_media_processing_job(
+    p_media_id UUID,
+    p_job_type VARCHAR(50),
+    p_parameters JSONB DEFAULT '{}'
+) RETURNS UUID SECURITY DEFINER
+```
+**Purpose:** Creates background media processing job  
+**Returns:** Processing job ID
+
+### 22. **process_media_for_pii**
+```sql
+CREATE OR REPLACE FUNCTION process_media_for_pii(
+    p_media_id UUID
+) RETURNS TABLE (
+    contains_pii BOOLEAN,
+    pii_types VARCHAR[],
+    s3_key_masked VARCHAR
+) SECURITY DEFINER
+```
+**Purpose:** Processes media file for PII detection  
+**Returns:** PII detection results
+
+---
+
 ## Financial Calculations
 
-### 16. **calculate_loan_interest**
+### 23. **calculate_loan_interest**
 ```sql
 CREATE OR REPLACE FUNCTION calculate_loan_interest(
     p_loan_id UUID,
@@ -303,7 +402,7 @@ CREATE OR REPLACE FUNCTION calculate_loan_interest(
 **Purpose:** Calculates accrued loan interest  
 **Returns:** Interest calculations
 
-### 17. **generate_amortization_schedule**
+### 24. **generate_amortization_schedule**
 ```sql
 CREATE OR REPLACE FUNCTION generate_amortization_schedule(
     p_loan_id UUID
@@ -312,7 +411,7 @@ CREATE OR REPLACE FUNCTION generate_amortization_schedule(
 **Purpose:** Generates loan amortization schedule  
 **Returns:** Nothing (populates schedule table)
 
-### 18. **process_loan_payment**
+### 25. **process_loan_payment**
 ```sql
 CREATE OR REPLACE FUNCTION process_loan_payment(
     p_loan_id UUID,
@@ -326,7 +425,7 @@ CREATE OR REPLACE FUNCTION process_loan_payment(
 **Purpose:** Processes loan payment with allocation  
 **Returns:** Payment record ID
 
-### 19. **calculate_portfolio_value**
+### 26. **calculate_portfolio_value**
 ```sql
 CREATE OR REPLACE FUNCTION calculate_portfolio_value(
     p_tenant_id UUID,
@@ -345,7 +444,7 @@ CREATE OR REPLACE FUNCTION calculate_portfolio_value(
 **Purpose:** Calculates comprehensive portfolio valuation  
 **Returns:** Portfolio value breakdown
 
-### 20. **get_income_review_dashboard**
+### 27. **get_income_review_dashboard**
 ```sql
 CREATE OR REPLACE FUNCTION get_income_review_dashboard(
     p_tenant_id UUID,
@@ -375,7 +474,7 @@ CREATE OR REPLACE FUNCTION get_income_review_dashboard(
 
 ## Integration & Synchronization
 
-### 21. **sync_quillt_accounts**
+### 28. **sync_quillt_accounts**
 ```sql
 CREATE OR REPLACE FUNCTION sync_quillt_accounts(
     p_persona_id UUID,
@@ -392,7 +491,7 @@ CREATE OR REPLACE FUNCTION sync_quillt_accounts(
 **Purpose:** Synchronizes financial accounts via Quillt API  
 **Returns:** Synchronization results
 
-### 22. **sync_hei_loan_data**
+### 29. **sync_hei_loan_data**
 ```sql
 CREATE OR REPLACE FUNCTION sync_hei_loan_data(
     p_loan_id UUID,
@@ -402,7 +501,7 @@ CREATE OR REPLACE FUNCTION sync_hei_loan_data(
 **Purpose:** Updates HEI loan data from external provider  
 **Returns:** Nothing (updates loan record)
 
-### 23. **process_webhook**
+### 30. **process_webhook**
 ```sql
 CREATE OR REPLACE FUNCTION process_webhook(
     p_endpoint_url VARCHAR(500),
@@ -418,7 +517,7 @@ CREATE OR REPLACE FUNCTION process_webhook(
 **Purpose:** Processes incoming webhook events  
 **Returns:** Processing results
 
-### 24. **sync_real_estate_valuations**
+### 31. **sync_real_estate_valuations**
 ```sql
 CREATE OR REPLACE FUNCTION sync_real_estate_valuations(
     p_property_id UUID,
@@ -429,7 +528,7 @@ CREATE OR REPLACE FUNCTION sync_real_estate_valuations(
 **Purpose:** Updates property valuations from external APIs  
 **Returns:** Valuation record ID
 
-### 25. **refresh_external_data_cache**
+### 32. **refresh_external_data_cache**
 ```sql
 CREATE OR REPLACE FUNCTION refresh_external_data_cache(
     p_cache_key VARCHAR(255),
@@ -443,7 +542,7 @@ CREATE OR REPLACE FUNCTION refresh_external_data_cache(
 
 ## Security & Permissions
 
-### 26. **verify_user_permissions**
+### 33. **verify_user_permissions**
 ```sql
 CREATE OR REPLACE FUNCTION verify_user_permissions(
     p_user_id UUID,
@@ -456,7 +555,7 @@ CREATE OR REPLACE FUNCTION verify_user_permissions(
 **Purpose:** Verifies user has required permissions  
 **Returns:** Permission granted status
 
-### 27. **assign_user_role**
+### 34. **assign_user_role**
 ```sql
 CREATE OR REPLACE FUNCTION assign_user_role(
     p_user_id UUID,
@@ -469,7 +568,7 @@ CREATE OR REPLACE FUNCTION assign_user_role(
 **Purpose:** Assigns role to user within FFC scope  
 **Returns:** Role assignment ID
 
-### 28. **check_asset_access**
+### 35. **check_asset_access**
 ```sql
 CREATE OR REPLACE FUNCTION check_asset_access(
     p_user_id UUID,
@@ -480,7 +579,7 @@ CREATE OR REPLACE FUNCTION check_asset_access(
 **Purpose:** Verifies user can access specific asset  
 **Returns:** Access granted status
 
-### 29. **log_security_event**
+### 36. **log_security_event**
 ```sql
 CREATE OR REPLACE FUNCTION log_security_event(
     p_user_id UUID,
@@ -497,7 +596,7 @@ CREATE OR REPLACE FUNCTION log_security_event(
 
 ## Audit & Logging
 
-### 30. **log_user_action**
+### 37. **log_user_action**
 ```sql
 CREATE OR REPLACE FUNCTION log_user_action(
     p_user_id UUID,
@@ -513,7 +612,7 @@ CREATE OR REPLACE FUNCTION log_user_action(
 **Purpose:** Comprehensive audit logging  
 **Returns:** Audit log ID
 
-### 31. **get_audit_trail**
+### 38. **get_audit_trail**
 ```sql
 CREATE OR REPLACE FUNCTION get_audit_trail(
     p_tenant_id UUID,
@@ -536,7 +635,7 @@ CREATE OR REPLACE FUNCTION get_audit_trail(
 **Purpose:** Retrieves audit trail for resources  
 **Returns:** Audit trail records
 
-### 32. **generate_audit_report**
+### 39. **generate_audit_report**
 ```sql
 CREATE OR REPLACE FUNCTION generate_audit_report(
     p_tenant_id UUID,
@@ -558,7 +657,7 @@ CREATE OR REPLACE FUNCTION generate_audit_report(
 
 ## PII Processing
 
-### 33. **detect_pii_in_document**
+### 40. **detect_pii_in_document**
 ```sql
 CREATE OR REPLACE FUNCTION detect_pii_in_document(
     p_document_id UUID,
@@ -575,7 +674,7 @@ CREATE OR REPLACE FUNCTION detect_pii_in_document(
 **Purpose:** Detects PII in uploaded documents  
 **Returns:** PII detection results
 
-### 34. **mask_sensitive_data**
+### 41. **mask_sensitive_data**
 ```sql
 CREATE OR REPLACE FUNCTION mask_sensitive_data(
     p_data_type VARCHAR(50),
@@ -586,7 +685,7 @@ CREATE OR REPLACE FUNCTION mask_sensitive_data(
 **Purpose:** Masks sensitive data for display  
 **Returns:** Masked data string
 
-### 35. **create_pii_processing_job**
+### 42. **create_pii_processing_job**
 ```sql
 CREATE OR REPLACE FUNCTION create_pii_processing_job(
     p_asset_id UUID,
@@ -598,7 +697,7 @@ CREATE OR REPLACE FUNCTION create_pii_processing_job(
 **Purpose:** Creates PII processing job  
 **Returns:** Job ID
 
-### 36. **process_pii_job**
+### 43. **process_pii_job**
 ```sql
 CREATE OR REPLACE FUNCTION process_pii_job(
     p_job_id UUID
@@ -617,7 +716,7 @@ CREATE OR REPLACE FUNCTION process_pii_job(
 
 ## Utility Functions
 
-### 37. **generate_invitation_token**
+### 44. **generate_invitation_token**
 ```sql
 CREATE OR REPLACE FUNCTION generate_invitation_token()
 RETURNS VARCHAR(255) SECURITY DEFINER
@@ -625,7 +724,7 @@ RETURNS VARCHAR(255) SECURITY DEFINER
 **Purpose:** Generates secure invitation tokens  
 **Returns:** Cryptographically secure token
 
-### 38. **generate_verification_code**
+### 45. **generate_verification_code**
 ```sql
 CREATE OR REPLACE FUNCTION generate_verification_code(
     p_code_type VARCHAR(20) DEFAULT 'numeric',
@@ -635,7 +734,7 @@ CREATE OR REPLACE FUNCTION generate_verification_code(
 **Purpose:** Generates verification codes  
 **Returns:** Verification code
 
-### 39. **validate_email_address**
+### 46. **validate_email_address**
 ```sql
 CREATE OR REPLACE FUNCTION validate_email_address(
     p_email VARCHAR(255)
@@ -644,7 +743,7 @@ CREATE OR REPLACE FUNCTION validate_email_address(
 **Purpose:** Validates email address format  
 **Returns:** Validation result
 
-### 40. **validate_phone_number**
+### 47. **validate_phone_number**
 ```sql
 CREATE OR REPLACE FUNCTION validate_phone_number(
     p_phone VARCHAR(50),
@@ -659,7 +758,7 @@ CREATE OR REPLACE FUNCTION validate_phone_number(
 **Purpose:** Validates and formats phone numbers  
 **Returns:** Validation and formatting results
 
-### 41. **encrypt_sensitive_field**
+### 48. **encrypt_sensitive_field**
 ```sql
 CREATE OR REPLACE FUNCTION encrypt_sensitive_field(
     p_plaintext TEXT,
@@ -669,7 +768,7 @@ CREATE OR REPLACE FUNCTION encrypt_sensitive_field(
 **Purpose:** Encrypts sensitive data using pgcrypto  
 **Returns:** Encrypted data
 
-### 42. **decrypt_sensitive_field**
+### 49. **decrypt_sensitive_field**
 ```sql
 CREATE OR REPLACE FUNCTION decrypt_sensitive_field(
     p_encrypted_text TEXT,
@@ -679,7 +778,7 @@ CREATE OR REPLACE FUNCTION decrypt_sensitive_field(
 **Purpose:** Decrypts sensitive data  
 **Returns:** Decrypted plaintext
 
-### 43. **refresh_digital_asset_summary**
+### 50. **refresh_digital_asset_summary**
 ```sql
 CREATE OR REPLACE FUNCTION refresh_digital_asset_summary()
 RETURNS VOID SECURITY DEFINER
@@ -687,7 +786,7 @@ RETURNS VOID SECURITY DEFINER
 **Purpose:** Refreshes digital asset materialized view  
 **Returns:** Nothing (refreshes view)
 
-### 44. **forgive_loan**
+### 51. **forgive_loan**
 ```sql
 CREATE OR REPLACE FUNCTION forgive_loan(
     p_loan_id UUID,
@@ -699,7 +798,7 @@ CREATE OR REPLACE FUNCTION forgive_loan(
 **Purpose:** Processes loan forgiveness  
 **Returns:** Nothing (updates loan status)
 
-### 45. **calculate_tax_liability**
+### 52. **calculate_tax_liability**
 ```sql
 CREATE OR REPLACE FUNCTION calculate_tax_liability(
     p_tenant_id UUID,
@@ -720,7 +819,7 @@ CREATE OR REPLACE FUNCTION calculate_tax_liability(
 
 ## Performance & Maintenance Functions
 
-### 46. **analyze_table_statistics**
+### 53. **analyze_table_statistics**
 ```sql
 CREATE OR REPLACE FUNCTION analyze_table_statistics(
     p_table_name VARCHAR(100)
@@ -734,7 +833,7 @@ CREATE OR REPLACE FUNCTION analyze_table_statistics(
 **Purpose:** Analyzes table performance metrics  
 **Returns:** Performance analysis
 
-### 47. **cleanup_expired_sessions**
+### 54. **cleanup_expired_sessions**
 ```sql
 CREATE OR REPLACE FUNCTION cleanup_expired_sessions(
     p_retention_days INTEGER DEFAULT 30
@@ -743,7 +842,7 @@ CREATE OR REPLACE FUNCTION cleanup_expired_sessions(
 **Purpose:** Removes expired user sessions  
 **Returns:** Number of sessions cleaned
 
-### 48. **archive_old_audit_logs**
+### 55. **archive_old_audit_logs**
 ```sql
 CREATE OR REPLACE FUNCTION archive_old_audit_logs(
     p_archive_date DATE,
@@ -761,11 +860,12 @@ CREATE OR REPLACE FUNCTION archive_old_audit_logs(
 
 ## Summary
 
-This comprehensive specification includes **48 stored procedures and functions** covering all major functional areas of the Forward Inheritance Platform:
+This comprehensive specification includes **55 stored procedures and functions** covering all major functional areas of the Forward Inheritance Platform:
 
 - **Authentication & Sessions**: 5 functions
 - **FFC & Persona Management**: 5 functions  
 - **Asset Management**: 5 functions
+- **Media Management**: 7 functions
 - **Financial Calculations**: 5 functions
 - **Integration & Sync**: 5 functions
 - **Security & Permissions**: 4 functions

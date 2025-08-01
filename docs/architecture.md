@@ -145,10 +145,8 @@ CREATE TABLE user_sessions (
     user_agent TEXT,
     ip_address INET NOT NULL,
     
-    -- Geographic Information
-    country VARCHAR(2),
-    region VARCHAR(100),
-    city VARCHAR(100),
+    -- Normalized geographic reference
+    geographic_location_id UUID REFERENCES geographic_locations(id),
     
     -- Session Management
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -348,10 +346,8 @@ CREATE TABLE user_login_history (
     user_agent TEXT,
     device_fingerprint VARCHAR(255),
     
-    -- Geographic Information
-    country VARCHAR(2),
-    region VARCHAR(100),
-    city VARCHAR(100),
+    -- Normalized geographic reference
+    geographic_location_id UUID REFERENCES geographic_locations(id),
     
     -- Risk Assessment
     risk_score INTEGER, -- 0-100 scale
@@ -992,12 +988,83 @@ CREATE INDEX asset_permissions_type_idx ON asset_permissions(permission_type);
 Universal document storage for all asset types.
 
 ```sql
+-- Document Types Normalization
+CREATE TABLE document_types (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    category VARCHAR(50) NOT NULL, -- legal, financial, personal, insurance, etc.
+    description TEXT,
+    is_system_type BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- File Types Normalization
+CREATE TABLE file_types (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    extension VARCHAR(10) NOT NULL UNIQUE,
+    mime_type VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    is_document BOOLEAN NOT NULL DEFAULT FALSE,
+    is_image BOOLEAN NOT NULL DEFAULT FALSE,
+    is_video BOOLEAN NOT NULL DEFAULT FALSE,
+    is_audio BOOLEAN NOT NULL DEFAULT FALSE,
+    max_file_size BIGINT, -- in bytes
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert common document types
+INSERT INTO document_types (name, category, description, is_system_type) VALUES
+('contract', 'legal', 'Legal contracts and agreements', TRUE),
+('receipt', 'financial', 'Purchase receipts and invoices', TRUE),
+('photo', 'personal', 'Photographs and images', TRUE),
+('certificate', 'legal', 'Certificates and official documents', TRUE),
+('statement', 'financial', 'Financial statements and reports', TRUE),
+('appraisal', 'financial', 'Asset appraisal documents', TRUE),
+('insurance', 'insurance', 'Insurance policies and claims', TRUE),
+('deed', 'legal', 'Property deeds and titles', TRUE),
+('will', 'legal', 'Will and testament documents', TRUE),
+('trust', 'legal', 'Trust agreements and documents', TRUE),
+('tax_return', 'financial', 'Tax returns and supporting documents', TRUE),
+('bank_statement', 'financial', 'Bank account statements', TRUE),
+('loan_document', 'financial', 'Loan agreements and documents', TRUE),
+('maintenance_record', 'operational', 'Maintenance and service records', TRUE),
+('manual', 'operational', 'Operating manuals and instructions', TRUE);
+
+-- Insert common file types
+INSERT INTO file_types (extension, mime_type, description, is_document, is_image, is_video, is_audio, max_file_size) VALUES
+('pdf', 'application/pdf', 'Portable Document Format', TRUE, FALSE, FALSE, FALSE, 52428800), -- 50MB
+('jpg', 'image/jpeg', 'JPEG Image', FALSE, TRUE, FALSE, FALSE, 10485760), -- 10MB
+('jpeg', 'image/jpeg', 'JPEG Image', FALSE, TRUE, FALSE, FALSE, 10485760), -- 10MB
+('png', 'image/png', 'PNG Image', FALSE, TRUE, FALSE, FALSE, 10485760), -- 10MB
+('doc', 'application/msword', 'Microsoft Word Document', TRUE, FALSE, FALSE, FALSE, 52428800), -- 50MB
+('docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Microsoft Word Document (OpenXML)', TRUE, FALSE, FALSE, FALSE, 52428800), -- 50MB
+('xls', 'application/vnd.ms-excel', 'Microsoft Excel Spreadsheet', TRUE, FALSE, FALSE, FALSE, 52428800), -- 50MB
+('xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Microsoft Excel Spreadsheet (OpenXML)', TRUE, FALSE, FALSE, FALSE, 52428800), -- 50MB
+('txt', 'text/plain', 'Plain Text File', TRUE, FALSE, FALSE, FALSE, 1048576), -- 1MB
+('gif', 'image/gif', 'GIF Image', FALSE, TRUE, FALSE, FALSE, 5242880), -- 5MB
+('bmp', 'image/bmp', 'Bitmap Image', FALSE, TRUE, FALSE, FALSE, 10485760), -- 10MB
+('tiff', 'image/tiff', 'TIFF Image', FALSE, TRUE, FALSE, FALSE, 10485760), -- 10MB
+('mp4', 'video/mp4', 'MP4 Video', FALSE, FALSE, TRUE, FALSE, 104857600), -- 100MB
+('avi', 'video/x-msvideo', 'AVI Video', FALSE, FALSE, TRUE, FALSE, 104857600), -- 100MB
+('mp3', 'audio/mpeg', 'MP3 Audio', FALSE, FALSE, FALSE, TRUE, 20971520), -- 20MB
+('wav', 'audio/wav', 'WAV Audio', FALSE, FALSE, FALSE, TRUE, 52428800); -- 50MB
+
+-- Indexes for normalized tables
+CREATE INDEX idx_document_types_category ON document_types(category);
+CREATE INDEX idx_document_types_system ON document_types(is_system_type);
+CREATE INDEX idx_file_types_extension ON file_types(extension);
+CREATE INDEX idx_file_types_document ON file_types(is_document);
+CREATE INDEX idx_file_types_image ON file_types(is_image);
+
 CREATE TABLE asset_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL,
     asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     document_name VARCHAR(255) NOT NULL,
-    document_type VARCHAR(100), -- contract, receipt, photo, certificate, etc.
+    document_type_id UUID REFERENCES document_types(id),
+    file_type_id UUID REFERENCES file_types(id),
     file_path VARCHAR(1000) NOT NULL,
     file_size BIGINT,
     mime_type VARCHAR(100),
@@ -1024,7 +1091,8 @@ CREATE POLICY asset_documents_tenant_isolation ON asset_documents
 -- Indexes
 CREATE INDEX asset_documents_tenant_id_idx ON asset_documents(tenant_id);
 CREATE INDEX asset_documents_asset_id_idx ON asset_documents(asset_id);
-CREATE INDEX asset_documents_type_idx ON asset_documents(document_type);
+CREATE INDEX asset_documents_document_type_idx ON asset_documents(document_type_id);
+CREATE INDEX asset_documents_file_type_idx ON asset_documents(file_type_id);
 CREATE INDEX asset_documents_tags_gin_idx ON asset_documents USING GIN(tags);
 ```
 
@@ -1743,12 +1811,8 @@ CREATE TABLE personas (
     account_info_id UUID REFERENCES account_info(id),
     persona_type persona_type_enum NOT NULL,
     advisor_company_id UUID REFERENCES advisor_companies(id),
-    -- Profile picture fields
-    profile_picture_url VARCHAR(500),
-    profile_picture_s3_key VARCHAR(255),
-    profile_picture_uploaded_at TIMESTAMP WITH TIME ZONE,
-    profile_picture_file_size BIGINT,
-    profile_picture_mime_type VARCHAR(100),
+    -- Normalized media reference
+    profile_picture_id UUID REFERENCES media_files(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     is_active BOOLEAN DEFAULT true
@@ -1779,13 +1843,8 @@ CREATE TABLE ffcs (
     head_persona_id UUID REFERENCES personas(id) NOT NULL,
     status ffc_status_enum DEFAULT 'active',
     emergency_access_enabled BOOLEAN DEFAULT false,
-    -- Family picture fields
-    family_picture_url VARCHAR(500),
-    family_picture_s3_key VARCHAR(255),
-    family_picture_uploaded_at TIMESTAMP WITH TIME ZONE,
-    family_picture_file_size BIGINT,
-    family_picture_mime_type VARCHAR(100),
-    family_picture_caption TEXT,
+    -- Normalized media reference
+    primary_picture_id UUID REFERENCES media_files(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -1814,6 +1873,121 @@ CREATE TYPE ffc_role_enum AS ENUM (
     'advisor',
     'trust_actor'
 );
+```
+
+### Media Storage Schema
+
+Normalized media storage for all file types including images, documents, and videos.
+
+#### Media Files Table
+```sql
+CREATE TABLE media_files (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    file_type_id UUID REFERENCES file_types(id),
+    mime_type VARCHAR(100) NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    s3_key VARCHAR(255) NOT NULL UNIQUE,
+    s3_url VARCHAR(500),
+    file_size BIGINT NOT NULL,
+    -- Image-specific fields
+    width INTEGER,
+    height INTEGER,
+    -- Video/Audio-specific fields
+    duration INTEGER, -- in seconds
+    -- Document-specific fields
+    page_count INTEGER,
+    -- PII detection fields
+    contains_pii BOOLEAN DEFAULT FALSE,
+    pii_types VARCHAR[] DEFAULT '{}',
+    s3_key_masked VARCHAR(255), -- for PII-masked version
+    -- Metadata and tracking
+    metadata JSONB DEFAULT '{}',
+    checksum VARCHAR(64), -- SHA-256 hash
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    uploaded_by UUID REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_media_files_tenant ON media_files(tenant_id);
+CREATE INDEX idx_media_files_file_type ON media_files(file_type_id);
+CREATE INDEX idx_media_files_uploaded_by ON media_files(uploaded_by);
+CREATE INDEX idx_media_files_s3_key ON media_files(s3_key);
+```
+
+#### Media Usage Table
+```sql
+CREATE TABLE media_usage (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    media_id UUID NOT NULL REFERENCES media_files(id) ON DELETE CASCADE,
+    linked_entity_type VARCHAR(100) NOT NULL, -- 'ffc', 'persona', 'asset', 'document'
+    linked_entity_id UUID NOT NULL,
+    usage_type VARCHAR(50) NOT NULL, -- 'profile_picture', 'family_picture', 'asset_photo', 'document'
+    caption TEXT,
+    alt_text TEXT, -- for accessibility
+    display_order INTEGER DEFAULT 0,
+    is_primary BOOLEAN DEFAULT FALSE,
+    visibility VARCHAR(20) DEFAULT 'private', -- 'private', 'family', 'public'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    UNIQUE(media_id, linked_entity_type, linked_entity_id, usage_type)
+);
+
+CREATE INDEX idx_media_usage_tenant ON media_usage(tenant_id);
+CREATE INDEX idx_media_usage_entity ON media_usage(linked_entity_type, linked_entity_id);
+CREATE INDEX idx_media_usage_media ON media_usage(media_id);
+CREATE INDEX idx_media_usage_type ON media_usage(usage_type);
+```
+
+#### Media Processing Jobs Table
+```sql
+CREATE TABLE media_processing_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    media_id UUID REFERENCES media_files(id),
+    job_type VARCHAR(50) NOT NULL, -- 'resize', 'optimize', 'pii_detection', 'thumbnail'
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    parameters JSONB DEFAULT '{}',
+    result JSONB DEFAULT '{}',
+    error_message TEXT,
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_media_jobs_media ON media_processing_jobs(media_id);
+CREATE INDEX idx_media_jobs_status ON media_processing_jobs(status);
+```
+
+### Geographic Locations Schema
+
+Normalized geographic information for sessions, login history, and other location-based data.
+
+#### Geographic Locations Table
+```sql
+CREATE TABLE geographic_locations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    country VARCHAR(2) NOT NULL,
+    region VARCHAR(100),
+    city VARCHAR(100),
+    timezone VARCHAR(50),
+    coordinates GEOGRAPHY(POINT), -- PostGIS geography type for lat/long
+    population BIGINT, -- Optional demographic data
+    is_verified BOOLEAN DEFAULT FALSE, -- Verified location data
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(country, region, city)
+);
+
+-- Indexes for geographic lookups
+CREATE INDEX idx_geographic_locations_country ON geographic_locations(country);
+CREATE INDEX idx_geographic_locations_region ON geographic_locations(country, region);
+CREATE INDEX idx_geographic_locations_city ON geographic_locations(city);
+CREATE INDEX idx_geographic_locations_coordinates ON geographic_locations USING GIST(coordinates);
 ```
 
 ### Contact and Communication Schema
@@ -2153,8 +2327,8 @@ CREATE OR REPLACE FUNCTION upload_asset_document(
     p_uploader_persona_id UUID,
     p_filename VARCHAR,
     p_file_size BIGINT,
-    p_file_type VARCHAR,
-    p_document_category VARCHAR,
+    p_file_type_id UUID,
+    p_document_type_id UUID,
     p_s3_key_original VARCHAR,
     p_extracted_text TEXT DEFAULT NULL
 ) RETURNS TABLE(
@@ -2176,11 +2350,11 @@ BEGIN
     -- Create document record
     INSERT INTO asset_documents (
         asset_id, uploader_persona_id, filename, file_size,
-        file_type, document_category, s3_key_original,
+        file_type_id, document_type_id, s3_key_original,
         extracted_text, processing_status
     ) VALUES (
         p_asset_id, p_uploader_persona_id, p_filename, p_file_size,
-        p_file_type, p_document_category, p_s3_key_original,
+        p_file_type_id, p_document_type_id, p_s3_key_original,
         p_extracted_text, 'processing'
     ) RETURNING id INTO v_document_id;
     
@@ -2678,7 +2852,7 @@ CREATE TABLE advisor_companies (
     -- Company identification
     company_name VARCHAR(255) NOT NULL,
     company_description TEXT,
-    company_type VARCHAR(50) NOT NULL, -- law_firm, accounting_firm, financial_advisory, insurance_agency, etc.
+    company_type VARCHAR(50) NOT NULL, -- law_firm, accounting_firm, financial_advisory, insurance_agency, appraisal_company, maintenance_provider, etc.
     
     -- Company details
     license_number VARCHAR(100),
@@ -3742,10 +3916,9 @@ CREATE TABLE property_valuations (
         'high', 'medium', 'low'
     )),
     
-    -- Professional appraisal details
-    appraiser_name VARCHAR(255),
+    -- Professional appraisal details (normalized)
+    appraiser_service_provider_id UUID REFERENCES advisor_companies(id),
     appraiser_license VARCHAR(100),
-    appraiser_company VARCHAR(255),
     appraisal_report_number VARCHAR(100),
     appraisal_purpose VARCHAR(100), -- Refinance, sale, estate, insurance
     
@@ -4122,7 +4295,7 @@ CREATE TABLE property_insurance (
         'homeowners', 'dwelling_fire', 'flood', 'earthquake', 'umbrella',
         'landlord', 'commercial_property', 'builders_risk', 'title'
     )) NOT NULL,
-    insurance_company VARCHAR(255) NOT NULL,
+    insurance_company_id UUID REFERENCES advisor_companies(id) NOT NULL,
     policy_number VARCHAR(100) NOT NULL,
     
     -- Coverage details
@@ -4192,7 +4365,7 @@ CREATE TABLE property_insurance (
 -- Indexes
 CREATE INDEX idx_property_insurance_property ON property_insurance(property_id);
 CREATE INDEX idx_property_insurance_type ON property_insurance(policy_type);
-CREATE INDEX idx_property_insurance_company ON property_insurance(insurance_company);
+CREATE INDEX idx_property_insurance_company ON property_insurance(insurance_company_id);
 CREATE INDEX idx_property_insurance_renewal ON property_insurance(renewal_date);
 CREATE INDEX idx_property_insurance_status ON property_insurance(policy_status);
 ```
@@ -4203,12 +4376,8 @@ CREATE TABLE property_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL REFERENCES real_estate_properties(id) ON DELETE CASCADE,
     
-    -- Document classification
-    document_type VARCHAR(50) CHECK (document_type IN (
-        'deed', 'title', 'mortgage', 'note', 'survey', 'appraisal',
-        'inspection', 'insurance_policy', 'tax_bill', 'hoa_docs',
-        'lease', 'photo', 'improvement_receipt', 'permit', 'other'
-    )) NOT NULL,
+    -- Document classification (normalized)
+    document_type_id UUID REFERENCES document_types(id) NOT NULL,
     document_name VARCHAR(500) NOT NULL,
     description TEXT,
     
@@ -4216,10 +4385,10 @@ CREATE TABLE property_documents (
     document_date DATE,
     expiration_date DATE,
     
-    -- File information
+    -- File information (normalized)
     file_name VARCHAR(255) NOT NULL,
     file_size INTEGER, -- in bytes
-    file_type VARCHAR(10), -- pdf, jpg, png, etc.
+    file_type_id UUID REFERENCES file_types(id),
     file_hash VARCHAR(64), -- SHA-256 for integrity
     
     -- Storage information
@@ -4255,7 +4424,8 @@ CREATE TABLE property_documents (
 
 -- Indexes
 CREATE INDEX idx_property_documents_property ON property_documents(property_id);
-CREATE INDEX idx_property_documents_type ON property_documents(document_type);
+CREATE INDEX idx_property_documents_type ON property_documents(document_type_id);
+CREATE INDEX idx_property_documents_file_type ON property_documents(file_type_id);
 CREATE INDEX idx_property_documents_date ON property_documents(document_date DESC);
 CREATE INDEX idx_property_documents_expiration ON property_documents(expiration_date) WHERE expiration_date IS NOT NULL;
 CREATE INDEX idx_property_documents_tags ON property_documents USING GIN(tags);
@@ -4637,8 +4807,7 @@ BEGIN
             valuation_source,
             valuation_method,
             confidence_level,
-            appraiser_name,
-            appraiser_company,
+            appraiser_service_provider_id,
             comparable_sales_data,
             is_current,
             notes,
@@ -4651,8 +4820,7 @@ BEGIN
             p_valuation_source,
             (p_valuation_data->>'valuation_method')::VARCHAR,
             COALESCE((p_valuation_data->>'confidence_level')::VARCHAR, 'medium'),
-            (p_valuation_data->>'appraiser_name')::VARCHAR,
-            (p_valuation_data->>'appraiser_company')::VARCHAR,
+            (p_valuation_data->>'appraiser_service_provider_id')::UUID,
             (p_valuation_data->>'comparable_sales')::JSONB,
             true,
             (p_valuation_data->>'notes')::TEXT,
@@ -4982,12 +5150,8 @@ CREATE TABLE personal_property (
     
     -- Location and storage
     primary_location VARCHAR(255), -- "Master bedroom safe", "Living room display", etc.
-    storage_address_line1 VARCHAR(255),
-    storage_address_line2 VARCHAR(255),
-    storage_city VARCHAR(100),
-    storage_state VARCHAR(50),
-    storage_zip VARCHAR(20),
-    storage_country CHAR(2) DEFAULT 'US',
+    -- Normalized storage address reference
+    storage_address_id UUID REFERENCES address(id),
     storage_notes TEXT, -- Special storage requirements, security measures
     
     -- Insurance information
@@ -4997,9 +5161,8 @@ CREATE TABLE personal_property (
     insurance_coverage_amount DECIMAL(19,4),
     insurance_deductible DECIMAL(19,4),
     insurance_premium_annual DECIMAL(19,4),
-    insurance_contact_name VARCHAR(255),
-    insurance_contact_phone VARCHAR(20),
-    insurance_contact_email VARCHAR(255),
+    -- Normalized insurance contact reference
+    insurance_contact_id UUID REFERENCES contact_info(id),
     
     -- Care and maintenance
     last_maintenance_date DATE,
@@ -5068,13 +5231,10 @@ CREATE TABLE personal_property_appraisals (
         'insurance', 'estate', 'resale', 'donation', 'legal', 'general'
     )),
     
-    -- Appraiser information
-    appraiser_name VARCHAR(255) NOT NULL,
-    appraiser_company VARCHAR(255),
+    -- Appraiser information (normalized)
+    appraiser_service_provider_id UUID REFERENCES advisor_companies(id) NOT NULL,
     appraiser_license VARCHAR(100),
     appraiser_credentials VARCHAR(255), -- ASA, ISA, etc.
-    appraiser_phone VARCHAR(20),
-    appraiser_email VARCHAR(255),
     
     -- Appraisal documentation
     appraisal_number VARCHAR(100),
@@ -5108,7 +5268,7 @@ CREATE TABLE personal_property_appraisals (
 -- Indexes
 CREATE INDEX idx_appraisals_property ON personal_property_appraisals(property_id);
 CREATE INDEX idx_appraisals_date ON personal_property_appraisals(appraisal_date DESC);
-CREATE INDEX idx_appraisals_appraiser ON personal_property_appraisals(appraiser_name);
+CREATE INDEX idx_appraisals_appraiser ON personal_property_appraisals(appraiser_service_provider_id);
 CREATE INDEX idx_appraisals_value ON personal_property_appraisals(appraised_value DESC);
 CREATE INDEX idx_appraisals_type ON personal_property_appraisals(appraisal_type);
 CREATE INDEX idx_appraisals_validity ON personal_property_appraisals(valid_until) WHERE valid_until IS NOT NULL;
@@ -5121,18 +5281,14 @@ CREATE TABLE personal_property_documents (
     property_id UUID NOT NULL REFERENCES personal_property(id) ON DELETE CASCADE,
     
     -- Document information
-    document_type VARCHAR(50) CHECK (document_type IN (
-        'photo', 'appraisal_report', 'receipt', 'certificate',
-        'insurance_document', 'maintenance_record', 'provenance',
-        'warranty', 'manual', 'other'
-    )),
+    document_type_id UUID REFERENCES document_types(id),
     document_name VARCHAR(255) NOT NULL,
     description TEXT,
     
-    -- File information
+    -- File information (normalized)
     file_name VARCHAR(255) NOT NULL,
     file_size INTEGER, -- in bytes
-    file_type VARCHAR(10), -- jpg, pdf, png, etc.
+    file_type_id UUID REFERENCES file_types(id),
     file_hash VARCHAR(64), -- SHA-256 for integrity
     
     -- Storage information
@@ -5172,7 +5328,8 @@ CREATE TABLE personal_property_documents (
 
 -- Indexes
 CREATE INDEX idx_property_docs_property ON personal_property_documents(property_id);
-CREATE INDEX idx_property_docs_type ON personal_property_documents(document_type);
+CREATE INDEX idx_property_docs_type ON personal_property_documents(document_type_id);
+CREATE INDEX idx_property_docs_file_type ON personal_property_documents(file_type_id);
 CREATE INDEX idx_property_docs_primary ON personal_property_documents(property_id, is_primary_photo) WHERE is_primary_photo = true;
 CREATE INDEX idx_property_docs_processing ON personal_property_documents(processing_status);
 CREATE INDEX idx_property_docs_tags ON personal_property_documents USING GIN(tags);
@@ -5343,7 +5500,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION add_property_document(
     p_property_id UUID,
     p_user_id UUID,
-    p_document_type VARCHAR,
+    p_document_type_id UUID,
     p_document_name VARCHAR,
     p_file_info JSONB, -- Contains file_name, file_size, file_type, storage details
     p_is_primary_photo BOOLEAN DEFAULT false,
@@ -5923,10 +6080,8 @@ CREATE TABLE trusts (
     attorney_phone VARCHAR(20),
     attorney_email VARCHAR(255),
     
-    accountant_name VARCHAR(255),
-    accountant_firm VARCHAR(255),
-    accountant_phone VARCHAR(20),
-    accountant_email VARCHAR(255),
+    -- Normalized accountant contact reference
+    accountant_contact_id UUID REFERENCES contact_info(id),
     
     -- Compliance and reporting
     annual_accounting_required BOOLEAN DEFAULT true,
@@ -6016,15 +6171,10 @@ CREATE TABLE trust_trustees (
     compensation_amount DECIMAL(10,2),
     compensation_frequency VARCHAR(20), -- annual, quarterly, etc.
     
-    -- Contact information (for non-persona trustees)
-    contact_address_line1 VARCHAR(255),
-    contact_address_line2 VARCHAR(255),
-    contact_city VARCHAR(100),
-    contact_state VARCHAR(50),
-    contact_zip VARCHAR(20),
-    contact_country CHAR(2) DEFAULT 'US',
-    contact_phone VARCHAR(20),
-    contact_email VARCHAR(255),
+    -- Normalized contact references (for non-persona trustees)
+    contact_address_id UUID REFERENCES address(id),
+    contact_phone_id UUID REFERENCES phone_number(id),
+    contact_email_id UUID REFERENCES email_address(id),
     
     -- Professional information
     professional_license VARCHAR(100),
@@ -6111,15 +6261,10 @@ CREATE TABLE trust_beneficiaries (
     distribution_conditions TEXT,
     termination_conditions TEXT,
     
-    -- Contact information (for non-persona beneficiaries)
-    contact_address_line1 VARCHAR(255),
-    contact_address_line2 VARCHAR(255),
-    contact_city VARCHAR(100),
-    contact_state VARCHAR(50),
-    contact_zip VARCHAR(20),
-    contact_country CHAR(2) DEFAULT 'US',
-    contact_phone VARCHAR(20),
-    contact_email VARCHAR(255),
+    -- Normalized contact references (for non-persona beneficiaries)
+    contact_address_id UUID REFERENCES address(id),
+    contact_phone_id UUID REFERENCES phone_number(id),
+    contact_email_id UUID REFERENCES email_address(id),
     
     -- Tax information
     tax_id_required BOOLEAN DEFAULT false,
@@ -9116,16 +9261,8 @@ CREATE TABLE healthcare_providers (
     practice_name VARCHAR(255),
     specialty VARCHAR(100),
     
-    -- Contact information
-    address_line1 VARCHAR(255),
-    address_line2 VARCHAR(255),
-    city VARCHAR(100),
-    state VARCHAR(50),
-    zip VARCHAR(20),
-    country CHAR(2) DEFAULT 'US',
-    phone VARCHAR(20),
-    fax VARCHAR(20),
-    email VARCHAR(255),
+    -- Normalized contact references
+    contact_info_id UUID REFERENCES contact_info(id),
     website VARCHAR(255),
     
     -- Professional credentials
@@ -9920,12 +10057,8 @@ CREATE TABLE operational_property (
     
     -- Location and storage
     primary_location VARCHAR(255), -- "Home garage", "Storage unit", etc.
-    storage_address_line1 VARCHAR(255),
-    storage_address_line2 VARCHAR(255),
-    storage_city VARCHAR(100),
-    storage_state VARCHAR(50),
-    storage_zip VARCHAR(20),
-    storage_country CHAR(2) DEFAULT 'US',
+    -- Normalized storage address reference
+    storage_address_id UUID REFERENCES address(id),
     parking_space_number VARCHAR(50),
     storage_access_code VARCHAR(50),
     
@@ -10024,9 +10157,8 @@ CREATE TABLE operational_property_maintenance (
     provider_type VARCHAR(50) CHECK (provider_type IN (
         'dealership', 'independent', 'chain', 'mobile', 'self', 'other'
     )),
-    provider_address VARCHAR(255),
-    provider_phone VARCHAR(20),
-    provider_email VARCHAR(255),
+    -- Normalized provider contact reference
+    provider_contact_id UUID REFERENCES contact_info(id),
     technician_name VARCHAR(255),
     
     -- Work performed

@@ -21,11 +21,16 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 - **Scalable Design**: Built to support millions of families with consistent performance
 - **Zero Data Leakage**: Complete segregation between different family circles
 
-### 3. Normalized Contact Management
-- **Single Source of Truth**: Email, phone, and address data stored once and referenced via foreign keys
-- **Polymorphic Relationships**: Contact data can be linked to any entity type through usage tables
-- **Flexible Associations**: Same contact info can be shared across multiple entities
+### 3. Comprehensive Data Normalization
+- **Contact Normalization**: Email, phone, and address data stored once and referenced via foreign keys
+- **Media Normalization**: All files (images, documents, videos) managed through centralized media_files table
+- **Document & File Type Normalization**: Centralized document_types and file_types tables eliminate duplicate VARCHAR fields across 20+ tables
+- **Service Provider Normalization**: advisor_companies table serves as single registry for all professional service providers (appraisers, insurance companies, maintenance providers)
+- **Geographic Information Normalization**: geographic_locations table eliminates duplicate country/region/city fields
+- **Polymorphic Relationships**: Contact and media data can be linked to any entity type through usage tables
+- **Flexible Associations**: Same contact info or media files can be shared across multiple entities
 - **Communication Preferences**: Usage context and preferences tracked per relationship
+- **Complete Consistency**: Zero duplicate reference data fields across any tables - all relationships enforced with foreign keys
 
 ### 4. Event-Driven Architecture
 - **Webhook Integration**: Real-time updates for external systems
@@ -85,8 +90,9 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 
 **ffcs (forward_family_circles)**
 - Purpose: Primary tenant containers for family groups
-- Key Fields: name, description, created_by, ffc_settings, family_picture_url, family_picture_s3_key
-- Features: Unique naming, customizable settings, ownership tracking, family picture uploads with S3 storage
+- Key Fields: name, description, created_by, ffc_settings, primary_picture_id
+- Features: Unique naming, customizable settings, ownership tracking, normalized media storage via media_files
+- Relationships: primary_picture_id → media_files(id)
 
 **ffc_personas**
 - Purpose: Links personas to FFCs with roles
@@ -96,9 +102,9 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 
 **personas**
 - Purpose: Represents individuals within family circles (living or deceased)
-- Key Fields: user_id (nullable), personal_info, date_of_death, is_living, profile_picture_url, profile_picture_s3_key
-- Relationships: Optionally linked to users for authentication
-- Features: Profile picture uploads with S3 storage, supports both living and deceased family members
+- Key Fields: user_id (nullable), personal_info, date_of_death, is_living, profile_picture_id
+- Relationships: Optionally linked to users for authentication, profile_picture_id → media_files(id)
+- Features: Normalized media storage via media_files, supports both living and deceased family members
 - Use Cases: Deceased family members, minors, trust beneficiaries
 
 ---
@@ -135,11 +141,13 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 - Purpose: Power of Attorney, Healthcare Directives, HIPAA authorizations
 - Key Fields: directive_type, agent_persona_id, scope_details, execution_terms
 - Relationships: Links to personas for agents and principals
+- Features: Normalized healthcare provider contact management via contact_info references
 
 **2. Trust Assets (trusts, trust_beneficiaries, trust_trustees)**
 - Purpose: Trust arrangements and beneficiary management
-- Key Fields: trust_type, settlor_persona_id, tax_id_encrypted
+- Key Fields: trust_type, settlor_persona_id, tax_id_encrypted, accountant_contact_id
 - Complex Relationships: Multiple trustees, beneficiaries with distribution percentages
+- Features: Normalized contact management for trustees, beneficiaries, and professional advisors
 
 **3. Estate Planning (wills, will_bequests, will_codicils)**
 - Purpose: Will documents, bequests, amendments
@@ -160,13 +168,13 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 
 **6. Personal Property (personal_property + category tables)**
 - Purpose: Jewelry, art, collectibles, furniture, pets
-- Key Fields: property_type, valuation_method, appraisal_value
-- Features: Multi-photo support, appraisal tracking, insurance integration
+- Key Fields: property_type, valuation_method, appraisal_value, storage_address_id, insurance_contact_id
+- Features: Multi-photo support, appraisal tracking, insurance integration, normalized storage addresses and contact management
 
 **7. Operational Property (operational_property + type tables)**
 - Purpose: Vehicles, boats, equipment, appliances
-- Key Fields: property_type, make_model, year, vin_serial
-- Features: Maintenance tracking, depreciation calculations
+- Key Fields: property_type, make_model, year, vin_serial, storage_address_id
+- Features: Maintenance tracking, depreciation calculations, normalized storage addresses and service provider contacts
 
 **8. Life Insurance (life_insurance_policies + beneficiaries)**
 - Purpose: Insurance policy management
@@ -201,9 +209,69 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 
 ---
 
+### MEDIA STORAGE DOMAIN (3 tables)
+
+#### Normalized Media Architecture
+
+**media_files**
+- Purpose: Centralized storage for all media files (images, documents, videos, audio)
+- Key Fields: file_type_id (normalized), mime_type, s3_key, file_size, width/height, contains_pii
+- Features: PII detection, checksum verification, soft deletion, metadata storage
+- Security: Encrypted S3 storage, tenant isolation, access logging
+- Use Cases: Profile pictures, family photos, asset images, documents
+- **Normalization**: Uses file_type_id reference to file_types table for consistency
+
+**media_usage**
+- Purpose: Links media files to any entity with usage context
+- Key Fields: media_id, linked_entity_type, linked_entity_id, usage_type, is_primary
+- Usage Types: profile_picture, family_picture, asset_photo, document, attachment
+- Features: Captions, alt text, display ordering, visibility controls
+- Relationships: Polymorphic association to any entity type
+
+**media_processing_jobs**
+- Purpose: Asynchronous media processing pipeline
+- Key Fields: media_id, job_type, status, parameters, result
+- Job Types: resize, optimize, pii_detection, thumbnail, watermark
+- Features: Background processing, retry logic, error tracking
+- Integration: AWS Lambda for image processing, Comprehend for PII
+
+---
+
+### DOCUMENT & FILE TYPE NORMALIZATION DOMAIN (2 tables)
+
+#### Centralized Document and File Type Management
+
+**document_types**
+- Purpose: Centralized registry for all document categories across the platform
+- Key Fields: name, category, description, is_system_type, sort_order
+- Categories: legal, financial, personal, insurance, operational
+- System Types: contract, receipt, photo, certificate, statement, appraisal, insurance, deed, will, trust, tax_return, bank_statement, loan_document, maintenance_record, manual
+- Features: Extensible for custom document types, categorization for filtering
+- **Benefit**: Eliminates duplicate document_type VARCHAR fields across 20+ tables
+
+**file_types**
+- Purpose: Centralized registry for supported file formats with validation rules
+- Key Fields: extension, mime_type, description, is_document, is_image, is_video, is_audio, max_file_size
+- Supported Types: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX, TXT, GIF, BMP, TIFF, MP4, AVI, MP3, WAV
+- Features: File size limits, type categorization, MIME type mapping
+- **Benefit**: Consistent file handling and validation across all upload functions
+
+---
+
 ### CONTACT & COMMUNICATION DOMAIN (8 tables)
 
-#### Normalized Contact Architecture
+#### Comprehensive Contact Normalization
+
+**Architecture Overview**: All contact data is completely normalized - no direct address, phone, or email fields exist in any business tables. Instead, all tables reference the normalized contact tables through foreign keys, ensuring data consistency and eliminating duplication.
+
+**Implementation**: 8 tables that had direct contact fields have been refactored to use normalized references:
+- personal_property → storage_address_id, insurance_contact_id
+- trusts → accountant_contact_id  
+- trust_trustees → contact_address_id, contact_phone_id, contact_email_id
+- trust_beneficiaries → contact_address_id, contact_phone_id, contact_email_id
+- healthcare_providers → contact_info_id
+- operational_property → storage_address_id
+- operational_property_maintenance → provider_contact_id
 
 **address**
 - Purpose: Global address storage with geographic data
@@ -317,10 +385,13 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 
 ### PROFESSIONAL SERVICES DOMAIN (4 tables)
 
-**advisor_companies**
-- Purpose: Professional service company registry
+**advisor_companies** (Extended Service Provider Registry)
+- Purpose: Comprehensive service provider registry for all professional services
 - Key Fields: company_name, company_type, contact_info_id, credentials
-- Types: law_firm, accounting_firm, financial_advisory, insurance_agency
+- Types: law_firm, accounting_firm, financial_advisory, insurance_agency, appraisal_company, maintenance_provider
+- **Normalization Benefit**: Serves as single source of truth for all service providers
+- **Referenced By**: Property valuations (appraiser_service_provider_id), property insurance (insurance_company_id), personal property appraisals (appraiser_service_provider_id)
+- **Eliminates**: Duplicate appraiser_name, appraiser_company, insurance_company VARCHAR fields across multiple tables
 
 **professional_services**
 - Purpose: Individual service providers within companies
@@ -508,13 +579,17 @@ USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
 
 ### Document Management
 
-**S3 Integration**: Encrypted document storage and image management
-- Automatic PII processing pipeline
-- Version control and access logging
-- Secure sharing with expiration
-- **Family & Profile Pictures**: Dedicated storage for FFC family pictures and persona profile pictures
-- **Image Processing**: Automatic resizing, format optimization, and metadata extraction
-- **Secure URLs**: Time-limited signed URLs for secure image access
+**S3 Integration**: Encrypted media storage with normalized architecture
+- **Centralized Media Storage**: All files stored via media_files table
+- **Automatic PII Processing**: Detection and masking for documents and images
+- **Version Control**: File versioning with checksum verification
+- **Secure Sharing**: Time-limited signed URLs with access logging
+- **Image Processing Pipeline**: 
+  - Automatic resizing and thumbnail generation
+  - Format optimization (WebP, AVIF support)
+  - EXIF data extraction and storage
+- **Multi-Format Support**: Images, documents, videos, audio files
+- **Background Processing**: Asynchronous jobs for optimization and PII detection
 
 ### Notification Systems
 
@@ -560,7 +635,10 @@ The Forward Inheritance Platform database architecture represents a sophisticate
 1. **Security First**: Multi-layered security with RLS, encryption, and comprehensive auditing
 2. **Scalable Multi-Tenancy**: Clean tenant isolation supporting millions of families
 3. **Flexible Asset Framework**: Accommodates all types of wealth with room for expansion
-4. **Normalized Contact Management**: Eliminates data duplication while maintaining flexibility
+4. **Complete Data Normalization**: 
+   - **Contact Data**: Zero duplication - all address, phone, email data normalized
+   - **Media Storage**: Centralized file management with polymorphic associations
+   - **Consistency**: No direct contact/address fields in any business tables
 5. **Integration Ready**: Built for real-time data synchronization with external providers
 6. **Compliance Focused**: Designed to meet financial and privacy regulatory requirements
 
