@@ -37,6 +37,12 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 - **Async Processing**: Background job queues for PII detection, document processing
 - **Integration Ready**: API framework for financial institutions, real estate providers, tax services
 
+### 5. Bilingual Support (US Market)
+- **English + Spanish**: Streamlined bilingual architecture for 41.8M Spanish-speaking US population
+- **Simple Translation System**: Key-based lookup with automatic English fallback
+- **Performance Optimized**: Strategic caching for frequently used translations
+- **Cultural Adaptation**: Support for Hispanic family structures and financial concepts
+
 ---
 
 ## Database Structure by Domain
@@ -446,6 +452,30 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 
 ---
 
+### BILINGUAL TRANSLATION DOMAIN (3 tables)
+
+#### Simplified US Market Language Support
+
+**translations**
+- Purpose: Master registry of all translatable content (English + Spanish)
+- Key Fields: translation_key, english_text, spanish_text, is_spanish_approved
+- Features: Global translations (no tenant isolation), simple key-based lookup
+- Categories: ui, legal, email, asset_category, document_type
+
+**user_language_preferences**
+- Purpose: User-specific language settings
+- Key Fields: user_id (unique), language_code ('en' or 'es'), manually_set
+- Features: Browser language detection, explicit user choice tracking
+- Relationships: Links to users table for language preference management
+
+**translation_metrics**
+- Purpose: Translation usage analytics and optimization data
+- Key Fields: translation_key, language_code, daily_requests, cache_hit_rate
+- Features: Performance monitoring, fallback tracking, usage patterns
+- Use Cases: Identify missing translations, optimize cache strategy
+
+---
+
 ## Key Relationships and Patterns
 
 ### Primary Relationship Flows
@@ -490,6 +520,7 @@ The Forward Inheritance Platform uses a sophisticated multi-tenant database arch
 - **Assets Domain**: 45+ foreign key relationships
 - **Contact Domain**: 12 foreign key relationships
 - **Integration Domain**: 20+ foreign key relationships
+- **Translation Domain**: 2 foreign key relationships (minimal by design)
 
 All foreign keys use CASCADE DELETE where appropriate and RESTRICT where data integrity is critical.
 
@@ -641,6 +672,7 @@ The Forward Inheritance Platform database architecture represents a sophisticate
    - **Consistency**: No direct contact/address fields in any business tables
 5. **Integration Ready**: Built for real-time data synchronization with external providers
 6. **Compliance Focused**: Designed to meet financial and privacy regulatory requirements
+7. **Bilingual Ready**: Streamlined English + Spanish support for US market expansion
 
 The architecture balances complexity with maintainability, providing a robust foundation for sophisticated family wealth management while ensuring data security, compliance, and optimal performance at scale.
 

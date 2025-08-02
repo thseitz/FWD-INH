@@ -2095,6 +2095,306 @@ CREATE TABLE audit_log (
 );
 ```
 
+### Bilingual Support Schema (US Market)
+
+#### Overview
+The Forward Inheritance Platform implements streamlined bilingual support for the US domestic market, targeting English and Spanish speakers to serve the 41.8M Spanish-speaking US population.
+
+**Design Principles:**
+- **US Market Focus**: Single currency (USD), single legal system, unified compliance
+- **Global Translations**: Same translations for all tenants - no tenant-specific translations
+- **Bilingual Simplicity**: English + Spanish only, no complex internationalization framework
+- **Performance First**: Simple lookups with strategic caching
+- **Seamless Integration**: Works with existing Quillt, HEI, and real estate provider APIs
+
+#### Core Translation Tables
+
+```sql
+-- Simple bilingual translation registry (global for all tenants)
+CREATE TABLE translations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    
+    -- Translation content
+    translation_key VARCHAR(255) NOT NULL UNIQUE,
+    english_text TEXT NOT NULL, -- Always required
+    spanish_text TEXT, -- NULL until translated
+    
+    -- Categorization and context
+    category VARCHAR(50) NOT NULL, -- 'ui', 'legal', 'email', 'asset_category', 'document_type'
+    context TEXT, -- Guidance for translators
+    description TEXT, -- Additional context
+    
+    -- Quality control
+    is_spanish_approved BOOLEAN DEFAULT FALSE,
+    translated_by VARCHAR(100),
+    reviewed_by VARCHAR(100),
+    translation_notes TEXT,
+    
+    -- Audit trail
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES users(id),
+    
+    CONSTRAINT chk_translation_key_format CHECK (translation_key ~ '^[a-z0-9_.]+$')
+);
+
+-- User language preferences (simplified)
+CREATE TABLE user_language_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
+    
+    -- Language settings
+    language_code CHAR(2) NOT NULL DEFAULT 'en', -- 'en' or 'es' only
+    auto_detected BOOLEAN DEFAULT TRUE, -- Detected from browser Accept-Language
+    manually_set BOOLEAN DEFAULT FALSE, -- User explicitly chose language
+    browser_language VARCHAR(10), -- Original browser language (e.g., 'es-MX', 'es-US')
+    
+    -- Audit trail
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT chk_language_code CHECK (language_code IN ('en', 'es'))
+);
+
+-- Translation usage metrics (optional - for optimization)
+CREATE TABLE translation_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    
+    -- Metrics data
+    translation_key VARCHAR(255) NOT NULL,
+    language_code CHAR(2) NOT NULL,
+    daily_requests INTEGER DEFAULT 0,
+    cache_hit_rate DECIMAL(5,2),
+    fallback_to_english_count INTEGER DEFAULT 0,
+    
+    -- Time tracking
+    date_recorded DATE NOT NULL,
+    
+    CONSTRAINT chk_metrics_lang_code CHECK (language_code IN ('en', 'es')),
+    CONSTRAINT unique_daily_metrics UNIQUE(translation_key, language_code, date_recorded)
+);
+```
+
+#### Existing Table Extensions
+
+```sql
+-- Extend FFCs table for default language
+ALTER TABLE ffcs ADD COLUMN IF NOT EXISTS default_language CHAR(2) DEFAULT 'en' 
+    CONSTRAINT chk_ffc_language CHECK (default_language IN ('en', 'es'));
+
+-- Note: users.preferred_language already exists
+-- Note: contact_info.language_preference already exists
+```
+
+#### Core Translation Functions
+
+```sql
+-- Primary translation function (simplified - no tenant context)
+CREATE OR REPLACE FUNCTION get_text(
+    p_key VARCHAR(255),
+    p_language_code CHAR(2) DEFAULT 'en'
+) RETURNS TEXT AS $$
+DECLARE
+    v_translation TEXT;
+BEGIN
+    -- Simple two-language lookup
+    IF p_language_code = 'es' THEN
+        SELECT spanish_text INTO v_translation
+        FROM translations 
+        WHERE translation_key = p_key 
+        AND is_spanish_approved = TRUE
+        AND spanish_text IS NOT NULL;
+        
+        -- Fallback to English if Spanish not available
+        IF v_translation IS NULL THEN
+            SELECT english_text INTO v_translation
+            FROM translations 
+            WHERE translation_key = p_key;
+        END IF;
+    ELSE
+        -- Default to English
+        SELECT english_text INTO v_translation
+        FROM translations 
+        WHERE translation_key = p_key;
+    END IF;
+    
+    -- Final fallback to key itself
+    RETURN COALESCE(v_translation, p_key);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Asset categories with localization
+CREATE OR REPLACE FUNCTION get_asset_categories_localized(
+    p_language_code CHAR(2) DEFAULT 'en'
+) RETURNS TABLE(
+    id UUID,
+    code VARCHAR,
+    name_localized TEXT,
+    name_english TEXT,
+    sort_order INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ac.id,
+        ac.code,
+        get_text('asset_category.' || ac.code, p_language_code) as name_localized,
+        get_text('asset_category.' || ac.code, 'en') as name_english,
+        ac.sort_order
+    FROM asset_categories ac
+    ORDER BY ac.sort_order;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Document types with localization
+CREATE OR REPLACE FUNCTION get_document_types_localized(
+    p_language_code CHAR(2) DEFAULT 'en'
+) RETURNS TABLE(
+    id UUID,
+    name VARCHAR,
+    name_localized TEXT,
+    category VARCHAR,
+    sort_order INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        dt.id,
+        dt.name,
+        get_text('document_type.' || dt.name, p_language_code) as name_localized,
+        dt.category,
+        dt.sort_order
+    FROM document_types dt
+    ORDER BY dt.sort_order;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- User language detection
+CREATE OR REPLACE FUNCTION get_user_language(
+    p_user_id UUID
+) RETURNS CHAR(2) AS $$
+DECLARE
+    v_language CHAR(2);
+    v_ffc_language CHAR(2);
+BEGIN
+    -- Check explicit user preference first
+    SELECT language_code INTO v_language
+    FROM user_language_preferences
+    WHERE user_id = p_user_id AND manually_set = TRUE;
+    
+    -- Get primary FFC default language if no manual preference
+    IF v_language IS NULL THEN
+        SELECT f.default_language INTO v_ffc_language
+        FROM user_role_assignments ura 
+        JOIN ffcs f ON f.id = ura.ffc_id
+        WHERE ura.user_id = p_user_id 
+        AND ura.is_active = TRUE
+        ORDER BY ura.created_at
+        LIMIT 1;
+        
+        v_language := v_ffc_language;
+    END IF;
+    
+    -- Fallback to user table preference
+    IF v_language IS NULL THEN
+        SELECT preferred_language INTO v_language
+        FROM users
+        WHERE id = p_user_id;
+    END IF;
+    
+    -- Final fallback to English
+    RETURN COALESCE(v_language, 'en');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+#### Initial Translation Data Population
+
+```sql
+-- Asset category translations
+INSERT INTO translations (translation_key, english_text, spanish_text, category, is_spanish_approved) VALUES
+('asset_category.PERSONAL_DIRECTIVES', 'Personal Directives', 'Directivas Personales', 'asset_category', TRUE),
+('asset_category.TRUST', 'Trust', 'Fideicomiso', 'asset_category', TRUE),
+('asset_category.WILL', 'Will', 'Testamento', 'asset_category', TRUE),
+('asset_category.PERSONAL_PROPERTY', 'Personal Property', 'Bienes Personales', 'asset_category', TRUE),
+('asset_category.OPERATIONAL_PROPERTY', 'Operational Property', 'Bienes Operacionales', 'asset_category', TRUE),
+('asset_category.INVENTORY', 'Inventory', 'Inventario', 'asset_category', TRUE),
+('asset_category.REAL_ESTATE', 'Real Estate', 'Bienes Raíces', 'asset_category', TRUE),
+('asset_category.LIFE_INSURANCE', 'Life Insurance', 'Seguro de Vida', 'asset_category', TRUE),
+('asset_category.FINANCIAL_ACCOUNTS', 'Financial Accounts', 'Cuentas Financieras', 'asset_category', TRUE),
+('asset_category.RECURRING_INCOME', 'Recurring Income', 'Ingresos Recurrentes', 'asset_category', TRUE),
+('asset_category.DIGITAL_ASSETS', 'Digital Assets', 'Activos Digitales', 'asset_category', TRUE),
+('asset_category.OWNERSHIP_INTERESTS', 'Ownership Interests', 'Participaciones de Propiedad', 'asset_category', TRUE),
+('asset_category.LOANS', 'Loans', 'Préstamos', 'asset_category', TRUE);
+
+-- Core UI element translations
+INSERT INTO translations (translation_key, english_text, spanish_text, category, is_spanish_approved) VALUES
+('ui.button.save', 'Save', 'Guardar', 'ui', TRUE),
+('ui.button.cancel', 'Cancel', 'Cancelar', 'ui', TRUE),
+('ui.button.delete', 'Delete', 'Eliminar', 'ui', TRUE),
+('ui.button.edit', 'Edit', 'Editar', 'ui', TRUE),
+('ui.button.create', 'Create', 'Crear', 'ui', TRUE),
+('ui.button.upload', 'Upload', 'Subir', 'ui', TRUE),
+('ui.button.download', 'Download', 'Descargar', 'ui', TRUE),
+('ui.menu.dashboard', 'Dashboard', 'Panel de Control', 'ui', TRUE),
+('ui.menu.assets', 'Assets', 'Activos', 'ui', TRUE),
+('ui.menu.family', 'Family', 'Familia', 'ui', TRUE),
+('ui.menu.documents', 'Documents', 'Documentos', 'ui', TRUE),
+('ui.menu.reports', 'Reports', 'Informes', 'ui', TRUE),
+('ui.menu.settings', 'Settings', 'Configuración', 'ui', TRUE);
+
+-- Document type translations
+INSERT INTO translations (translation_key, english_text, spanish_text, category, is_spanish_approved) VALUES
+('document_type.contract', 'Contract', 'Contrato', 'document_type', TRUE),
+('document_type.receipt', 'Receipt', 'Recibo', 'document_type', TRUE),
+('document_type.photo', 'Photo', 'Foto', 'document_type', TRUE),
+('document_type.certificate', 'Certificate', 'Certificado', 'document_type', TRUE),
+('document_type.statement', 'Statement', 'Estado de Cuenta', 'document_type', TRUE),
+('document_type.appraisal', 'Appraisal', 'Avalúo', 'document_type', TRUE),
+('document_type.insurance', 'Insurance Document', 'Documento de Seguro', 'document_type', TRUE),
+('document_type.deed', 'Deed', 'Escritura', 'document_type', TRUE),
+('document_type.will', 'Will Document', 'Documento de Testamento', 'document_type', TRUE),
+('document_type.trust', 'Trust Document', 'Documento de Fideicomiso', 'document_type', TRUE),
+('document_type.tax_return', 'Tax Return', 'Declaración de Impuestos', 'document_type', TRUE),
+('document_type.bank_statement', 'Bank Statement', 'Estado de Cuenta Bancario', 'document_type', TRUE),
+('document_type.loan_document', 'Loan Document', 'Documento de Préstamo', 'document_type', TRUE),
+('document_type.maintenance_record', 'Maintenance Record', 'Registro de Mantenimiento', 'document_type', TRUE),
+('document_type.manual', 'Manual', 'Manual', 'document_type', TRUE);
+```
+
+#### Translation Performance Indexes
+
+```sql
+-- Core translation lookup performance
+CREATE INDEX idx_translations_key ON translations(translation_key);
+CREATE INDEX idx_translations_category ON translations(category);
+CREATE INDEX idx_translations_spanish_approved ON translations(is_spanish_approved, spanish_text) 
+    WHERE spanish_text IS NOT NULL;
+
+-- User language preferences
+CREATE INDEX idx_user_lang_prefs_user ON user_language_preferences(user_id);
+CREATE INDEX idx_user_lang_prefs_lang ON user_language_preferences(language_code);
+
+-- Translation metrics (if using)
+CREATE INDEX idx_translation_metrics_key_lang ON translation_metrics(translation_key, language_code);
+CREATE INDEX idx_translation_metrics_date ON translation_metrics(date_recorded);
+```
+
+#### Caching Strategy
+
+```sql
+-- Redis cache keys pattern:
+-- translate:en:{key} -> English text
+-- translate:es:{key} -> Spanish text (with English fallback)
+
+-- Pre-cache high-frequency translations:
+-- - All asset category names
+-- - All document type names  
+-- - Common UI elements (buttons, menus, form labels)
+-- - Error messages
+-- - Email template subjects
+```
+
 ### Performance Indexes
 
 #### Primary Performance Indexes

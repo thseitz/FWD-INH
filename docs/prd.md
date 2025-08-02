@@ -97,6 +97,7 @@ Based on market research and industry studies:
 - **Living plans** that evolve with family circumstances
 - **Database-first architecture** - all operations through stored procedures
 - **Privacy-first documents** - automatic PII masking for document protection
+- **Multi-language accessibility** - native Spanish support with expansion roadmap for underserved US communities
 
 ### Scale Target
 - Millions of families with event-driven interaction patterns
@@ -665,6 +666,92 @@ Based on market research and industry studies:
 - [ ] Onboarding NPS score >4.0/5
 - [ ] False positive rate <1% (legitimate members blocked)
 - [ ] Security incident rate: 0 successful phishing attempts
+
+## Epic 5: Multi-Language Support (US Market)
+
+**Epic Goal**: Expand market reach by providing native Spanish language support for the 41.8M Spanish-speaking US population, with a strategic roadmap for additional languages serving underserved communities.
+
+### **Strategic Business Case**
+- **Primary Target**: 850K Spanish-speaking high-net-worth households in the US
+- **Market Opportunity**: $170M ARR potential from Spanish-speaking market alone
+- **Competitive Advantage**: Zero major competitors serve these communities in native languages
+- **Premium Pricing**: 15-25% higher willingness to pay for native language financial services
+- **Network Effects**: Strong community referral patterns within immigrant communities
+
+### **Phase 5A: Spanish Language Foundation (6 months)**
+
+#### Story 5.1: User Language Preferences
+**As a** Spanish-speaking user  
+**I want** to set my preferred language during registration  
+**So that** the entire platform experience is in my native language
+
+**Acceptance Criteria**:
+- Language selection during user registration (English/Spanish)
+- User profile language preference management
+- Automatic language detection based on browser settings with override capability
+- Language preference inheritance for FFC invitations
+- Consistent language experience across all user sessions
+
+#### Story 5.2: Spanish User Interface Translation
+**As a** Spanish-speaking user  
+**I want** all navigation, forms, and interface elements in Spanish  
+**So that** I can confidently navigate and use the platform
+
+**Acceptance Criteria**:
+- Complete translation of all UI elements (buttons, menus, form labels)
+- Asset category names in Spanish (Personal Directives → Directivas Personales, Trust → Fideicomiso, etc.)
+- Document type translations (contract → contrato, receipt → recibo, etc.)
+- Error messages and validation text in Spanish
+- Help tooltips and guidance text in Spanish
+- Professional translation with financial terminology accuracy
+
+#### Story 5.3: Spanish Legal Document Templates
+**As a** Spanish-speaking user  
+**I want** terms of service, privacy policy, and legal agreements in Spanish  
+**So that** I fully understand my rights and obligations
+
+**Acceptance Criteria**:
+- Terms of service professionally translated and legally reviewed
+- Privacy policy translation with US law compliance
+- User agreements and required disclosures in Spanish
+- Email communications in user's preferred language
+- Certified legal translation for all binding documents
+
+#### Story 5.4: Cultural UX Adaptations
+**As a** Spanish-speaking user from a specific cultural background  
+**I want** the platform to respect my cultural approach to family wealth  
+**So that** the experience feels appropriate and trustworthy
+
+**Acceptance Criteria**:
+- Extended family relationship terminology and roles
+- Cultural sensitivity in wealth disclosure and sharing concepts
+- Family-first navigation patterns consistent with cultural values
+- Regional Spanish variations consideration (Mexican/Puerto Rican/South American)
+- Community-based referral and invitation flows
+
+### **Phase 5B: Additional Languages (Future Expansion)**
+
+**Language Priority Roadmap** (post-Spanish success validation):
+
+| Language | US Speakers | Market Potential | Priority Timeline |
+|----------|-------------|------------------|-------------------|
+| **Chinese** | 3.5M | $56M ARR | Year 2 |
+| **Korean** | 1.1M | $19M ARR | Year 2-3 |
+| **Vietnamese** | 1.7M | $9M ARR | Year 3 |
+| **Arabic** | 1.2M | $7M ARR | Year 3-4 |
+| **Russian** | 900K | $6M ARR | Year 4+ |
+
+**Implementation Note**: Additional languages will only be pursued if Spanish market achieves target metrics (15-25% of new signups from Spanish speakers within 6 months).
+
+### **Epic 5 Success Criteria:**
+- [ ] Spanish translation completion: 100% of core user flows
+- [ ] Spanish user acquisition: 15-25% of new signups within 6 months
+- [ ] Spanish user engagement: Equal or higher than English baseline
+- [ ] Spanish user retention: 85%+ monthly retention rate
+- [ ] Revenue impact: $100K+ ARR from Spanish market by month 9
+- [ ] Community referral rate: 25%+ of Spanish users from referrals
+- [ ] Translation quality: <1% user-reported translation issues
+- [ ] Cultural appropriateness: 85%+ cultural satisfaction score
 
 ## Technical Architecture
 
@@ -1479,6 +1566,47 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 - Pagination for large result sets
 - Background job processing for heavy operations
 - CDN integration for static assets
+
+### Epic 5: Multi-Language Support (US Market)
+
+**Goal**: Expand market reach to underserved Spanish-speaking communities in the US with native language support and cultural adaptations.
+
+**Duration**: 6 months (Post-MVP, Year 1 expansion)
+
+**Strategic Priority**: High - $170M ARR market opportunity with zero competition
+
+#### Story 5.1: Spanish Language Foundation
+**As a** Spanish-speaking user  
+**I want** complete Spanish language support  
+**So that** I can confidently manage my family's inheritance planning in my native language
+
+**Acceptance Criteria**:
+- User registration and profile language preferences (English/Spanish)
+- Complete UI translation for all core user flows
+- Asset category and document type translations
+- Spanish legal document templates (professionally translated and legally reviewed)
+- Email communications in user's preferred language
+- Cultural UX adaptations for Hispanic family structures
+- Professional translation quality with financial terminology accuracy
+
+**Market Validation Metrics**:
+- 15-25% of new signups from Spanish speakers within 6 months
+- 85%+ monthly retention rate for Spanish users
+- $100K+ ARR from Spanish market by month 9
+- 25%+ referral rate within Spanish-speaking communities
+
+**Future Language Expansion Roadmap**:
+| Language | US Speakers | Market Potential | Timeline |
+|----------|-------------|------------------|----------|
+| Chinese | 3.5M | $56M ARR | Year 2 |
+| Korean | 1.1M | $19M ARR | Year 2-3 |
+| Vietnamese | 1.7M | $9M ARR | Year 3 |
+| Arabic | 1.2M | $7M ARR | Year 3-4 |
+| Russian | 900K | $6M ARR | Year 4+ |
+
+*Note: Additional languages will only be pursued after Spanish market success validation*
+
+**Technical Implementation**: All translation infrastructure, helper functions, and database schema extensions are documented in architecture.md section "Multi-Language Support Architecture".
 
 ---
 
