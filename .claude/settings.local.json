@@ -8,7 +8,11 @@
       "Bash(findstr:*)",
       "Bash(powershell:*)",
       "Bash(del parse_tables.ps1)",
-      "Bash(Remove-Item parse_tables.ps1)"
+      "Bash(Remove-Item parse_tables.ps1)",
+      "Bash(del temp_duplicate_check.py)",
+      "Bash(rm:*)",
+      "Bash(python:*)",
+      "Bash(dir:*)"
     ],
     "deny": []
   }

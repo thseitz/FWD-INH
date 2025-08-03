@@ -1,4 +1,4 @@
-# Forward Inheritance SaaS Platform - Product Requirements Document V1.2
+# Forward Inheritance SaaS Platform - Product Requirements Document V1.3
 
 ## Executive Summary
 
@@ -9,7 +9,7 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
 1. [Project Context](#project-context)
 2. [Strategic Insights](#strategic-insights)
 3. [Phase 1A Scope & Core Features](#phase-1a-scope--core-features)
-4. [Epic Structure](#epic-structure)
+4. [Epic Structure & Implementation](#epic-structure--implementation)
 5. [Technical Architecture](#technical-architecture)
 6. [Database Schema](#database-schema)
 7. [Success Metrics](#success-metrics)
@@ -29,17 +29,17 @@ Empower families to make informed inheritance decisions through transparency, co
 ### Market Analysis
 
 **Total Addressable Market (TAM)**
-- 11.8 million high-net-worth households in the US (>$1M investable assets)�
-- Additional 20.3 million mass-affluent households ($250K-$1M)�
+- 11.8 million high-net-worth households in the US (>$1M investable assets)¹
+- Additional 20.3 million mass-affluent households ($250K-$1M)²
 - **TAM: 32M households � $200/year average subscription = $6.4B annual market**
 
 **Serviceable Addressable Market (SAM)**
-- Based on Cerulli Associates research, ~40% of HNW families actively use digital tools for financial planning�
+- Based on Cerulli Associates research, ~40% of HNW families actively use digital tools for financial planning³
 - Focus on digitally-engaged families planning wealth transfer
 - **SAM: 12.8M households (40% of TAM) = $2.56B annual market**
 
 **Serviceable Obtainable Market (SOM)**
-- 0.5% market penetration target based on comparable fintech SaaS adoption curvest
+- 0.5% market penetration target based on comparable fintech SaaS adoption curves⁴
 - Conservative estimate accounting for 18-24 month sales cycle
 - **SOM: 64,000 families = $12.8M ARR by Year 3**
 
@@ -47,20 +47,20 @@ Empower families to make informed inheritance decisions through transparency, co
 
 | Feature | Forward | Vanilla | EstateMap | Wealth.com |
 |---------|---------|---------|-----------|------------|
-| Family Collaboration |  Full |  | Partial |  |
-| Marketing Independence |  Builder.io | Limited | Limited |  |
-| Advisor Network |  Built-in |  Partner |  |  |
-| HEI Integration |  Native |  |  |  |
-| Asset Diversity |  13 types | Limited | Limited | Moderate |
-| Individual Asset Control |  |  |  |  |
+| Family Collaboration | ✓ Full | Basic | Partial | Limited |
+| Marketing Independence | ✓ Builder.io | Limited | Limited | None |
+| Advisor Network | ✓ Built-in | Partner-only | None | Limited |
+| HEI Integration | ✓ Native | None | None | None |
+| Asset Diversity | ✓ 13 types | 5 types | 7 types | 9 types |
+| Individual Asset Control | ✓ Granular | Basic | Basic | Limited |
 
 ### User Research Insights
 
 Based on market research and industry studies:
-- **73%** of families report lack of transparency in inheritance planningu
-- **62%** want better collaboration tools with their advisorsv
-- **Average estate settlement: 18 months** (opportunity to reduce by 50%)w
-- **70%** of wealth transfers fail by the third generation due to poor communication and trust breakdownx
+- **73%** of families report lack of transparency in inheritance planning⁵
+- **62%** want better collaboration tools with their advisors⁶
+- **Average estate settlement: 18 months** (opportunity to reduce by 50%)⁷
+- **70%** of wealth transfers fail by the third generation due to poor communication and trust breakdown⁸
 
 ---
 **Sources:**
@@ -164,594 +164,29 @@ Based on market research and industry studies:
 - **Privacy First**: Assets only visible to personas explicitly granted permission
 
 ### **DEFERRED to Later Phases:**
-- L Chat System (removed entirely from MVP)
-- L Referral Engine (moved to Phase 1B or later)
-- L AI Suggestions
-- L Document Intelligence
+- Chat System (removed entirely from MVP)
+- Referral Engine (moved to Phase 1B or later)
+- AI Suggestions
+- Document Intelligence
 
-## Epic Structure
+## Epic Structure & Implementation Roadmap
 
-## Epic 1: Marketing Foundation & Landing Page
+### Phase 1A: Foundation (Days 1-60)
+- **Epic 1**: Marketing Foundation & Landing Page (2 weeks)
+- **Epic 2**: FFC Onboarding Flow with Enhanced Security (3 weeks)
+- **Epic 3**: Comprehensive Asset Management System (4 weeks)
 
-**Epic Goal**: Establish Forward's digital presence with a high-converting landing page that marketing can manage independently, enabling rapid iteration and A/B testing without developer involvement.
+### Phase 1B: Enhancement (Days 61-90)
+- **Epic 4**: Advanced Features & Integrations (3 weeks)
+- **Epic 5**: Multi-Language Support (US Market) (2 weeks)
 
-**Business Value**: Enable marketing-driven growth through autonomous content management, conversion optimization, and lead capture while development focuses on platform features.
+### Phase 2: Enterprise & Compliance (Months 4-9)
+- **Epic 6**: SOC 2 Compliance & Trust Management Platform (6 months, parallel)
 
-### **Story 1.1: Landing Page Infrastructure Setup**
-**As a** developer  
-**I want** to configure Builder.io integration with our tech stack  
-**So that** marketers can create and publish content independently
+### Post-MVP: Performance & Scale (Year 1)
+- **Epic 7**: React Performance Optimization & User Experience Enhancement (3 months)
 
-**Acceptance Criteria:**
-1. Builder.io account created and configured with Forward branding
-2. Builder.io SDK integrated with React/TypeScript frontend
-3. API keys securely stored in environment variables
-4. Development and production spaces configured in Builder.io
-5. Basic page templates created (home, about, contact)
-6. Preview functionality working for marketers
-7. Publish workflow established (draft � review � live)
-8. Performance: Page loads in <2 seconds with Builder.io content
-
-**Technical Notes:**
-- Use Builder.io React SDK
-- Implement error boundaries for Builder.io components
-- Set up CDN caching for Builder.io content
-- Create fallback content for API failures
-
-### **Story 1.2: Marketing Landing Page Template**
-**As a** marketer  
-**I want** a customizable landing page template  
-**So that** I can create compelling content without developer help
-
-**Acceptance Criteria:**
-1. Hero section with customizable headline, subheadline, CTA buttons
-2. Value proposition section with icon + text blocks
-3. Feature showcase with image/video support
-4. Social proof section (testimonials, logos)
-5. Lead capture form integration
-6. Footer with legal links and social media
-7. Mobile-responsive design on all breakpoints
-8. SEO metadata controls (title, description, OG tags)
-9. Loading time <3 seconds on mobile networks
-
-**Design Requirements:**
-- Follow Forward brand guidelines
-- Use existing design system components
-- Ensure WCAG AA accessibility compliance
-- Support for animations and micro-interactions
-
-### **Story 1.3: Lead Capture & Form Integration**
-**As a** marketer  
-**I want** to capture and track visitor information  
-**So that** we can build our prospect database
-
-**Acceptance Criteria:**
-1. Customizable form builder in Builder.io
-2. Form fields: Name, Email (required), Phone (optional), Interest (dropdown)
-3. Email validation on client and server side
-4. CAPTCHA integration to prevent spam
-5. Form submissions stored in database
-6. Email notification to sales team for hot leads
-7. Thank you page/modal after submission
-8. Integration with email marketing platform (SendGrid/Mailchimp)
-9. GDPR compliance with consent checkboxes
-10. Form conversion tracking in analytics
-
-**Technical Requirements:**
-- Secure form endpoint with rate limiting
-- Honeypot field for bot detection
-- Server-side validation
-- Audit log for all submissions
-- **All database operations through stored procedures**
-- Database implementation details are documented in architecture.md
-- See architecture.md section "Epic-Specific Stored Procedures > Epic 1: Marketing Foundation" for complete stored procedure specifications
-
-### **Story 1.4: A/B Testing Framework**
-**As a** marketer  
-**I want** to run A/B tests on landing page elements  
-**So that** I can optimize conversion rates
-
-**Acceptance Criteria:**
-1. Builder.io A/B testing feature configured
-2. Ability to create variant pages (A/B/n testing)
-3. Test these elements: Headlines, CTAs, images, form fields
-4. Traffic split configuration (50/50, 80/20, etc.)
-5. Statistical significance calculator
-6. Test duration controls (time or visitor based)
-7. Automatic winner selection option
-8. Test results dashboard in Builder.io
-9. Integration with Google Analytics for deeper insights
-10. QA mode to preview variants before launch
-
-**Success Metrics Setup:**
-- Page views and unique visitors
-- Form submission rate
-- CTA click-through rate
-- Bounce rate by variant
-- Time on page
-
-### **Story 1.5: Analytics & Tracking Implementation**
-**As a** product manager  
-**I want** comprehensive analytics on landing page performance  
-**So that** we can make data-driven decisions
-
-**Acceptance Criteria:**
-1. Google Analytics 4 (GA4) properly configured
-2. Google Tag Manager container setup
-3. Conversion tracking for form submissions
-4. Event tracking for key interactions:
-   - CTA clicks
-   - Video plays
-   - Scroll depth
-   - Form field interactions
-5. UTM parameter tracking for campaigns
-6. Heat mapping tool integration (Hotjar/Clarity)
-7. Performance monitoring (Core Web Vitals)
-8. Custom dashboard for marketing KPIs
-9. Weekly automated reports to stakeholders
-
-**Privacy Requirements:**
-- Cookie consent banner implementation
-- Privacy-compliant tracking (GDPR/CCPA)
-- Option to opt-out of tracking
-- Data retention policies configured
-
-### **Story 1.6: SEO & Performance Optimization**
-**As a** marketer  
-**I want** our landing page to rank well and load fast  
-**So that** we can attract organic traffic and reduce bounce rates
-
-**Acceptance Criteria:**
-1. Server-side rendering (SSR) or static generation for SEO
-2. Structured data markup (schema.org) for rich snippets
-3. XML sitemap auto-generation
-4. Robots.txt configuration
-5. Canonical URL management
-6. Image optimization with lazy loading
-7. Core Web Vitals scoring:
-   - LCP < 2.5s
-   - FID < 100ms
-   - CLS < 0.1
-8. Mobile-friendly test passing
-9. Meta tags manageable via Builder.io
-10. 301 redirect management system
-
-**Technical Optimizations:**
-- CDN configuration for static assets
-- Brotli/gzip compression
-- Browser caching headers
-- Critical CSS inlining
-- JavaScript bundle optimization
-
-### **Epic 1 Success Criteria:**
-- [ ] Marketing team can publish content without developer help
-- [ ] Landing page achieves >2% conversion rate
-- [ ] Page load time <2 seconds on desktop, <3 seconds on mobile
-- [ ] A/B testing running continuously
-- [ ] Zero developer involvement needed for content updates
-- [ ] Weekly performance reports automated
-- [ ] 95%+ uptime for landing page
-
-## Epic 2: FFC Onboarding Flow
-
-**Epic Goal**: Create a seamless, secure onboarding experience that guides users from registration through FFC creation, member invitation, and role assignment, establishing the foundation for family collaboration.
-
-**Business Value**: Enable families to quickly form their Forward Family Circle with proper security, clear approval processes, and intuitive role management, driving platform adoption and engagement.
-
-### **Story 2.1: User Registration & Account Creation**
-**As a** new user  
-**I want** to create my Forward account  
-**So that** I can start or join a family circle
-
-**Acceptance Criteria:**
-1. Registration form with fields:
-   - First Name, Last Name (required)
-   - Email (required, unique)
-   - Password (required, 12+ chars, complexity rules)
-   - Phone (optional)
-   - Timezone auto-detection with manual override
-2. Real-time validation with clear error messages
-3. Email uniqueness check (instant feedback)
-4. Password strength indicator
-5. Terms of Service and Privacy Policy checkboxes (required)
-6. Email verification sent within 30 seconds
-7. Verification link expires after 24 hours
-8. Welcome email sent after verification
-9. Prevent registration with disposable email addresses
-10. Account creation tracked in audit log
-
-**Technical Requirements:**
-- JWT token generation
-- Secure password hashing (bcrypt/argon2)
-- Rate limiting on registration endpoint
-- Honeypot and CAPTCHA for bot prevention
-
-### **Story 2.2: Secure Login & Session Management**
-**As a** registered user  
-**I want** to securely access my account  
-**So that** my family information remains protected
-
-**Acceptance Criteria:**
-1. Login form with email and password
-2. "Remember me" option (30-day cookie)
-3. Forgot password flow with secure reset
-4. Account lockout after 5 failed attempts (30 min)
-5. Session timeout after 24 hours of inactivity
-6. Clear session status indicator
-7. Secure logout clearing all tokens
-8. Login from new device notification email
-9. Optional 2FA setup (Phase 1B)
-10. Support for password managers
-
-**Security Requirements:**
-- HTTPS only
-- Secure session cookies
-- CSRF protection
-- Rate limiting per IP
-- Audit log for all login attempts
-
-### **Story 2.3: FFC Creation Workflow**
-**As an** authenticated user  
-**I want** to create my Forward Family Circle  
-**So that** I can begin organizing my family's assets
-
-**Acceptance Criteria:**
-1. Multi-step creation wizard:
-   - Step 1: FFC Name (unique, 3-50 chars)
-   - Step 2: Description (optional, 500 chars max)
-   - Step 3: Creator becomes first Owner automatically
-   - Step 4: Review and confirm
-2. Real-time FFC name availability check
-3. Suggested names if taken ("Smith Family" � "Smith Family 2024")
-4. Progress indicator showing current step
-5. Save draft functionality between steps
-6. Creation completes in <3 seconds
-7. Success confirmation with next actions
-8. FFC ID generated (user-friendly format: SMI-2024-ABC)
-9. Audit log entry with timestamp
-10. Redirect to member invitation screen
-
-**UI/UX Requirements:**
-- Mobile-responsive wizard
-- Clear back/next navigation
-- Validation before step progression
-- Loading states for async operations
-
-### **Story 2.4: Member Invitation System**
-**As an** FFC owner  
-**I want** to invite family members  
-**So that** they can participate in our family circle
-
-**Acceptance Criteria:**
-1. **Mandatory dual-channel setup**:
-   - Both email and phone required (no optional fields)
-   - Real-time phone format validation
-   - International country code dropdown
-   - Phone verification before invite sent
-2. Invitation methods:
-   - Email invitation (primary)
-   - Bulk invite up to 20 emails/phones
-3. Invitation includes:
-   - FFC name and owner name
-   - Personal message (optional, 200 chars)
-   - Secure invitation token
-   - Clear CTA to join
-4. Invitation tracking:
-   - Sent, Pending, Accepted, Expired status
-   - Resend capability
-   - Cancel/revoke option
-5. Invitations expire after 7 days
-6. Automatic reminder after 3 days
-7. Email delivery tracking
-8. Invitation history viewable by owner
-9. Template for invitation email (branded)
-10. Preview before sending
-11. Audit log for all invitations
-12. **Invitation template updates**:
-    - Email explains phone verification requirement
-    - Security warnings in both channels
-    - Clear next steps for invitee
-
-**Technical Requirements:**
-- Unique invitation tokens
-- Email service integration (SendGrid)
-- SMS service integration (Twilio)
-- Prevent invitation spam
-- Rate limiting on invites
-
-### **Story 2.5: Member Approval Process**
-**As an** FFC owner  
-**I want** to approve new members after verification  
-**So that** I control who joins our family circle
-
-**Acceptance Criteria:**
-1. Invitation acceptance flow:
-   - Invited user clicks link � Must verify phone � Create account � Request to join
-   - Owner receives notification of pending approval
-2. Owner approval dashboard:
-   - List of pending approvals
-   - Member details (name, email, phone, invitation date)
-   - Verification status display
-   - Approve/Deny buttons
-   - Bulk approval option
-3. Approval notifications:
-   - Email to owner when someone requests
-   - Email to member when approved/denied
-   - In-app notifications (future)
-4. Denied members:
-   - Polite denial message
-   - Can be re-invited later
-   - Reason for denial (internal note)
-5. Approval timeout after 30 days
-6. Co-owners can also approve members
-7. Approval history log
-8. **Post-verification approval**:
-   - Owner sees verification status before approving
-   - Approval triggers final SMS confirmation
-   - Invitee must confirm final SMS to gain access
-   - Two-step completion: approval + SMS confirmation
-
-**Business Rules:**
-- Only FFC owners can approve
-- Owners cannot be removed by other owners
-- At least one owner must remain
-
-### **Story 2.6: Role Assignment & Management**
-**As an** FFC owner  
-**I want** to assign roles to members  
-**So that** everyone has appropriate access
-
-**Acceptance Criteria:**
-1. Available roles:
-   - Owner (full FFC edit rights)
-   - Beneficiary (read-only by default)
-   - Non-beneficiary (limited visibility)
-   - Advisor (professional access)
-2. Role assignment during invitation
-3. Role change after joining:
-   - Owner can change any member's role
-   - Clear UI showing current role
-   - Confirmation dialog for role changes
-4. Owner-specific capabilities:
-   - Add another owner (co-owner)
-   - Cannot remove the last owner
-   - Transfer primary ownership (future)
-5. Role change notifications:
-   - Email to affected member
-   - Audit log entry
-6. Visual role indicators in member list
-7. Role-based UI elements (hide/show features)
-8. Bulk role assignment for efficiency
-9. Role permissions clearly explained
-10. Help documentation for each role
-11. **Asset Permission Clarity**:
-    - Clear UI distinction between FFC roles and asset permissions
-    - Help text explaining: "FFC Owners manage the circle structure but do not automatically access member assets"
-    - Asset count shows as "X assets visible to you" not "X total assets"
-12. **Permission Request Flow** (future enhancement):
-    - FFC Owners can request access to member assets
-    - Asset owners receive notification to grant/deny
-    - Maintains asset owner sovereignty
-
-**Updated Permission Matrix:**
-
-### **FFC-Level Permissions**
-| Action | Owner | Beneficiary | Non-beneficiary | Advisor |
-|--------|-------|-------------|-----------------|---------|
-| View FFC Structure |  |  |  |  |
-| Edit FFC Details |  |  |  |  |
-| Invite Members |  |  |  |  |
-| Approve Members |  |  |  |  |
-| Change Member Roles |  |  |  |  |
-
-### **Asset-Level Permissions (Controlled by Asset Owner)**
-| Action | Asset Owner | Granted Edit Rights | Granted View Rights | No Rights |
-|--------|-------------|-------------------|-------------------|-----------|
-| View Asset |  |  |  |  |
-| Edit Asset Details |  |  |  |  |
-| Change Ownership % |  | * |  |  |
-| Grant Permissions |  |  |  |  |
-| Delete Asset |  |  |  |  |
-
-*With asset owner approval
-
-### **Story 2.7: Welcome & Onboarding Experience**
-**As a** new FFC member  
-**I want** to understand how to use Forward  
-**So that** I can effectively participate
-
-**Acceptance Criteria:**
-1. First-time user experience:
-   - Welcome modal explaining Forward
-   - 3-step visual tour of key features
-   - Skip option available
-2. Role-specific onboarding:
-   - Owners: How to add assets, invite members
-   - Beneficiaries: How to view assets, permissions
-   - Advisors: How to access client information
-3. Progress indicators for profile completion
-4. Helpful empty states:
-   - "Add your first asset" CTA
-   - "Invite family members" prompt
-5. Resource center links:
-   - Video tutorials
-   - Help documentation
-   - FAQs
-6. Onboarding completion tracking
-7. Re-triggerable onboarding
-8. Mobile-optimized onboarding
-
-### **Story 2.8: Dual-Channel Phone Verification (MANDATORY)**
-**As an** FFC owner  
-**I want** mandatory phone verification for all invitees  
-**So that** only legitimate family members can join our circle
-
-**Final Security Flow: Dual-Channel Verification**
-
-```
-1. FFC Owner invites � MUST provide email + phone (both required)
-2. System sends:
-   - Email: Invitation link + FFC details
-   - SMS: 6-digit verification code + owner name
-3. Invitee must complete ALL steps:
-   - Click email link
-   - Enter SMS verification code (10 min expiration)
-   - Create account or login
-   - Request to join FFC
-4. Owner approves � System sends final SMS confirmation
-5. Invitee confirms final SMS � Access granted
-```
-
-**Acceptance Criteria:**
-1. **Invitation Requirements (Owner Side)**:
-   - Email field (required, validated)
-   - Phone field (required, international format support)
-   - Cannot send invite without both
-   - Preview of dual-channel messages before sending
-
-2. **Dual-Channel Delivery**:
-   - Email and SMS sent simultaneously
-   - SMS format: "Join [FFC Name] - Code: 123456 - From: [Owner Name] - Never share this code"
-   - Email includes security warning about phone verification
-   - Both messages expire simultaneously
-
-3. **Verification Process**:
-   - Link from email � Landing page requesting SMS code
-   - Must enter correct 6-digit code to proceed
-   - 3 attempts maximum, then 30-minute lockout
-   - Clear error messages for incorrect codes
-   - Timer showing remaining time for code
-
-4. **Phone Number Sharing (Edge Case Support)**:
-   - Same phone number allowed for multiple FFC members
-   - SMS includes member name when sent
-   - Verification page shows "Joining as: [Name]"
-   - Audit log tracks which member used shared phone
-
-5. **Security Features**:
-   - Code single-use only
-   - 10-minute expiration (strict)
-   - Owner notified of failed verification attempts
-   - All verification attempts logged
-   - Rate limiting: 5 codes per phone per hour
-
-6. **Cost Management**:
-   - SMS costs absorbed by platform
-   - International SMS supported
-   - WhatsApp backup for countries with poor SMS
-   - Voice call option for accessibility
-
-7. **Error Handling**:
-   - Failed SMS delivery � Voice call backup
-   - Invalid phone numbers � Clear error to owner
-   - Network timeouts � Retry mechanism
-   - Graceful degradation for service outages
-
-**Technical Implementation Notes:**
-- **SMS Provider**: Twilio for global coverage
-- **Phone Validation**: libphonenumber for format checking
-- **Backup Delivery**: Voice calls via Twilio Voice
-- **International Support**: WhatsApp Business API for regions with poor SMS
-- **Security**: All phone numbers encrypted at rest
-- **Audit**: Complete verification trail for compliance
-
-### **Epic 2 Success Criteria:**
-- [ ] 90%+ registration completion rate
-- [ ] Email verification rate >85%
-- [ ] FFC creation completion >80% of started
-- [ ] Invitation acceptance rate >40%
-- [ ] Member approval time <24 hours average
-- [ ] Zero security breaches
-- [ ] Verification completion rate >90% (both email + SMS)
-- [ ] Onboarding NPS score >4.0/5
-- [ ] False positive rate <1% (legitimate members blocked)
-- [ ] Security incident rate: 0 successful phishing attempts
-
-## Epic 5: Multi-Language Support (US Market)
-
-**Epic Goal**: Expand market reach by providing native Spanish language support for the 41.8M Spanish-speaking US population, with a strategic roadmap for additional languages serving underserved communities.
-
-### **Strategic Business Case**
-- **Primary Target**: 850K Spanish-speaking high-net-worth households in the US
-- **Market Opportunity**: $170M ARR potential from Spanish-speaking market alone
-- **Competitive Advantage**: Zero major competitors serve these communities in native languages
-- **Premium Pricing**: 15-25% higher willingness to pay for native language financial services
-- **Network Effects**: Strong community referral patterns within immigrant communities
-
-### **Phase 5A: Spanish Language Foundation (6 months)**
-
-#### Story 5.1: User Language Preferences
-**As a** Spanish-speaking user  
-**I want** to set my preferred language during registration  
-**So that** the entire platform experience is in my native language
-
-**Acceptance Criteria**:
-- Language selection during user registration (English/Spanish)
-- User profile language preference management
-- Automatic language detection based on browser settings with override capability
-- Language preference inheritance for FFC invitations
-- Consistent language experience across all user sessions
-
-#### Story 5.2: Spanish User Interface Translation
-**As a** Spanish-speaking user  
-**I want** all navigation, forms, and interface elements in Spanish  
-**So that** I can confidently navigate and use the platform
-
-**Acceptance Criteria**:
-- Complete translation of all UI elements (buttons, menus, form labels)
-- Asset category names in Spanish (Personal Directives → Directivas Personales, Trust → Fideicomiso, etc.)
-- Document type translations (contract → contrato, receipt → recibo, etc.)
-- Error messages and validation text in Spanish
-- Help tooltips and guidance text in Spanish
-- Professional translation with financial terminology accuracy
-
-#### Story 5.3: Spanish Legal Document Templates
-**As a** Spanish-speaking user  
-**I want** terms of service, privacy policy, and legal agreements in Spanish  
-**So that** I fully understand my rights and obligations
-
-**Acceptance Criteria**:
-- Terms of service professionally translated and legally reviewed
-- Privacy policy translation with US law compliance
-- User agreements and required disclosures in Spanish
-- Email communications in user's preferred language
-- Certified legal translation for all binding documents
-
-#### Story 5.4: Cultural UX Adaptations
-**As a** Spanish-speaking user from a specific cultural background  
-**I want** the platform to respect my cultural approach to family wealth  
-**So that** the experience feels appropriate and trustworthy
-
-**Acceptance Criteria**:
-- Extended family relationship terminology and roles
-- Cultural sensitivity in wealth disclosure and sharing concepts
-- Family-first navigation patterns consistent with cultural values
-- Regional Spanish variations consideration (Mexican/Puerto Rican/South American)
-- Community-based referral and invitation flows
-
-### **Phase 5B: Additional Languages (Future Expansion)**
-
-**Language Priority Roadmap** (post-Spanish success validation):
-
-| Language | US Speakers | Market Potential | Priority Timeline |
-|----------|-------------|------------------|-------------------|
-| **Chinese** | 3.5M | $56M ARR | Year 2 |
-| **Korean** | 1.1M | $19M ARR | Year 2-3 |
-| **Vietnamese** | 1.7M | $9M ARR | Year 3 |
-| **Arabic** | 1.2M | $7M ARR | Year 3-4 |
-| **Russian** | 900K | $6M ARR | Year 4+ |
-
-**Implementation Note**: Additional languages will only be pursued if Spanish market achieves target metrics (15-25% of new signups from Spanish speakers within 6 months).
-
-### **Epic 5 Success Criteria:**
-- [ ] Spanish translation completion: 100% of core user flows
-- [ ] Spanish user acquisition: 15-25% of new signups within 6 months
-- [ ] Spanish user engagement: Equal or higher than English baseline
-- [ ] Spanish user retention: 85%+ monthly retention rate
-- [ ] Revenue impact: $100K+ ARR from Spanish market by month 9
-- [ ] Community referral rate: 25%+ of Spanish users from referrals
-- [ ] Translation quality: <1% user-reported translation issues
-- [ ] Cultural appropriateness: 85%+ cultural satisfaction score
+---
 
 ## Technical Architecture
 
@@ -1575,11 +1010,6 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 
 **Strategic Priority**: High - $170M ARR market opportunity with zero competition
 
-### Epic 6: SOC 2 Compliance & Trust Management Platform
-**Goal**: Establish enterprise-grade compliance, security transparency, and customer trust through comprehensive Vanta API integration and automated SOC 2 compliance monitoring.
-**Duration**: 6 months (Year 1, Parallel with Epic 5)
-**Strategic Priority**: Critical - Required for enterprise customer acquisition and $2.4M ARR opportunity
-
 #### Story 5.1: Spanish Language Foundation
 **As a** Spanish-speaking user  
 **I want** complete Spanish language support  
@@ -1613,7 +1043,7 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 
 **Technical Implementation**: All translation infrastructure, helper functions, and database schema extensions are documented in architecture.md section "Multi-Language Support Architecture".
 
-## Epic 6: SOC 2 Compliance & Trust Management Platform
+### Epic 6: SOC 2 Compliance & Trust Management Platform
 
 **Epic Goal**: Establish enterprise-grade compliance, security transparency, and customer trust through comprehensive Vanta API integration, automated SOC 2 compliance monitoring, and real-time security posture visibility.
 
@@ -1897,6 +1327,249 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 - **Returns**: $2.4M ARR from enterprise customers + $500K operational savings
 - **Payback Period**: 3 months
 - **3-Year NPV**: $6.2M
+
+---
+
+### Epic 7: React Performance Optimization & User Experience Enhancement
+
+**Epic Goal**: Optimize the Forward platform's React application for superior performance, achieving sub-second load times, 60fps interactions, and efficient resource utilization to support millions of users at scale.
+
+**Business Value**: Improve user retention by 25% through faster load times, reduce infrastructure costs by 40% through efficient resource usage, and enable seamless experience for users on slower connections and older devices.
+
+**Duration**: 3 months (Year 1, Post-MVP validation)
+
+**Strategic Priority**: High - Critical for user satisfaction and platform scalability
+
+### **Story 7.1: Bundle Optimization & Code Splitting**
+**As a** platform user  
+**I want** pages to load instantly  
+**So that** I can access my family's information without delays
+
+**Acceptance Criteria:**
+1. **Route-based Code Splitting**:
+   - Implement lazy loading for all major routes
+   - Each route bundle <50KB gzipped
+   - Preload critical routes based on user behavior
+   - Progressive enhancement for slow connections
+2. **Component-level Code Splitting**:
+   - Heavy components (charts, document viewers) lazy loaded
+   - Suspense boundaries with skeleton loaders
+   - Error boundaries for failed chunk loads
+   - Retry logic for network failures
+3. **Bundle Analysis & Optimization**:
+   - Weekly bundle size monitoring
+   - Automated alerts for bundles >100KB
+   - Tree shaking verification
+   - Duplicate dependency elimination
+4. **Third-party Library Optimization**:
+   - Replace moment.js with date-fns (80% size reduction)
+   - Dynamic imports for large libraries
+   - CDN delivery for common dependencies
+   - Version locking for consistent performance
+
+**Technical Implementation:**
+```javascript
+// Route-based splitting
+const AssetDashboard = lazy(() => 
+  import(/* webpackChunkName: "assets" */ './AssetDashboard')
+);
+
+// Component splitting with retry
+const DocumentViewer = lazy(() => 
+  retry(() => import('./DocumentViewer'), 3, 1000)
+);
+
+// Preload critical routes
+const preloadAssets = () => {
+  import(/* webpackPrefetch: true */ './AssetDashboard');
+};
+```
+
+### **Story 7.2: React Compiler & Rendering Optimization**
+**As a** user managing multiple assets  
+**I want** smooth, responsive interactions  
+**So that** updating information feels instantaneous
+
+**Acceptance Criteria:**
+1. **React Compiler Integration** (when stable):
+   - Automatic component memoization
+   - Optimized re-render elimination
+   - Development vs production behavior parity
+   - Performance regression testing
+2. **Manual Optimization** (current):
+   - Strategic memo() usage for expensive components
+   - useMemo/useCallback for complex calculations
+   - React DevTools Profiler integration
+   - Render phase optimization
+3. **Virtual Scrolling**:
+   - Implement for asset lists >50 items
+   - Smooth scrolling at 60fps
+   - Dynamic row height support
+   - Keyboard navigation maintained
+4. **State Management Optimization**:
+   - Atom-based state for granular updates
+   - Selector optimization to prevent cascading renders
+   - Local state for UI-only concerns
+   - Normalized data structures
+
+### **Story 7.3: Progressive Web App (PWA) Implementation**
+**As a** mobile user  
+**I want** app-like performance on my phone  
+**So that** I can access Forward anywhere
+
+**Acceptance Criteria:**
+1. **Service Worker Implementation**:
+   - Offline access to viewed assets
+   - Background sync for updates
+   - Push notification support
+   - Cache versioning strategy
+2. **App Shell Architecture**:
+   - Core UI cached for instant loads
+   - Navigation available offline
+   - Graceful degradation for features
+   - Update prompts for new versions
+3. **Performance Metrics**:
+   - First Paint <1s on 3G
+   - Time to Interactive <3s
+   - Lighthouse PWA score >95
+   - 0 cumulative layout shift
+4. **Install Experience**:
+   - Add to Home Screen prompt
+   - Custom splash screen
+   - Native app-like transitions
+   - Biometric authentication support
+
+### **Story 7.4: Image & Document Optimization**
+**As a** user uploading documents  
+**I want** fast previews and minimal data usage  
+**So that** I can efficiently manage documents
+
+**Acceptance Criteria:**
+1. **Image Optimization Pipeline**:
+   - Automatic WebP conversion with fallbacks
+   - Responsive image sizing (srcset)
+   - Lazy loading with intersection observer
+   - Progressive JPEG for large images
+   - Blurhash placeholders for UX
+2. **Document Preview Optimization**:
+   - Generate thumbnails server-side
+   - PDF.js lazy loading
+   - Page-by-page rendering
+   - Low-quality preview while loading
+3. **Upload Optimization**:
+   - Client-side compression before upload
+   - Resumable uploads for large files
+   - Progress indicators with time estimates
+   - Batch upload optimization
+4. **CDN Strategy**:
+   - CloudFront distribution for all media
+   - Automatic cache invalidation
+   - Geographic edge caching
+   - Bandwidth optimization per region
+
+### **Story 7.5: Runtime Performance Monitoring**
+**As a** development team  
+**I want** real-time performance insights  
+**So that** we can proactively fix issues
+
+**Acceptance Criteria:**
+1. **Real User Monitoring (RUM)**:
+   - Core Web Vitals tracking
+   - User session performance recording
+   - Performance budgets enforcement
+   - Automated performance regression alerts
+2. **Custom Performance Metrics**:
+   - Time to First Asset Display
+   - FFC Load Complete Time
+   - Search Response Time
+   - Document Upload Duration
+3. **Performance Dashboard**:
+   - P50/P75/P95/P99 percentiles
+   - Geographic performance breakdown
+   - Device category analysis
+   - Network speed impact correlation
+4. **A/B Testing Framework**:
+   - Performance-focused experiments
+   - Statistical significance for metrics
+   - Rollback capabilities
+   - User segment targeting
+
+### **Story 7.6: Server-Side Rendering (SSR) Exploration**
+**As a** user discovering Forward via search  
+**I want** instant page loads from search results  
+**So that** my first impression is positive
+
+**Acceptance Criteria:**
+1. **Hybrid Rendering Strategy**:
+   - SSR for public/marketing pages
+   - SSG for documentation/help
+   - CSR for authenticated app
+   - Edge rendering for personalization
+2. **SEO Optimization**:
+   - Meta tags for all public pages
+   - Structured data markup
+   - XML sitemap generation
+   - Social media previews
+3. **Performance Targets**:
+   - TTFB <200ms globally
+   - Full SSR page load <1s
+   - Seamless hydration
+   - No layout shift on interaction
+4. **Caching Strategy**:
+   - Edge caching for static content
+   - User-specific cache keys
+   - Incremental Static Regeneration
+   - Cache warming for popular pages
+
+### **Story 7.7: Accessibility Performance**
+**As a** user with assistive technology  
+**I want** fast, accessible interactions  
+**So that** Forward is usable for everyone
+
+**Acceptance Criteria:**
+1. **Keyboard Navigation Optimization**:
+   - Focus management in lazy-loaded content
+   - Skip links for navigation
+   - Keyboard shortcuts for common actions
+   - Focus trap in modals
+2. **Screen Reader Performance**:
+   - ARIA live regions for updates
+   - Semantic HTML throughout
+   - Loading state announcements
+   - Error message associations
+3. **Reduced Motion Support**:
+   - Respect prefers-reduced-motion
+   - Alternative transitions
+   - Instant state changes option
+   - Progress indicators without animation
+4. **High Contrast & Dark Mode**:
+   - System preference detection
+   - Instant theme switching
+   - Persistent user choice
+   - No flash of unstyled content
+
+### **Epic 7 Success Criteria:**
+- [ ] Initial page load <1.5s on 4G networks
+- [ ] Time to Interactive <3s for all major flows  
+- [ ] 60fps scrolling and interactions
+- [ ] Bundle size reduction of 50%
+- [ ] Lighthouse performance score >95
+- [ ] Core Web Vitals in "Good" range for 90% of users
+- [ ] 25% improvement in user engagement metrics
+- [ ] 40% reduction in infrastructure costs
+- [ ] PWA install rate >15% of active users
+- [ ] Zero performance regressions in CI/CD
+
+### **Implementation Timeline:**
+- **Month 1**: Bundle optimization and code splitting
+- **Month 2**: PWA implementation and image optimization  
+- **Month 3**: SSR exploration and monitoring setup
+
+### **Technical Stack Additions:**
+- **Performance**: Web Workers, Workbox, Partytown
+- **Monitoring**: Sentry Performance, DataDog RUM
+- **Optimization**: SWC compiler, Million.js
+- **Testing**: Lighthouse CI, WebPageTest API
 
 ---
 
