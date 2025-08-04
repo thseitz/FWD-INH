@@ -197,7 +197,6 @@ Based on market research and industry studies:
 - No direct table access from application code
 - All CRUD operations through stored procedures
 - Complex queries through database functions
-- Business logic enforcement at database level
 - Type-safe operations with pgtyped
 - Comprehensive audit logging at procedure level
 
