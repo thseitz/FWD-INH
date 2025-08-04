@@ -12,7 +12,8 @@
       "Bash(del temp_duplicate_check.py)",
       "Bash(rm:*)",
       "Bash(python:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(# Extract all SQL from architecture.md starting from ENUM DEFINITIONS\ncd \"\"C:\\Users\\bob\\github-thseitz\\fwd-inh\\docs\"\"\ngrep -n \"\"^-- ================================================================$\"\" architecture.md | head -1)"
     ],
     "deny": []
   }
