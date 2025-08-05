@@ -5,20 +5,22 @@
 2. [Security Architecture](#security-architecture)
 3. [Authentication & Session Management](#authentication--session-management)
 4. [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
-5. [Audit & Compliance Tables](#audit--compliance-tables)
-6. [Document & Media Security](#document--media-security)
-7. [PII Processing & Compliance](#pii-processing--compliance)
-8. [Integration & External Systems](#integration--external-systems)
-9. [Security Constraints & Validation](#security-constraints--validation)
-10. [Security Best Practices](#security-best-practices)
+5. [Asset-Level Permissions](#asset-level-permissions)
+6. [Audit & Compliance Tables](#audit--compliance-tables)
+7. [Document & Media Security](#document--media-security)
+8. [PII Processing & Compliance](#pii-processing--compliance)
+9. [Integration & External Systems](#integration--external-systems)
+10. [Security Constraints & Validation](#security-constraints--validation)
+11. [Security Best Practices](#security-best-practices)
 
 ## Overview
 
-The Forward Inheritance Platform implements a comprehensive **multi-layered security architecture** that covers authentication, authorization, audit logging, compliance tracking, and data protection. The system supports **19 security-related tables** organized into functional groups for maximum security coverage.
+The Forward Inheritance Platform implements a comprehensive **multi-layered security architecture** that covers authentication, authorization, audit logging, compliance tracking, and data protection. The system supports **20 security-related tables** organized into functional groups for maximum security coverage.
 
 ### Security Architecture Components
 - **Authentication Layer**: User sessions, verification workflows, password management
-- **Authorization Layer**: Role-based access control with granular permissions
+- **Authorization Layer**: Hybrid RBAC + asset-level permissions for enterprise and family scenarios
+- **Asset Permissions**: Direct asset access control optimized for family inheritance management
 - **Audit Layer**: Complete activity logging and business event tracking
 - **Compliance Layer**: PII processing, data retention, regulatory compliance
 - **Document Security**: Media storage access control and versioning
@@ -27,9 +29,10 @@ The Forward Inheritance Platform implements a comprehensive **multi-layered secu
 ### Key Statistics
 - **Authentication Tables**: 8 tables for user authentication and security
 - **RBAC Tables**: 4 tables for role-based access control
+- **Asset Permissions**: 1 table for direct asset access control
 - **Audit Tables**: 6 tables for comprehensive audit and compliance
 - **Integration Tables**: 6 tables for external system security
-- **Total Security Tables**: 19 tables covering all security aspects
+- **Total Security Tables**: 20 tables covering all security aspects
 
 ## Security Architecture
 
@@ -38,6 +41,7 @@ The Forward Inheritance Platform implements a comprehensive **multi-layered secu
 Application Layer
 ├── Authentication & Sessions (8 tables)
 ├── Role-Based Access Control (4 tables)
+├── Asset-Level Permissions (1 table)
 ├── Audit & Compliance (6 tables)
 └── Integration Security (6 tables)
 
@@ -46,6 +50,12 @@ Data Protection Layer
 ├── PII Detection & Masking
 ├── Audit Trail Integrity
 └── Tenant Isolation
+
+Permission Resolution
+├── System Admin (Override All)
+├── RBAC Roles (FFC-level)
+├── Asset Permissions (Direct)
+└── Default Deny
 ```
 
 ### Security Flow
@@ -481,6 +491,100 @@ CREATE TABLE user_role_assignments (
     CHECK (expires_at IS NULL OR expires_at > assigned_at)
 );
 ```
+
+## Asset-Level Permissions
+
+The Forward Inheritance Platform implements a **hybrid permission system** that combines enterprise-grade RBAC with family-friendly asset-level permissions. This dual approach provides both sophisticated organizational security and intuitive permission management for family asset scenarios.
+
+### asset_permissions table
+Direct asset-to-persona permission mapping for granular access control.
+
+```sql
+CREATE TABLE asset_permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    asset_id UUID NOT NULL,
+    persona_id UUID NOT NULL,
+    permission_level VARCHAR(20) NOT NULL CHECK (permission_level IN ('read', 'edit', 'admin')),
+    granted_by_persona_id UUID,
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Constraints
+    CONSTRAINT unique_asset_persona_permission UNIQUE (asset_id, persona_id)
+);
+```
+
+**Key Features:**
+- **Direct Permissions**: Simple asset-to-persona permission mapping
+- **Three Permission Levels**: Read, edit, and admin access levels
+- **Family-Friendly**: Intuitive "who can see what" model
+- **High Performance**: Optimized for common "show my assets" queries
+- **Audit Trail**: Tracks who granted permissions and when
+
+### Hybrid Permission Model
+
+The platform uses a **two-tier permission architecture**:
+
+#### 1. RBAC System (Enterprise Operations)
+- **Use Cases**: FFC management, role-based operations, system administration
+- **Benefits**: Scalable, maintainable, enterprise-grade security
+- **Scope**: FFC-level roles with fine-grained permissions
+
+#### 2. Asset Permissions (Family Scenarios)
+- **Use Cases**: Individual asset access, family inheritance scenarios
+- **Benefits**: Fast queries, intuitive management, granular control
+- **Scope**: Direct asset-to-persona relationships
+
+### Permission Resolution Order
+1. **System Admin**: Overrides all other permissions
+2. **RBAC Roles**: Applied at FFC level (e.g., "Family Admin")
+3. **Asset Permissions**: Specific overrides for individual assets
+4. **Default Deny**: No access if no explicit permission
+
+### Common Usage Patterns
+
+#### Family Asset Management
+```sql
+-- Give kids read access to family home
+INSERT INTO asset_permissions (tenant_id, asset_id, persona_id, permission_level, granted_by_persona_id)
+VALUES (1, 'family-home-uuid', 'child1-persona-uuid', 'read', 'parent-persona-uuid');
+
+-- Allow spouse to edit financial accounts
+INSERT INTO asset_permissions (tenant_id, asset_id, persona_id, permission_level, granted_by_persona_id)
+VALUES (1, 'bank-account-uuid', 'spouse-persona-uuid', 'edit', 'owner-persona-uuid');
+```
+
+#### Financial Advisor Access
+```sql
+-- Grant advisor read access to all assets except personal items
+-- (Combined with RBAC role limiting to financial categories)
+SELECT a.id, a.name, ap.permission_level
+FROM assets a
+JOIN asset_permissions ap ON a.id = ap.asset_id
+WHERE ap.persona_id = 'advisor-persona-uuid'
+  AND ap.permission_level IN ('read', 'edit', 'admin');
+```
+
+#### Performance-Optimized Queries
+```sql
+-- Fast "show all assets this user can access" query
+SELECT DISTINCT a.*
+FROM assets a
+JOIN asset_permissions ap ON a.id = ap.asset_id
+WHERE ap.persona_id = 'user-persona-uuid'
+  AND ap.permission_level IN ('read', 'edit', 'admin')
+ORDER BY a.name;
+```
+
+### Integration with RBAC
+
+The asset permissions system **complements** rather than **replaces** the RBAC system:
+
+- **RBAC**: Handles broad permissions like "can create assets" or "can invite family members"
+- **Asset Permissions**: Handles specific access like "can view the family home details"
+- **Combined Power**: Family Admin role + specific asset permissions = comprehensive access control
 
 ## Audit & Compliance Tables
 

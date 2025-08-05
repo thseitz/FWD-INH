@@ -13,7 +13,15 @@
       "Bash(rm:*)",
       "Bash(python:*)",
       "Bash(dir:*)",
-      "Bash(# Extract all SQL from architecture.md starting from ENUM DEFINITIONS\ncd \"\"C:\\Users\\bob\\github-thseitz\\fwd-inh\\docs\"\"\ngrep -n \"\"^-- ================================================================$\"\" architecture.md | head -1)"
+      "Bash(# Extract all SQL from architecture.md starting from ENUM DEFINITIONS\ncd \"\"C:\\Users\\bob\\github-thseitz\\fwd-inh\\docs\"\"\ngrep -n \"\"^-- ================================================================$\"\" architecture.md | head -1)",
+      "Bash(node:*)",
+      "Bash(cp:*)",
+      "Bash(npm start)",
+      "Bash(npm start:*)",
+      "Bash(npm run build:*)",
+      "Bash(psql:*)",
+      "Bash(npm run:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
