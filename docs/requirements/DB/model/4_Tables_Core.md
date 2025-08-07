@@ -30,7 +30,7 @@ The core infrastructure tables form the foundation of the Forward Inheritance Pl
 ## Multi-Tenant Architecture
 
 ### tenants table
-The `tenants` table serves as the root of the multi-tenant hierarchy, providing complete data isolation between different family organizations.
+The `tenants` table serves as the root of the multi-tenant hierarchy, providing complete data isolation for white lableing B2B partners and their data ownership and security. 
 
 ```sql
 CREATE TABLE tenants (
