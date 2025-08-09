@@ -119,9 +119,9 @@ Instead of complex normalized asset structures:
 - **Audit Trails**: Complete activity logging for compliance requirements
 
 ### Authentication & Authorization
-- **Dual-Channel Verification**: Both email and SMS verification required
-- **Session Management**: JWT-style token management with configurable expiration
-- **MFA Support**: Multi-factor authentication capabilities
+- **Dual-Channel Verification**: Both email and SMS verification required, utilizing AWS Cognito to support this process
+- **Session Management**: JWT-style token management with configurable expiration through AWS Cognito
+- **MFA Support**: Multi-factor authentication capabilities via AWS Cognito
 - **Permission Hierarchy**: Granular permissions for different user roles
 
 ### Compliance Features

@@ -68,7 +68,7 @@ CREATE TABLE assets (
     category_id UUID NOT NULL REFERENCES asset_categories(id),
     
     -- Asset identification
-    name VARCHAR(255) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     
     -- Valuation
@@ -80,13 +80,13 @@ CREATE TABLE assets (
     tags JSONB DEFAULT '[]',
     
     -- Status
-    is_active BOOLEAN NOT NULL DEFAULT true,
+    status status_enum NOT NULL DEFAULT 'active',
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
-    updated_by UUID REFERENCES users(id)
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -103,8 +103,8 @@ Defines the 13 predefined asset categories that drive the specialized table stru
 ```sql
 CREATE TABLE asset_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) UNIQUE NOT NULL,
-    code VARCHAR(20) UNIQUE NOT NULL,
+    name TEXT UNIQUE NOT NULL,
+    code TEXT UNIQUE NOT NULL,
     description TEXT,
     sort_order INTEGER NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT true
@@ -132,23 +132,33 @@ Junction table managing ownership relationships between personas and assets.
 ```sql
 CREATE TABLE asset_persona (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-    persona_id UUID NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    tenant_id INTEGER NOT NULL,
+    
+    -- Relationships
+    asset_id UUID NOT NULL,
+    persona_id UUID NOT NULL,
     
     -- Ownership details
-    ownership_type ownership_type_enum NOT NULL DEFAULT 'owner',
-    ownership_percentage DECIMAL(5,2) DEFAULT 100.00,
+    ownership_type ownership_type_enum NOT NULL,
+    ownership_percentage DECIMAL(5, 2),
     
-    -- Additional info
-    notes TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT true,
+    -- Legal details
+    legal_title TEXT,
+    transfer_on_death_to_persona_id UUID,
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
-    updated_by UUID REFERENCES users(id)
+    -- Documentation
+    ownership_document_id UUID,
+    
+    -- Status
+    is_primary BOOLEAN DEFAULT FALSE,
+    effective_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -166,39 +176,66 @@ Real property assets including residential, commercial, and land holdings.
 ```sql
 CREATE TABLE real_estate (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
+    
+    -- Property identification
+    property_type property_type_enum NOT NULL,
+    property_subtype TEXT,
+    
+    -- Location (required - property must have address)
+    property_address_id UUID NOT NULL,
+    parcel_number TEXT, -- Assessor's parcel number
     
     -- Property details
-    property_type property_type_enum NOT NULL,
-    property_use property_use_enum NOT NULL,
+    lot_size_acres DECIMAL(10, 4),
+    building_size_sqft INTEGER,
+    bedrooms INTEGER,
+    bathrooms DECIMAL(3, 1),
     year_built INTEGER,
-    square_footage INTEGER,
-    lot_size_acres DECIMAL(10,4),
     
-    -- Valuation
-    purchase_price DECIMAL(15,2),
-    purchase_date DATE,
-    current_market_value DECIMAL(15,2),
-    last_appraisal_date DATE,
+    -- Ownership details
+    ownership_type property_ownership_enum NOT NULL,
+    deed_type TEXT,
+    title_company TEXT,
+    title_policy_number TEXT,
     
-    -- Financial details
-    annual_property_tax DECIMAL(12,2),
-    annual_insurance DECIMAL(12,2),
-    monthly_hoa_fee DECIMAL(8,2),
+    -- Usage
+    property_use property_use_enum NOT NULL,
+    rental_income_monthly DECIMAL(15, 2),
     
-    -- Legal
-    deed_type VARCHAR(100),
-    parcel_number VARCHAR(100),
+    -- Mortgage information
+    has_mortgage BOOLEAN DEFAULT FALSE,
+    mortgage_balance DECIMAL(15, 2),
+    mortgage_payment DECIMAL(15, 2),
+    mortgage_institution TEXT,
+    mortgage_account_number TEXT,
     
-    -- Rental information
-    is_rental_property BOOLEAN DEFAULT false,
-    monthly_rental_income DECIMAL(10,2),
+    -- Insurance
+    homeowners_insurance_company TEXT,
+    homeowners_policy_number TEXT,
+    insurance_annual_premium DECIMAL(15, 2),
+    insurance_contact_email_id UUID,
+    insurance_contact_phone_id UUID,
     
-    -- Status
-    is_primary_residence BOOLEAN DEFAULT false,
+    -- Tax information
+    annual_property_tax DECIMAL(15, 2),
+    tax_assessment_value DECIMAL(15, 2),
+    tax_assessment_year INTEGER,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- HOA/Condo information
+    has_hoa BOOLEAN DEFAULT FALSE,
+    hoa_fee_monthly DECIMAL(15, 2),
+    hoa_contact_id UUID,
+    
+    -- Documentation
+    deed_document_id UUID,
+    survey_document_id UUID,
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -208,38 +245,57 @@ Bank accounts, investment accounts, and retirement accounts.
 ```sql
 CREATE TABLE financial_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
+    
+    -- Account identification
+    institution_name TEXT NOT NULL,
+    account_type account_type_enum NOT NULL,
+    account_number_last_four VARCHAR(4),
+    
+    -- Institution details
+    routing_number_last_four VARCHAR(4),
+    swift_code VARCHAR(11),
+    institution_contact_email_id UUID,
+    institution_contact_phone_id UUID,
     
     -- Account details
-    account_type account_type_enum NOT NULL,
-    institution_name VARCHAR(200) NOT NULL,
-    account_number_encrypted TEXT, -- Encrypted account number
-    routing_number_encrypted TEXT, -- Encrypted routing number
+    account_title TEXT, -- How account is titled
+    date_opened DATE,
     
     -- Balances
-    current_balance DECIMAL(15,2),
-    available_balance DECIMAL(15,2),
-    last_updated_balance DATE,
+    current_balance DECIMAL(15, 2),
+    balance_as_of_date DATE,
+    available_balance DECIMAL(15, 2),
     
-    -- Investment details (for investment accounts)
-    investment_type VARCHAR(100),
-    risk_level VARCHAR(50),
+    -- Investment specific
+    total_contributions DECIMAL(15, 2),
+    vested_balance DECIMAL(15, 2),
+    investment_risk_profile investment_risk_profile_enum,
     
-    -- Retirement details (for retirement accounts)
-    contribution_limit DECIMAL(12,2),
-    employer_match_percentage DECIMAL(5,2),
-    vesting_schedule TEXT,
+    -- Financial advisor
+    has_advisor BOOLEAN DEFAULT FALSE,
+    advisor_name TEXT,
+    advisor_email_id UUID,
+    advisor_phone_id UUID,
+    advisor_contact_id UUID,
     
-    -- Interest/Returns
-    interest_rate DECIMAL(7,4),
-    annual_fee DECIMAL(8,2),
+    -- Online access
+    online_access_url TEXT,
+    online_username TEXT,
     
-    -- Status
-    is_joint_account BOOLEAN DEFAULT false,
-    account_status VARCHAR(50) DEFAULT 'active',
+    -- Features
+    has_checks BOOLEAN DEFAULT FALSE,
+    has_debit_card BOOLEAN DEFAULT FALSE,
+    has_overdraft_protection BOOLEAN DEFAULT FALSE,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- Documentation
+    statement_document_ids UUID[],
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -249,38 +305,55 @@ Life insurance policies including term, whole, universal, and variable life.
 ```sql
 CREATE TABLE life_insurance (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
     -- Policy details
-    insurance_type insurance_type_enum NOT NULL,
-    policy_number VARCHAR(100) NOT NULL,
-    insurance_company VARCHAR(200) NOT NULL,
+    insurance_company TEXT NOT NULL,
+    policy_number TEXT NOT NULL,
+    policy_type TEXT NOT NULL, -- Term, Whole, Universal, Variable
     
     -- Coverage
-    death_benefit DECIMAL(15,2) NOT NULL,
-    cash_value DECIMAL(15,2),
+    death_benefit_amount DECIMAL(15, 2) NOT NULL,
+    cash_value DECIMAL(15, 2),
+    cash_value_as_of_date DATE,
     
-    -- Premiums
-    annual_premium DECIMAL(12,2),
-    premium_frequency VARCHAR(20), -- monthly, quarterly, annually
+    -- Policy dates
+    issue_date DATE NOT NULL,
+    maturity_date DATE,
     
-    -- Dates
-    policy_start_date DATE NOT NULL,
-    policy_end_date DATE,
+    -- Insured and owner
+    insured_persona_id UUID NOT NULL,
+    policy_owner_persona_id UUID NOT NULL,
     
-    -- Beneficiaries (stored as JSONB for flexibility)
-    primary_beneficiaries JSONB DEFAULT '[]',
-    contingent_beneficiaries JSONB DEFAULT '[]',
+    -- Beneficiaries (stored in asset_persona with ownership_type='beneficiary')
     
-    -- Policy details
-    is_term_policy BOOLEAN NOT NULL,
-    term_length_years INTEGER,
+    -- Premium information
+    annual_premium DECIMAL(15, 2),
+    premium_frequency payment_frequency_enum,
+    premium_paid_to_date DATE,
+    
+    -- Riders and options
+    has_riders BOOLEAN DEFAULT FALSE,
+    rider_details TEXT,
+    
+    -- Agent/Company contact
+    agent_name TEXT,
+    agent_contact_id UUID,
+    insurer_contact_email_id UUID,
+    insurer_contact_phone_id UUID,
+    
+    -- Documentation
+    policy_document_id UUID,
+    beneficiary_designation_document_id UUID,
     
     -- Status
-    policy_status VARCHAR(50) DEFAULT 'active',
+    policy_status VARCHAR(50) DEFAULT 'active', -- active, lapsed, paid-up, surrendered
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -290,38 +363,61 @@ All loan-related assets including mortgages, personal loans, and interfamily loa
 ```sql
 CREATE TABLE loans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Loan details
+    -- Loan identification
     loan_type loan_type_enum NOT NULL,
-    lender_name VARCHAR(200),
-    loan_number VARCHAR(100),
+    loan_number TEXT,
     
-    -- Financial details
-    original_loan_amount DECIMAL(15,2) NOT NULL,
-    current_balance DECIMAL(15,2) NOT NULL,
-    interest_rate DECIMAL(7,4) NOT NULL,
+    -- Parties
+    lender_persona_id UUID NOT NULL,
+    lender_name TEXT NOT NULL,
+    lender_contact_email_id UUID,
+    lender_contact_phone_id UUID,
     
-    -- Terms
-    loan_term_months INTEGER NOT NULL,
-    monthly_payment DECIMAL(10,2),
+    borrower_name TEXT NOT NULL,
+    borrower_tax_id VARCHAR(20),
+    borrower_contact_id UUID,
+    
+    -- Loan terms
+    original_amount DECIMAL(15, 2) NOT NULL,
+    current_balance DECIMAL(15, 2) NOT NULL,
+    interest_rate DECIMAL(5, 3),
+    interest_type interest_type_enum,
     
     -- Dates
     origination_date DATE NOT NULL,
-    maturity_date DATE NOT NULL,
-    first_payment_date DATE,
+    maturity_date DATE,
+    last_payment_date DATE,
+    next_payment_date DATE,
+    
+    -- Payment details
+    payment_amount DECIMAL(15, 2),
+    payment_frequency payment_frequency_enum,
+    payments_remaining INTEGER,
+    
+    -- Collateral
+    is_secured BOOLEAN DEFAULT FALSE,
+    collateral_description TEXT,
+    collateral_value DECIMAL(15, 2),
+    
+    -- Documentation
+    loan_agreement_document_id UUID,
+    promissory_note_document_id UUID,
+    payment_history_document_id UUID,
     
     -- Status
-    loan_status VARCHAR(50) DEFAULT 'active',
-    is_secured BOOLEAN DEFAULT false,
-    collateral_description TEXT,
+    loan_status loan_status_enum NOT NULL DEFAULT 'active',
     
-    -- For interfamily loans
-    is_interfamily_loan BOOLEAN DEFAULT false,
-    family_member_persona_id UUID REFERENCES personas(id),
+    -- Collection information
+    is_in_collections BOOLEAN DEFAULT FALSE,
+    collection_agency_contact_id UUID,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -331,33 +427,51 @@ Royalties, patents, licensing, and other recurring income streams.
 ```sql
 CREATE TABLE recurring_income (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Income source details
-    income_type VARCHAR(100) NOT NULL, -- royalty, patent, licensing, rental, etc.
-    source_name VARCHAR(200) NOT NULL,
+    -- Income identification
+    income_type recurring_income_type_enum NOT NULL,
+    income_source TEXT NOT NULL,
     
-    -- Financial details
-    monthly_income DECIMAL(10,2),
-    annual_income DECIMAL(12,2),
-    last_payment_amount DECIMAL(10,2),
+    -- Payer information
+    payer_name TEXT,
+    payer_contact_email_id UUID,
+    payer_contact_phone_id UUID,
+    payer_tax_id VARCHAR(20),
+    
+    -- Income details
+    payment_amount DECIMAL(15, 2),
+    payment_frequency payment_frequency_enum,
+    annual_income_estimate DECIMAL(15, 2),
+    
+    -- Payment history
+    last_payment_amount DECIMAL(15, 2),
     last_payment_date DATE,
+    ytd_received DECIMAL(15, 2),
+    lifetime_received DECIMAL(15, 2),
     
     -- Terms
-    income_start_date DATE,
-    income_end_date DATE, -- NULL for indefinite
-    payment_frequency VARCHAR(20), -- monthly, quarterly, annually
+    start_date DATE,
+    end_date DATE,
+    has_cola BOOLEAN DEFAULT FALSE, -- Cost of living adjustment
+    cola_percentage DECIMAL(5, 2),
     
-    -- Legal details
-    contract_number VARCHAR(100),
-    contract_expiry_date DATE,
+    -- Tax information
+    is_taxable BOOLEAN DEFAULT TRUE,
+    tax_rate DECIMAL(5, 2),
+    
+    -- Documentation
+    agreement_document_id UUID,
+    payment_statement_document_ids UUID[],
     
     -- Status
-    is_guaranteed BOOLEAN DEFAULT false,
-    income_status VARCHAR(50) DEFAULT 'active',
+    income_status recurring_income_status_enum NOT NULL DEFAULT 'active',
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -369,40 +483,59 @@ Vehicles, boats, equipment, machinery, and operational assets.
 ```sql
 CREATE TABLE operational_property (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Property details
-    property_subtype VARCHAR(100) NOT NULL, -- vehicle, boat, equipment, machinery
-    make VARCHAR(100),
-    model VARCHAR(100),
-    year INTEGER,
+    -- Property classification
+    property_type operational_property_type_enum NOT NULL,
+    property_subtype TEXT,
     
     -- Identification
-    serial_number VARCHAR(200),
-    vin_number VARCHAR(100), -- For vehicles
-    registration_number VARCHAR(100),
+    make TEXT,
+    model TEXT,
+    year INTEGER,
+    vin_hull_serial TEXT,
+    registration_number TEXT,
+    registration_state VARCHAR(2),
     
-    -- Valuation
-    purchase_price DECIMAL(15,2),
-    purchase_date DATE,
-    current_market_value DECIMAL(15,2),
+    -- Specifications
+    engine_details TEXT,
+    mileage_hours INTEGER,
+    fuel_type VARCHAR(50),
+    transmission_type VARCHAR(50),
+    color VARCHAR(50),
     
-    -- Condition
-    condition_rating VARCHAR(50), -- excellent, good, fair, poor
-    mileage INTEGER, -- For vehicles
-    last_service_date DATE,
+    -- Location and storage
+    storage_address_id UUID,
+    storage_location_detail TEXT, -- "Garage", "Marina slip 42", etc.
     
     -- Insurance
-    insurance_company VARCHAR(200),
-    policy_number VARCHAR(100),
-    annual_insurance_cost DECIMAL(8,2),
+    is_insured BOOLEAN DEFAULT FALSE,
+    insurance_company TEXT,
+    insurance_policy_number TEXT,
+    insurance_contact_phone_id UUID,
+    insurance_contact_email_id UUID,
     
-    -- Status
-    is_operational BOOLEAN DEFAULT true,
-    location_description VARCHAR(500),
+    -- Operational details
+    is_operational BOOLEAN DEFAULT TRUE,
+    last_service_date DATE,
+    next_service_due DATE,
+    service_provider_contact_id UUID,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- Financial
+    loan_balance DECIMAL(15, 2),
+    loan_account_number TEXT,
+    loan_institution TEXT,
+    
+    -- Documentation
+    title_document_id UUID,
+    registration_document_id UUID,
+    service_records UUID[],
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -412,40 +545,59 @@ Jewelry, art, collectibles, furniture, and personal belongings.
 ```sql
 CREATE TABLE personal_property (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Property details
-    property_subtype VARCHAR(100) NOT NULL, -- jewelry, art, collectible, furniture, etc.
-    brand VARCHAR(100),
-    model VARCHAR(100),
+    -- Property classification
+    property_type personal_property_type_enum NOT NULL,
+    property_subtype TEXT,
     
-    -- Identification
-    serial_number VARCHAR(200),
-    certificate_number VARCHAR(100),
+    -- Item details
+    item_name TEXT NOT NULL,
+    brand_manufacturer TEXT,
+    model_style TEXT,
+    serial_number TEXT,
+    year_acquired INTEGER,
     
-    -- Valuation
-    purchase_price DECIMAL(15,2),
-    purchase_date DATE,
-    appraised_value DECIMAL(15,2),
-    last_appraisal_date DATE,
+    -- Physical characteristics
+    material_composition TEXT,
+    dimensions TEXT,
+    weight TEXT,
+    color TEXT,
+    condition_description TEXT,
     
-    -- Physical details
-    condition_rating VARCHAR(50), -- mint, excellent, good, fair, poor
-    weight DECIMAL(10,4),
-    dimensions VARCHAR(200),
-    material VARCHAR(200),
+    -- Location
+    storage_address_id UUID,
+    storage_location_detail TEXT, -- "Master bedroom safe", "Living room", etc.
     
-    -- Provenance
-    acquisition_method VARCHAR(100), -- purchased, inherited, gift
-    provenance_notes TEXT,
+    -- Insurance
+    is_insured BOOLEAN DEFAULT FALSE,
+    insurance_company TEXT,
+    insurance_policy_number TEXT,
+    insurance_value DECIMAL(15, 2),
+    insurance_contact_phone_id UUID,
+    insurance_contact_email_id UUID,
     
-    -- Storage
-    storage_location VARCHAR(500),
-    is_insured BOOLEAN DEFAULT false,
-    insurance_value DECIMAL(15,2),
+    -- Documentation
+    receipt_document_id UUID,
+    appraisal_document_id UUID,
+    photo_ids UUID[],
+    certificate_of_authenticity_id UUID,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- Special handling (for pets)
+    pet_name TEXT,
+    pet_type pet_type_enum,
+    pet_breed TEXT,
+    pet_age INTEGER,
+    pet_microchip_id VARCHAR(50),
+    pet_care_instructions TEXT,
+    pet_veterinarian_contact_id UUID,
+    pet_care_status pet_care_status_enum,
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -455,84 +607,114 @@ Business inventory, fixtures, and stock.
 ```sql
 CREATE TABLE inventory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Inventory details
-    inventory_type VARCHAR(100) NOT NULL, -- raw_materials, finished_goods, fixtures
-    category VARCHAR(100),
-    sku VARCHAR(100),
+    -- Inventory identification
+    inventory_type TEXT NOT NULL,
+    category TEXT,
     
     -- Quantities
-    quantity_on_hand INTEGER NOT NULL DEFAULT 0,
+    total_units INTEGER,
     unit_of_measure VARCHAR(50),
+    units_per_package INTEGER DEFAULT 1,
     
     -- Valuation
-    unit_cost DECIMAL(10,4),
-    total_value DECIMAL(15,2),
-    last_inventory_date DATE,
+    cost_per_unit DECIMAL(15, 2),
+    total_cost DECIMAL(15, 2),
+    market_value_per_unit DECIMAL(15, 2),
+    total_market_value DECIMAL(15, 2),
     
     -- Location
-    warehouse_location VARCHAR(200),
-    bin_location VARCHAR(100),
+    storage_address_id UUID,
+    storage_location_detail TEXT, -- "Warehouse A, Shelf 3", etc.
+    
+    -- Supplier information
+    supplier_name TEXT,
+    supplier_contact_id UUID,
+    supplier_email_id UUID,
+    supplier_phone_id UUID,
+    
+    -- Documentation
+    inventory_list_document_id UUID,
+    purchase_orders UUID[],
     
     -- Status
-    inventory_status VARCHAR(50) DEFAULT 'active',
-    minimum_stock_level INTEGER,
-    reorder_point INTEGER,
+    last_inventory_date DATE,
+    next_inventory_date DATE,
     
-    -- Supplier
-    primary_supplier VARCHAR(200),
-    supplier_part_number VARCHAR(100),
-    
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
 ## Business & Digital Assets
 
-### business_interests table
+### ownership_interests table
 Business ownership, partnerships, and franchise interests.
 
 ```sql
-CREATE TABLE business_interests (
+CREATE TABLE ownership_interests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Business details
-    business_name VARCHAR(200) NOT NULL,
-    business_type VARCHAR(100), -- corporation, LLC, partnership, sole_proprietorship
-    industry VARCHAR(100),
+    -- Business identification
+    entity_name TEXT NOT NULL,
+    entity_type business_entity_type_enum NOT NULL,
+    tax_id VARCHAR(20),
+    state_of_formation VARCHAR(2),
     
-    -- Ownership
-    ownership_percentage DECIMAL(5,2) NOT NULL,
+    -- Ownership details
+    ownership_type ownership_interest_type_enum NOT NULL,
+    ownership_percentage DECIMAL(5, 2),
     number_of_shares INTEGER,
     share_class VARCHAR(50),
     
-    -- Identification
-    ein VARCHAR(20), -- Employer Identification Number
-    business_registration_number VARCHAR(100),
-    
     -- Valuation
-    book_value DECIMAL(15,2),
-    market_value DECIMAL(15,2),
-    last_valuation_date DATE,
+    initial_investment DECIMAL(15, 2),
+    current_valuation DECIMAL(15, 2),
+    valuation_date DATE,
+    valuation_method TEXT,
     
-    -- Financial performance
-    annual_revenue DECIMAL(15,2),
-    annual_profit DECIMAL(15,2),
-    last_financial_year INTEGER,
+    -- Business details
+    business_description TEXT,
+    industry TEXT,
+    annual_revenue DECIMAL(15, 2),
+    number_of_employees INTEGER,
     
     -- Management
-    is_active_management BOOLEAN DEFAULT false,
-    management_role VARCHAR(100),
+    is_active_participant BOOLEAN DEFAULT FALSE,
+    management_role TEXT,
     
-    -- Legal
-    voting_rights BOOLEAN DEFAULT true,
-    transfer_restrictions TEXT,
+    -- Distributions
+    receives_distributions BOOLEAN DEFAULT FALSE,
+    distribution_frequency payment_frequency_enum,
+    last_distribution_amount DECIMAL(15, 2),
+    last_distribution_date DATE,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- Key contacts
+    primary_contact_name TEXT,
+    primary_contact_title TEXT,
+    primary_contact_email_id UUID,
+    primary_contact_phone_id UUID,
+    primary_contact_address_id UUID,
+    
+    -- Governance
+    has_operating_agreement BOOLEAN DEFAULT FALSE,
+    has_buy_sell_agreement BOOLEAN DEFAULT FALSE,
+    
+    -- Documentation
+    formation_document_id UUID,
+    operating_agreement_document_id UUID,
+    financial_statements_document_ids UUID[],
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -542,40 +724,52 @@ Intellectual property, digital assets, and intangible property.
 ```sql
 CREATE TABLE digital_assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Asset details
-    digital_asset_type VARCHAR(100) NOT NULL, -- patent, trademark, copyright, domain, software
-    asset_name VARCHAR(200) NOT NULL,
+    -- Asset classification
+    asset_type digital_asset_type_enum NOT NULL,
+    asset_subtype TEXT,
     
-    -- Legal protection
-    registration_number VARCHAR(100),
+    -- Digital asset details
+    asset_name TEXT NOT NULL,
+    asset_identifier TEXT, -- URL, wallet address, etc.
+    platform_name TEXT,
+    
+    -- Access information
+    access_url TEXT,
+    username TEXT,
+    recovery_email_id UUID,
+    recovery_phone_id UUID,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    
+    -- Intellectual property specific
+    ip_type ip_type_enum,
+    registration_number TEXT,
     registration_date DATE,
-    expiry_date DATE,
+    expiration_date DATE,
+    jurisdiction TEXT,
     
-    -- Valuation
-    development_cost DECIMAL(15,2),
-    licensing_value DECIMAL(15,2),
-    annual_licensing_income DECIMAL(12,2),
+    -- Crypto specific
+    wallet_type VARCHAR(50), -- hot, cold, exchange
+    blockchain VARCHAR(50),
+    wallet_address TEXT,
+    approximate_balance DECIMAL(20, 8),
+    balance_as_of_date DATE,
     
-    -- Technical details
-    technology_description TEXT,
-    current_version VARCHAR(50),
+    -- Documentation
+    backup_codes_document_id UUID,
+    registration_document_id UUID,
     
-    -- Legal status
-    protection_status VARCHAR(100), -- registered, pending, expired
-    protection_jurisdiction VARCHAR(100),
+    -- Status
+    is_active BOOLEAN DEFAULT TRUE,
+    renewal_required BOOLEAN DEFAULT FALSE,
+    auto_renew_enabled BOOLEAN DEFAULT FALSE,
     
-    -- Commercial details
-    is_licensed BOOLEAN DEFAULT false,
-    licensing_terms TEXT,
-    
-    -- Access details
-    access_credentials_encrypted TEXT, -- For digital accounts, domains, etc.
-    recovery_information_encrypted TEXT,
-    
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -587,38 +781,58 @@ Trust documents and agreements.
 ```sql
 CREATE TABLE trusts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Trust details
+    -- Trust identification
+    trust_name TEXT NOT NULL,
     trust_type trust_type_enum NOT NULL,
-    trust_name VARCHAR(200) NOT NULL,
+    tax_id VARCHAR(20),
     
     -- Parties
-    grantor_persona_id UUID REFERENCES personas(id),
-    trustee_persona_ids JSONB DEFAULT '[]', -- Array of persona IDs
-    beneficiary_persona_ids JSONB DEFAULT '[]', -- Array of persona IDs
+    grantor_persona_id UUID NOT NULL,
+    grantor_name TEXT NOT NULL,
     
-    -- Legal details
-    trust_agreement_date DATE NOT NULL,
-    governing_law_state VARCHAR(50),
+    -- Primary Trustee
+    trustee_persona_id UUID,
+    trustee_name TEXT NOT NULL,
+    trustee_email_id UUID,
+    trustee_phone_id UUID,
     
-    -- Financial
-    initial_funding_amount DECIMAL(15,2),
-    current_value DECIMAL(15,2),
-    last_valuation_date DATE,
+    -- Successor Trustees (up to 2)
+    successor_trustee_1_persona_id UUID,
+    successor_trustee_1_name TEXT,
+    successor_trustee_2_persona_id UUID,
+    successor_trustee_2_name TEXT,
+    
+    -- Trust details
+    execution_date DATE NOT NULL,
+    effective_date DATE,
+    termination_date DATE,
+    state_of_formation VARCHAR(2),
+    
+    -- Trust provisions
+    distribution_provisions TEXT,
+    special_provisions TEXT,
+    amendment_provisions TEXT,
+    
+    -- Financial details
+    initial_funding_amount DECIMAL(15, 2),
+    current_value DECIMAL(15, 2),
+    value_as_of_date DATE,
+    
+    -- Document references
+    trust_document_id UUID,
+    amendments UUID[],
     
     -- Status
-    trust_status VARCHAR(50) DEFAULT 'active', -- active, terminated, pending
+    is_funded BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
     
-    -- Document storage
-    trust_document_id UUID REFERENCES media_storage(id),
-    
-    -- Terms
-    distribution_terms TEXT,
-    termination_conditions TEXT,
-    
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -628,39 +842,65 @@ Will documents and testament information.
 ```sql
 CREATE TABLE wills (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
-    -- Will details
-    will_type VARCHAR(100) NOT NULL, -- simple, pour_over, living, etc.
-    testator_persona_id UUID NOT NULL REFERENCES personas(id),
-    
-    -- Legal details
-    execution_date DATE NOT NULL,
-    governing_law_state VARCHAR(50),
-    
-    -- Witnesses and notarization
-    witness_count INTEGER DEFAULT 0,
-    is_notarized BOOLEAN DEFAULT false,
-    notary_details JSONB,
-    
-    -- Status
-    will_status VARCHAR(50) DEFAULT 'active', -- active, revoked, superseded
-    supersedes_will_id UUID REFERENCES wills(id),
-    
-    -- Document storage
-    will_document_id UUID REFERENCES media_storage(id),
+    -- Testator information
+    testator_persona_id UUID NOT NULL,
+    testator_name TEXT NOT NULL,
     
     -- Executor information
-    primary_executor_persona_id UUID REFERENCES personas(id),
-    alternate_executor_persona_ids JSONB DEFAULT '[]',
+    executor_persona_id UUID,
+    executor_name TEXT NOT NULL,
+    executor_email_id UUID,
+    executor_phone_id UUID,
     
-    -- Key provisions
-    has_specific_bequests BOOLEAN DEFAULT false,
-    has_residuary_clause BOOLEAN DEFAULT true,
+    -- Successor Executors (up to 2)
+    successor_executor_1_persona_id UUID,
+    successor_executor_1_name TEXT,
+    successor_executor_2_persona_id UUID,
+    successor_executor_2_name TEXT,
+    
+    -- Will details
+    will_type TEXT DEFAULT 'Last Will and Testament',
+    execution_date DATE NOT NULL,
+    
+    -- Legal details
+    state_of_execution VARCHAR(2) NOT NULL,
+    county_of_execution TEXT,
+    
+    -- Witnesses
+    witness_1_name TEXT,
+    witness_2_name TEXT,
+    notarized BOOLEAN DEFAULT FALSE,
+    self_proving BOOLEAN DEFAULT FALSE,
+    
+    -- Will provisions
     guardian_provisions TEXT,
+    distribution_provisions TEXT,
+    special_bequests TEXT,
+    residuary_clause TEXT,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- Codicils and amendments
+    has_codicils BOOLEAN DEFAULT FALSE,
+    codicil_dates DATE[],
+    codicil_documents UUID[],
+    
+    -- Document storage
+    original_location TEXT,
+    copies_location TEXT,
+    will_document_id UUID,
+    
+    -- Status
+    is_current BOOLEAN DEFAULT TRUE,
+    revoked_date DATE,
+    revocation_method TEXT,
+    superseded_by_will_id UUID,
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 
@@ -670,44 +910,61 @@ Healthcare directives, power of attorney, and personal directives.
 ```sql
 CREATE TABLE personal_directives (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    asset_id UUID NOT NULL UNIQUE,
     
     -- Directive details
     directive_type directive_type_enum NOT NULL,
-    principal_persona_id UUID NOT NULL REFERENCES personas(id),
+    directive_subtype TEXT,
+    
+    -- Principal information
+    principal_persona_id UUID NOT NULL,
+    principal_name VARCHAR(255) NOT NULL,
+    
+    -- Agent information
+    agent_persona_id UUID,
+    agent_name TEXT NOT NULL,
+    agent_email_id UUID,
+    agent_phone_id UUID,
+    
+    -- Successor Agents (up to 2)
+    successor_agent_1_persona_id UUID,
+    successor_agent_1_name TEXT,
+    successor_agent_2_persona_id UUID,
+    successor_agent_2_name TEXT,
     
     -- Legal details
     execution_date DATE NOT NULL,
     effective_date DATE,
-    expiry_date DATE,
-    governing_law_state VARCHAR(50),
-    
-    -- Agent/Representative information
-    primary_agent_persona_id UUID REFERENCES personas(id),
-    alternate_agent_persona_ids JSONB DEFAULT '[]',
+    state_of_execution VARCHAR(2),
     
     -- Powers and limitations
     powers_granted TEXT,
-    limitations TEXT,
+    powers_excluded TEXT,
     special_instructions TEXT,
     
-    -- Medical directives specific
-    life_support_wishes TEXT,
-    organ_donation_wishes TEXT,
-    funeral_arrangements TEXT,
-    
-    -- Status
-    directive_status directive_status_enum DEFAULT 'active',
-    
-    -- Document storage
-    directive_document_id UUID REFERENCES media_storage(id),
+    -- Healthcare-specific
+    life_support_preferences TEXT,
+    treatment_preferences TEXT,
+    organ_donation_preferences TEXT,
     
     -- HIPAA authorization
-    hipaa_authorization BOOLEAN DEFAULT false,
-    authorized_persons JSONB DEFAULT '[]',
+    has_hipaa_authorization BOOLEAN DEFAULT FALSE,
+    hipaa_authorized_persons TEXT,
     
-    -- Metadata
-    metadata JSONB DEFAULT '{}'
+    -- Document references
+    directive_document_id UUID,
+    supporting_documents UUID[],
+    
+    -- Status
+    is_active BOOLEAN DEFAULT TRUE,
+    revoked_date DATE,
+    revocation_method TEXT,
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID
 );
 ```
 

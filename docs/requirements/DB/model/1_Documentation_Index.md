@@ -6,10 +6,10 @@ This comprehensive database documentation suite provides complete coverage of th
 
 ### Documentation Statistics
 - **Total Database Tables**: 56
-- **Stored Procedures & Functions**: 45+
-- **Enum Types**: 25+
+- **Stored Procedures & Functions**: 46
+- **Enum Types**: 59
 - **Integration Points**: 6 external systems
-- **Security Features**: Multi-factor authentication, RBAC, audit logging
+- **Security Features**: Multi-factor authentication (AWS Cognito), RBAC, audit logging
 - **Compliance Standards**: SOC 2, GDPR, HIPAA ready
 
 ## Document Collection
@@ -103,10 +103,12 @@ Base Asset → Specialized Tables → Ownership Junction → Personas
 ## Quick Start Implementation Guide
 
 ### Phase 1: Core Infrastructure
-1. Deploy base schema from `architecture.md`
-2. Run `SQL_Test_1.sql` through `SQL_Test_5.sql` for table creation
-3. Execute `SQL_Test_6_procs.sql` for stored procedures
-4. Configure tenant isolation and security policies
+1. Deploy base schema from `DB-architecture.md`
+2. Run `1_SQL_create_fwd_db.sql` to create the database
+3. Execute `2_SQL_create_schema_structure.sql` for table creation
+4. Execute `3_SQL_create_schema_relationships.sql` for foreign keys and relationships
+5. Execute `4_SQL_create_procs.sql` for stored procedures
+6. Configure tenant isolation and security policies
 
 ### Phase 2: User Management
 1. Implement user registration and authentication
@@ -135,9 +137,12 @@ Base Asset → Specialized Tables → Ownership Junction → Personas
 ## Development Resources
 
 ### Database Scripts
-- **Schema Creation**: `architecture.md` contains complete DDL
-- **Test Scripts**: `SQL_Test_1.sql` through `SQL_Test_6_procs.sql`
-- **Sample Data**: Included in test scripts for development
+- **Schema Creation**: `DB-architecture.md` contains complete DDL
+- **Database Creation**: `1_SQL_create_fwd_db.sql` - Creates the Forward database
+- **Schema Structure**: `2_SQL_create_schema_structure.sql` - All tables and enums
+- **Relationships**: `3_SQL_create_schema_relationships.sql` - Foreign keys and indexes
+- **Stored Procedures**: `4_SQL_create_procs.sql` - All stored procedures and functions
+- **Sample Data**: Node.js test data generator in `DB\Node JS scripts\test-data-generator`
 
 ### Code Examples
 Each documentation file includes:
@@ -167,9 +172,9 @@ Each documentation file includes:
 - **Audit Trail**: Immutable audit logs with integrity checking
 
 ### Security Best Practices
-- Password strength validation and secure hashing
-- Multi-factor authentication support
-- Session management with automatic expiration
+- Password management handled by AWS Cognito (strength validation, secure storage)
+- Multi-factor authentication support via AWS Cognito
+- Session management with automatic expiration through AWS Cognito tokens
 - Rate limiting for sensitive operations
 - Comprehensive error handling without information leakage
 

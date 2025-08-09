@@ -1,2040 +1,1248 @@
-# Forward Inheritance Platform - Technical Architecture
+# Forward Inheritance Platform - Database Architecture
 
 ## Table of Contents
 
-1. [Database Schema](#database-schema)
-   - [Database Setup](#database-setup)
-   - [Enums](#enums)
-   - [Supporting Tables](#supporting-tables)
-   - [Core Tables](#core-tables)
-   - [Contact Tables](#contact-tables)
-   - [Relationship Tables](#relationship-tables)
-   - [Security Tables](#security-tables)
-   - [Asset Tables](#asset-tables)
-   - [Audit Tables](#audit-tables)
-   - [Translation Tables](#translation-tables)
+1. [Database Overview](#database-overview)
+2. [Database Extensions](#database-extensions)
+3. [Enums](#enums)
+   - [Status and State Enums](#status-and-state-enums)
+   - [Document and Media Enums](#document-and-media-enums)
+   - [Personal Demographics Enums](#personal-demographics-enums)
+   - [Contact Information Enums](#contact-information-enums)
+   - [Usage/Relationship Enums](#usagerelationship-enums)
+   - [Family and Relationship Enums](#family-and-relationship-enums)
+   - [Legal Document Enums](#legal-document-enums)
+   - [Asset Category Enums](#asset-category-enums)
+   - [Personal Property Enums](#personal-property-enums)
+   - [Operational Property Enums](#operational-property-enums)
+   - [Real Estate Enums](#real-estate-enums)
+   - [Financial Enums](#financial-enums)
+   - [Digital Assets Enums](#digital-assets-enums)
+   - [Business Enums](#business-enums)
+   - [Loan Enums](#loan-enums)
+   - [Security and Audit Enums](#security-and-audit-enums)
+   - [Language and Localization Enums](#language-and-localization-enums)
+   - [Integration Enums](#integration-enums)
+4. [Tables](#tables)
+   - [Core System Tables](#core-system-tables)
+   - [User and Identity Management](#user-and-identity-management)
+   - [Contact Information Tables](#contact-information-tables)
+   - [Asset Management Tables](#asset-management-tables)
+   - [Asset Type-Specific Tables](#asset-type-specific-tables)
+   - [Security and Session Management](#security-and-session-management)
+   - [Audit and Compliance](#audit-and-compliance)
    - [Integration Tables](#integration-tables)
-2. [Indexes](#indexes)
-3. [Constraints](#constraints)
-4. [Functions and Stored Procedures](#functions-and-stored-procedures)
+5. [Relationships (Foreign Keys)](#relationships-foreign-keys)
+   - [Core Relationships](#core-relationships)
+   - [Contact Relationships](#contact-relationships)
+   - [Asset Relationships](#asset-relationships)
+   - [Security Relationships](#security-relationships)
+   - [Audit Relationships](#audit-relationships)
+   - [Integration Relationships](#integration-relationships)
+6. [Indexes](#indexes)
+   - [Performance Indexes](#performance-indexes)
+   - [Search Indexes](#search-indexes)
+   - [Unique Constraint Indexes](#unique-constraint-indexes)
+7. [Stored Procedures](#stored-procedures)
+   - [Authentication Procedures](#authentication-procedures)
+   - [Asset Management Procedures](#asset-management-procedures)
+   - [Security and Compliance Procedures](#security-and-compliance-procedures)
+   - [Integration Procedures](#integration-procedures)
+8. [Helper Functions](#helper-functions)
+9. [Row-Level Security (RLS) Policies](#row-level-security-rls-policies)
+10. [Data Population and Test Data](#data-population-and-test-data)
 
 ---
 
-## Database Schema
-
-### Database Setup
-
-The platform uses PostgreSQL database named `fwd_db` with the following setup:
-
-```sql
--- Step 1: Run this first in postgres DB
-DROP DATABASE IF EXISTS fwd_db;
-CREATE DATABASE fwd_db
-    WITH 
-    OWNER = postgres
-    ENCODING = 'UTF8'
-    TABLESPACE = pg_default
-    CONNECTION LIMIT = -1
-    TEMPLATE = template0
-    LC_COLLATE = 'en_US.UTF-8'
-    LC_CTYPE = 'en_US.UTF-8';
-
--- Step 2: Change connection to fwd_db manually, then run:
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-CREATE EXTENSION IF NOT EXISTS "btree_gist";
-
-ALTER DATABASE fwd_db SET search_path TO public;
-ALTER DATABASE fwd_db SET track_counts = on;
-ALTER DATABASE fwd_db SET track_functions = 'all';
-ALTER DATABASE fwd_db SET track_io_timing = on;
-
-CREATE SCHEMA IF NOT EXISTS audit;
-CREATE SCHEMA IF NOT EXISTS archive;
-```
-
-### Enums
-
-```sql
--- ================================================================
--- ENUM DEFINITIONS
--- ================================================================
-
--- General status enum used across multiple tables
-CREATE TYPE status_enum AS ENUM ('active', 'inactive', 'pending', 'suspended', 'deleted');
-
--- User-specific status enum
-CREATE TYPE user_status_enum AS ENUM ('pending_verification', 'active', 'inactive', 'suspended', 'locked');
-
--- Media storage enums
-CREATE TYPE processing_status_enum AS ENUM ('uploaded', 'processing', 'ready', 'failed');
-CREATE TYPE retention_policy_enum AS ENUM ('permanent', '7_years', '5_years', '3_years', '1_year', '6_months');
-
--- Document enums
-CREATE TYPE document_type_enum AS ENUM ('will', 'trust', 'insurance_policy', 'deed', 'contract', 'statement', 'certificate', 'directive', 'other');
-CREATE TYPE document_category_enum AS ENUM ('legal', 'financial', 'personal', 'medical', 'business', 'tax', 'insurance');
-
--- Personal demographics enums
-CREATE TYPE gender_enum AS ENUM ('male', 'female', 'non_binary', 'prefer_not_to_say', 'other');
-CREATE TYPE marital_status_enum AS ENUM ('single', 'married', 'divorced', 'widowed', 'separated', 'domestic_partnership');
-
--- Contact information enums
-CREATE TYPE phone_type_enum AS ENUM ('mobile', 'landline', 'voip', 'toll_free', 'fax');
-CREATE TYPE email_type_enum AS ENUM ('personal', 'business', 'temporary', 'alias', 'shared');
-CREATE TYPE address_type_enum AS ENUM ('residential', 'business', 'mailing', 'billing', 'property', 'temporary');
-CREATE TYPE social_media_platform_enum AS ENUM ('facebook', 'twitter', 'linkedin', 'instagram', 'youtube', 'tiktok', 'snapchat', 'other');
-
--- Usage/Relationship enums
-CREATE TYPE entity_type_enum AS ENUM ('user', 'persona', 'asset');
-CREATE TYPE email_usage_type_enum AS ENUM ('primary', 'work', 'personal', 'backup', 'billing', 'notifications');
-CREATE TYPE phone_usage_type_enum AS ENUM ('primary', 'work', 'home', 'mobile', 'emergency', 'fax');
-CREATE TYPE address_usage_type_enum AS ENUM ('primary', 'mailing', 'billing', 'property', 'work', 'emergency');
-CREATE TYPE social_media_usage_type_enum AS ENUM ('personal', 'professional', 'business', 'public', 'private');
-CREATE TYPE contact_time_enum AS ENUM ('morning', 'afternoon', 'evening', 'anytime', 'business_hours');
-
--- Family relationship enum
-CREATE TYPE family_relationship_enum AS ENUM ('spouse', 'child', 'parent', 'sibling', 'grandparent', 'grandchild', 'aunt_uncle', 'cousin', 'in_law', 'step_family', 'other');
-
--- FFC role enum
-CREATE TYPE ffc_role_enum AS ENUM ('owner', 'beneficiary', 'non_beneficiary', 'advisor');
-
--- Security/RBAC enums
-CREATE TYPE permission_category_enum AS ENUM ('asset', 'user', 'admin', 'report', 'document', 'ffc', 'system');
-
--- Contact entity type enum
-CREATE TYPE contact_entity_type_enum AS ENUM ('advisor', 'company', 'institution', 'attorney', 'accountant', 'financial_advisor', 'insurance_agent', 'other');
-
--- Asset ownership type enum
-CREATE TYPE ownership_type_enum AS ENUM ('owner', 'beneficiary', 'trustee', 'executor');
-
--- Invitation system enum
-CREATE TYPE invitation_status_enum AS ENUM ('sent', 'phone_verified', 'accepted', 'approved', 'expired', 'cancelled', 'declined');
-
--- Personal directive enums
-CREATE TYPE directive_type_enum AS ENUM (
-    'power_of_attorney', 
-    'healthcare_directive', 
-    'living_will', 
-    'hipaa_authorization', 
-    'guardianship_designation',
-    'family_directive'
-);
-
-CREATE TYPE directive_status_enum AS ENUM (
-    'draft', 
-    'executed', 
-    'active', 
-    'suspended', 
-    'revoked', 
-    'expired', 
-    'superseded'
-);
-
--- Trust enums
-CREATE TYPE trust_type_enum AS ENUM (
-    'revocable', 
-    'irrevocable', 
-    'living', 
-    'testamentary',
-    'charitable',
-    'special_needs',
-    'generation_skipping',
-    'asset_protection'
-);
-
-CREATE TYPE trust_role_enum AS ENUM (
-    'grantor',
-    'trustee',
-    'successor_trustee',
-    'beneficiary',
-    'trust_protector',
-    'trust_advisor'
-);
-
--- Trust administration enums
-CREATE TYPE trust_administration_type_enum AS ENUM (
-    'distribution',
-    'investment',
-    'accounting',
-    'tax_filing',
-    'beneficiary_communication',
-    'compliance_review'
-);
-
--- Asset category enum
-CREATE TYPE asset_type_enum AS ENUM (
-    'personal_directives',
-    'trust',
-    'will',
-    'personal_property',
-    'operational_property',
-    'inventory',
-    'real_estate',
-    'life_insurance',
-    'financial_accounts',
-    'recurring_income',
-    'digital_assets',
-    'ownership_interests',
-    'loans'
-);
-
--- Personal property related enums
-CREATE TYPE personal_property_type_enum AS ENUM (
-    'jewelry',
-    'precious_metals',
-    'collectibles',
-    'art',
-    'furniture',
-    'pets_animals',
-    'memorabilia',
-    'other'
-);
-
-CREATE TYPE pet_type_enum AS ENUM ('dog', 'cat', 'bird', 'reptile', 'fish', 'horse', 'livestock', 'exotic', 'other');
-CREATE TYPE pet_care_status_enum AS ENUM ('self_care', 'needs_basic_care', 'needs_special_care', 'needs_medical_care');
-
--- Operational property enums
-CREATE TYPE operational_property_type_enum AS ENUM (
-    'vehicle',
-    'boat_yacht',
-    'aircraft',
-    'equipment_machinery',
-    'appliances_gear',
-    'recreational_vehicle',
-    'other'
-);
-
-CREATE TYPE vehicle_type_enum AS ENUM ('car', 'truck', 'suv', 'motorcycle', 'rv', 'trailer', 'other');
-CREATE TYPE vehicle_condition_enum AS ENUM ('excellent', 'good', 'fair', 'poor', 'non_operational');
-
--- Real estate enums
-CREATE TYPE property_type_enum AS ENUM (
-    'single_family',
-    'multi_family',
-    'condo',
-    'townhouse',
-    'commercial',
-    'land',
-    'farm_ranch',
-    'vacation_property',
-    'other'
-);
-
-CREATE TYPE property_ownership_enum AS ENUM (
-    'sole_ownership',
-    'joint_tenancy',
-    'tenancy_in_common',
-    'community_property',
-    'trust_owned',
-    'llc_owned'
-);
-
-CREATE TYPE property_use_enum AS ENUM ('primary_residence', 'rental', 'vacation', 'commercial', 'investment', 'vacant');
-
--- Financial account enums
-CREATE TYPE account_type_enum AS ENUM (
-    'checking',
-    'savings',
-    'investment',
-    'retirement_401k',
-    'retirement_ira',
-    'retirement_roth',
-    'retirement_pension',
-    'college_529',
-    'college_coverdell',
-    'hsa',
-    'trust_account',
-    'business_account',
-    'cryptocurrency'
-);
-
-CREATE TYPE investment_risk_profile_enum AS ENUM ('conservative', 'moderate', 'aggressive', 'speculative');
-
--- Income and payment enums
-CREATE TYPE income_type_enum AS ENUM (
-    'royalty',
-    'pension',
-    'social_security',
-    'annuity',
-    'rental_income',
-    'dividend',
-    'trust_distribution',
-    'business_income',
-    'other'
-);
-
-CREATE TYPE payment_frequency_enum AS ENUM ('weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual', 'irregular');
-
--- Digital asset enums
-CREATE TYPE digital_asset_type_enum AS ENUM (
-    'domain_name',
-    'website',
-    'social_media_account',
-    'digital_content',
-    'cryptocurrency',
-    'nft',
-    'online_business',
-    'intellectual_property',
-    'software_license',
-    'cloud_storage',
-    'email_account',
-    'other'
-);
-
-CREATE TYPE ip_type_enum AS ENUM ('patent', 'trademark', 'copyright', 'trade_secret');
-
--- Business and ownership enums
-CREATE TYPE business_entity_type_enum AS ENUM (
-    'sole_proprietorship',
-    'partnership',
-    'llc',
-    'corporation',
-    's_corp',
-    'c_corp',
-    'non_profit',
-    'trust',
-    'other'
-);
-
-CREATE TYPE ownership_interest_type_enum AS ENUM (
-    'stock',
-    'membership_interest',
-    'partnership_interest',
-    'beneficial_interest',
-    'option',
-    'warrant',
-    'convertible_note'
-);
-
--- Loan enums
-CREATE TYPE loan_type_enum AS ENUM (
-    'mortgage',
-    'heloc',
-    'personal',
-    'business',
-    'auto',
-    'student',
-    'family_loan',
-    'hard_money',
-    'other'
-);
-
-CREATE TYPE loan_status_enum AS ENUM ('active', 'paid_off', 'defaulted', 'in_forbearance', 'refinanced');
-CREATE TYPE interest_type_enum AS ENUM ('fixed', 'variable', 'hybrid');
-
--- Audit and logging enums
-CREATE TYPE audit_action_enum AS ENUM (
-    'create',
-    'read',
-    'update',
-    'delete',
-    'login',
-    'logout',
-    'export',
-    'share',
-    'permission_change',
-    'status_change'
-);
-
-CREATE TYPE audit_entity_type_enum AS ENUM (
-    'user',
-    'persona',
-    'asset',
-    'document',
-    'ffc',
-    'permission',
-    'system'
-);
-
--- PII detection enums
-CREATE TYPE pii_type_enum AS ENUM (
-    'ssn',
-    'credit_card',
-    'bank_account',
-    'drivers_license',
-    'passport',
-    'medical_record',
-    'tax_id',
-    'other'
-);
-
-CREATE TYPE pii_risk_level_enum AS ENUM ('low', 'medium', 'high', 'critical');
-
--- Translation and language enums
-CREATE TYPE language_code_enum AS ENUM ('en', 'es', 'fr', 'de', 'pt', 'zh', 'ja', 'ko', 'ar', 'hi', 'ru');
-CREATE TYPE translation_status_enum AS ENUM ('pending', 'in_progress', 'completed', 'approved', 'rejected');
-
--- Integration enums
-CREATE TYPE integration_status_enum AS ENUM ('connected', 'disconnected', 'error', 'pending', 'expired');
-CREATE TYPE sync_status_enum AS ENUM ('pending', 'in_progress', 'completed', 'failed', 'partial');
-CREATE TYPE webhook_status_enum AS ENUM ('pending', 'delivered', 'failed', 'retrying');
-```
-
-### Supporting Tables
-
-```sql
--- Table 1: tenants
--- Purpose: Multi-tenancy foundation - isolates data between different organizations
-CREATE TABLE tenants (
-    id INTEGER PRIMARY KEY,
-    
-    -- Tenant identification
-    name VARCHAR(255) NOT NULL UNIQUE,
-    display_name VARCHAR(255) NOT NULL,
-    domain VARCHAR(255),
-    
-    -- Branding
-    logo_url VARCHAR(500),
-    primary_color VARCHAR(7),
-    secondary_color VARCHAR(7),
-    
-    -- Configuration
-    settings JSONB DEFAULT '{}',
-    feature_flags JSONB DEFAULT '{}',
-    
-    -- System fields
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT valid_primary_color CHECK (primary_color ~ '^#[0-9A-Fa-f]{6}$'),
-    CONSTRAINT valid_secondary_color CHECK (secondary_color ~ '^#[0-9A-Fa-f]{6}$')
-);
-
--- Table 2: media_storage
--- Purpose: Centralized storage for all uploaded files and documents
-CREATE TABLE media_storage (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- File identification
-    file_name VARCHAR(255) NOT NULL,
-    original_file_name VARCHAR(255) NOT NULL,
-    mime_type VARCHAR(100) NOT NULL,
-    file_size_bytes BIGINT NOT NULL,
-    
-    -- Storage details
-    storage_provider VARCHAR(50) NOT NULL DEFAULT 'aws_s3',
-    storage_bucket VARCHAR(255) NOT NULL,
-    storage_key VARCHAR(500) NOT NULL,
-    storage_region VARCHAR(50),
-    cdn_url VARCHAR(500),
-    
-    -- File metadata
-    checksum VARCHAR(64),
-    encryption_key_id VARCHAR(255),
-    is_encrypted BOOLEAN DEFAULT true,
-    
-    -- Processing
-    processing_status processing_status_enum DEFAULT 'uploaded',
-    processing_error TEXT,
-    thumbnail_url VARCHAR(500),
-    
-    -- Content analysis
-    has_pii BOOLEAN DEFAULT false,
-    pii_types TEXT[],
-    content_classification VARCHAR(50),
-    
-    -- Lifecycle
-    retention_policy retention_policy_enum DEFAULT '7_years',
-    retention_until DATE,
-    is_archived BOOLEAN DEFAULT false,
-    archived_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Audit
-    uploaded_by UUID NOT NULL,
-    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT valid_file_size CHECK (file_size_bytes > 0),
-    CONSTRAINT valid_mime_type CHECK (mime_type != '')
-);
-
--- Table 3: document_metadata
--- Purpose: Additional metadata for documents stored in media_storage
-CREATE TABLE document_metadata (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    media_storage_id UUID NOT NULL,
-    
-    -- Document classification
-    document_type document_type_enum NOT NULL,
-    document_category document_category_enum NOT NULL,
-    
-    -- Document details
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    document_date DATE,
-    expiration_date DATE,
-    
-    -- Document attributes
-    is_original BOOLEAN DEFAULT true,
-    is_certified_copy BOOLEAN DEFAULT false,
-    certification_details TEXT,
-    
-    -- Legal metadata
-    notarized BOOLEAN DEFAULT false,
-    notary_details JSONB,
-    witnessed BOOLEAN DEFAULT false,
-    witness_details JSONB,
-    
-    -- Searchable content
-    extracted_text TEXT,
-    ocr_processed BOOLEAN DEFAULT false,
-    searchable_content TSVECTOR,
-    
-    -- Tags and categorization
-    tags TEXT[],
-    custom_metadata JSONB DEFAULT '{}',
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_title CHECK (title != '')
-);
-
--- Table 4: asset_categories
--- Purpose: Define the types of assets that can be tracked
-CREATE TABLE asset_categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    
-    -- Category definition
-    name VARCHAR(100) NOT NULL UNIQUE,
-    code VARCHAR(50) NOT NULL UNIQUE,
-    description TEXT,
-    icon VARCHAR(50),
-    
-    -- Hierarchy
-    parent_category_id UUID,
-    sort_order INTEGER DEFAULT 0,
-    
-    -- Metadata
-    is_active BOOLEAN DEFAULT TRUE,
-    requires_valuation BOOLEAN DEFAULT TRUE,
-    requires_documentation BOOLEAN DEFAULT FALSE,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID
-);
-```
-
-### Core Tables
-
-```sql
--- Table 5: users
--- Purpose: Core user authentication and profile information
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Normalized contact references
-    primary_email_id UUID,
-    primary_phone_id UUID,
-    
-    -- Email/Phone verification status tracked here for authentication
-    email_verified BOOLEAN DEFAULT FALSE,
-    email_verified_at TIMESTAMP WITH TIME ZONE,
-    phone_verified BOOLEAN DEFAULT FALSE,
-    phone_verified_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Authentication
-    password_hash VARCHAR(255) NOT NULL,
-    password_salt VARCHAR(255) NOT NULL,
-    password_last_changed TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    must_change_password BOOLEAN DEFAULT FALSE,
-    
-    -- Account Security
-    failed_login_attempts INTEGER DEFAULT 0,
-    account_locked BOOLEAN DEFAULT FALSE,
-    account_locked_until TIMESTAMP WITH TIME ZONE,
-    last_login_at TIMESTAMP WITH TIME ZONE,
-    last_login_ip INET,
-    
-    -- Profile Information
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    display_name VARCHAR(200),
-    profile_picture_url VARCHAR(500),
-    
-    -- System Fields
-    status user_status_enum NOT NULL DEFAULT 'pending_verification',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID
-);
-
--- Table 6: personas
--- Purpose: Business identity layer representing family members (living or deceased)
-CREATE TABLE personas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    user_id UUID, -- NULL for deceased or non-user personas
-    
-    -- Personal identification
-    first_name VARCHAR(255) NOT NULL,
-    middle_name VARCHAR(255),
-    last_name VARCHAR(255) NOT NULL,
-    suffix VARCHAR(50),
-    nickname VARCHAR(255),
-    
-    -- Demographics
-    date_of_birth DATE,
-    date_of_death DATE,
-    place_of_birth VARCHAR(255),
-    gender gender_enum,
-    marital_status marital_status_enum,
-    
-    -- Documentation
-    ssn_last_four VARCHAR(4),
-    has_full_ssn_on_file BOOLEAN DEFAULT FALSE,
-    drivers_license_state VARCHAR(2),
-    drivers_license_number_last_four VARCHAR(4),
-    
-    -- Professional information
-    occupation VARCHAR(255),
-    employer VARCHAR(255),
-    
-    -- Profile
-    profile_photo_url VARCHAR(500),
-    bio TEXT,
-    
-    -- System fields
-    is_living BOOLEAN NOT NULL DEFAULT TRUE,
-    status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_dates CHECK (date_of_death IS NULL OR date_of_death > date_of_birth),
-    CONSTRAINT valid_ssn_format CHECK (ssn_last_four ~ '^[0-9]{4}$' OR ssn_last_four IS NULL),
-    CONSTRAINT valid_living_status CHECK (
-        (is_living = FALSE AND date_of_death IS NOT NULL) OR
-        (is_living = TRUE AND date_of_death IS NULL)
-    )
-);
-
--- Table 7: fwd_family_circles
--- Purpose: Family groups that organize personas and assets
-CREATE TABLE fwd_family_circles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- FFC identification
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    
-    -- Owner must be a user (has login credentials)
-    owner_user_id UUID NOT NULL,
-    
-    -- FFC metadata
-    family_photo_url VARCHAR(500),
-    established_date DATE DEFAULT CURRENT_DATE,
-    
-    -- Settings
-    settings JSONB DEFAULT '{}',
-    privacy_settings JSONB DEFAULT '{}',
-    
-    -- System fields
-    is_active BOOLEAN DEFAULT TRUE,
-    status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_ffc_name CHECK (name != '')
-);
-```
-
-### Contact Tables
-
-```sql
--- Table 8: phone_number
--- Purpose: Centralized phone number storage with validation
-CREATE TABLE phone_number (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Phone number components
-    country_code VARCHAR(5) NOT NULL DEFAULT '+1',
-    phone_number VARCHAR(20) NOT NULL,
-    extension VARCHAR(10),
-    
-    -- Phone metadata
-    phone_type phone_type_enum,
-    is_primary BOOLEAN DEFAULT FALSE,
-    can_receive_sms BOOLEAN DEFAULT TRUE,
-    is_verified BOOLEAN DEFAULT FALSE,
-    verified_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Carrier information
-    carrier_name VARCHAR(100),
-    is_mobile BOOLEAN,
-    
-    -- Multi-tenancy and audit
-    status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT valid_phone_format CHECK (phone_number ~ '^[0-9]{10,15}$'),
-    CONSTRAINT valid_country_code CHECK (country_code ~ '^\+[0-9]{1,4}$')
-);
-
--- Table 9: email_address
--- Purpose: Centralized email address storage with validation
-CREATE TABLE email_address (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Email details
-    email_address VARCHAR(255) NOT NULL,
-    domain VARCHAR(255), -- Extracted domain part
-    
-    -- Email metadata
-    is_verified BOOLEAN DEFAULT FALSE,
-    verified_at TIMESTAMP WITH TIME ZONE,
-    email_type email_type_enum,
-    
-    -- Multi-tenancy and audit
-    status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_email_format CHECK (email_address ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
-);
-
--- Table 10: address
--- Purpose: Normalized physical address storage
-CREATE TABLE address (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Address components
-    address_line_1 VARCHAR(255) NOT NULL,
-    address_line_2 VARCHAR(255),
-    city VARCHAR(100) NOT NULL,
-    state_province VARCHAR(100) NOT NULL,
-    postal_code VARCHAR(20) NOT NULL,
-    country VARCHAR(2) NOT NULL DEFAULT 'US',
-    
-    -- Address metadata
-    address_type address_type_enum,
-    is_primary BOOLEAN DEFAULT FALSE,
-    
-    -- Geocoding
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    geocoding_accuracy VARCHAR(50),
-    
-    -- Validation
-    is_validated BOOLEAN DEFAULT FALSE,
-    validation_source VARCHAR(50),
-    validated_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Multi-tenancy and audit
-    status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT valid_country_code CHECK (country ~ '^[A-Z]{2}$'),
-    CONSTRAINT valid_coordinates CHECK (
-        (latitude IS NULL AND longitude IS NULL) OR
-        (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
-    )
-);
-
--- Table 11: social_media
--- Purpose: Social media account information
-CREATE TABLE social_media (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Platform details
-    platform social_media_platform_enum NOT NULL,
-    platform_user_id VARCHAR(255),
-    username VARCHAR(255) NOT NULL,
-    profile_url VARCHAR(500),
-    
-    -- Account metadata
-    display_name VARCHAR(255),
-    is_verified BOOLEAN DEFAULT FALSE,
-    is_business_account BOOLEAN DEFAULT FALSE,
-    follower_count INTEGER,
-    
-    -- Privacy settings
-    is_public BOOLEAN DEFAULT TRUE,
-    is_active BOOLEAN DEFAULT TRUE,
-    
-    -- Multi-tenancy and audit
-    status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT valid_username CHECK (username != ''),
-    CONSTRAINT valid_follower_count CHECK (follower_count >= 0 OR follower_count IS NULL)
-);
-```
-
-### Relationship Tables
-
-```sql
--- Table 12: usage_email
--- Purpose: Links email addresses to entities (users, personas, assets) with usage context
-CREATE TABLE usage_email (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Entity reference (polymorphic)
-    entity_type entity_type_enum NOT NULL,
-    entity_id UUID NOT NULL,
-    
-    -- Email reference
-    email_id UUID NOT NULL,
-    
-    -- Usage details
-    usage_type email_usage_type_enum NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
-    
-    -- Preferences
-    preferred_contact_time contact_time_enum,
-    notes TEXT,
-    
-    -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Table 13: usage_phone
--- Purpose: Links phone numbers to entities with usage context
-CREATE TABLE usage_phone (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Entity reference (polymorphic)
-    entity_type entity_type_enum NOT NULL,
-    entity_id UUID NOT NULL,
-    
-    -- Phone reference
-    phone_id UUID NOT NULL,
-    
-    -- Usage details
-    usage_type phone_usage_type_enum NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
-    
-    -- Preferences
-    preferred_contact_time contact_time_enum,
-    notes TEXT,
-    
-    -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Table 14: usage_address
--- Purpose: Links addresses to entities with usage context
-CREATE TABLE usage_address (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Entity reference (polymorphic)
-    entity_type entity_type_enum NOT NULL,
-    entity_id UUID NOT NULL,
-    
-    -- Address reference
-    address_id UUID NOT NULL,
-    
-    -- Usage details
-    usage_type address_usage_type_enum NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
-    
-    -- Validity period
-    effective_date DATE,
-    end_date DATE,
-    
-    -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date > effective_date)
-);
-
--- Table 15: usage_social_media
--- Purpose: Links social media accounts to entities with usage context
-CREATE TABLE usage_social_media (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Entity reference (polymorphic)
-    entity_type entity_type_enum NOT NULL,
-    entity_id UUID NOT NULL,
-    
-    -- Social media reference
-    social_media_id UUID NOT NULL,
-    
-    -- Usage details
-    usage_type social_media_usage_type_enum NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
-    
-    -- Access details
-    has_login_credentials BOOLEAN DEFAULT FALSE,
-    recovery_email_id UUID,
-    recovery_phone_id UUID,
-    
-    -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Table 16: contact_info
--- Purpose: External contacts (advisors, companies, institutions)
-CREATE TABLE contact_info (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Contact identification
-    entity_type contact_entity_type_enum NOT NULL,
-    company_name VARCHAR(255),
-    contact_name VARCHAR(255),
-    title VARCHAR(255),
-    
-    -- Contact references
-    primary_email_id UUID,
-    primary_phone_id UUID,
-    primary_address_id UUID,
-    
-    -- Additional info
-    website VARCHAR(500),
-    notes TEXT,
-    
-    -- Professional details
-    license_number VARCHAR(100),
-    license_state VARCHAR(2),
-    specialties TEXT[],
-    
-    -- System fields
-    is_preferred BOOLEAN DEFAULT FALSE,
-    status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT must_have_name CHECK (company_name IS NOT NULL OR contact_name IS NOT NULL)
-);
-
--- Table 17: ffc_personas
--- Purpose: Links personas to FFCs with their role
-CREATE TABLE ffc_personas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Relationships
-    ffc_id UUID NOT NULL,
-    persona_id UUID NOT NULL,
-    
-    -- Role and relationship
-    ffc_role ffc_role_enum NOT NULL,
-    family_relationship family_relationship_enum,
-    relationship_details TEXT,
-    
-    -- Permissions and access
-    can_view_all_assets BOOLEAN DEFAULT FALSE,
-    can_manage_assets BOOLEAN DEFAULT FALSE,
-    custom_permissions JSONB DEFAULT '{}',
-    
-    -- Status
-    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    invited_at TIMESTAMP WITH TIME ZONE,
-    invitation_accepted_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT unique_persona_per_ffc UNIQUE (ffc_id, persona_id)
-);
-```
-
-### Security Tables
-
-```sql
--- Table 18: user_roles
--- Purpose: Define roles for RBAC system
-CREATE TABLE user_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Role definition
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    
-    -- Role metadata
-    is_system_role BOOLEAN DEFAULT FALSE,
-    is_assignable BOOLEAN DEFAULT TRUE,
-    priority INTEGER DEFAULT 100,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT unique_role_name_per_tenant UNIQUE (tenant_id, name)
-);
-
--- Table 19: user_permissions
--- Purpose: Define granular permissions
-CREATE TABLE user_permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Permission definition
-    name VARCHAR(100) NOT NULL,
-    category permission_category_enum NOT NULL,
-    description TEXT,
-    
-    -- Permission metadata
-    resource VARCHAR(100),
-    action VARCHAR(50) NOT NULL,
-    conditions JSONB DEFAULT '{}',
-    
-    -- System fields
-    is_system_permission BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT unique_permission_per_tenant UNIQUE (tenant_id, category, resource, action)
-);
-
--- Table 20: role_permissions
--- Purpose: Link roles to permissions
-CREATE TABLE role_permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    role_id UUID NOT NULL,
-    permission_id UUID NOT NULL,
-    
-    -- Grant details
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    granted_by UUID,
-    
-    -- Constraints
-    CONSTRAINT unique_permission_per_role UNIQUE (role_id, permission_id)
-);
-
--- Table 21: user_role_assignments
--- Purpose: Assign roles to users with optional FFC scope
-CREATE TABLE user_role_assignments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    role_id UUID NOT NULL,
-    ffc_id UUID, -- NULL for platform_admin
-    
-    -- Assignment details
-    assigned_by UUID NOT NULL,
-    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Assignment metadata
-    assignment_reason TEXT,
-    conditions JSONB DEFAULT '{}',
-    
-    -- Status
-    is_active BOOLEAN DEFAULT TRUE,
-    revoked_at TIMESTAMP WITH TIME ZONE,
-    revoked_by UUID,
-    revocation_reason TEXT,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID
-);
-
--- Table 22: ffc_invitations
--- Purpose: Manage invitations to join FFCs
-CREATE TABLE ffc_invitations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Invitation details
-    ffc_id UUID NOT NULL,
-    inviter_user_id UUID NOT NULL,
-    invitee_email_id UUID NOT NULL,
-    invitee_phone_id UUID NOT NULL,
-    invitee_name VARCHAR(255) NOT NULL,
-    proposed_role ffc_role_enum NOT NULL DEFAULT 'beneficiary',
-    
-    -- Invitation message
-    personal_message TEXT,
-    
-    -- Verification
-    email_verification_code VARCHAR(6),
-    email_verification_attempts INTEGER DEFAULT 0,
-    email_verified_at TIMESTAMP WITH TIME ZONE,
-    
-    phone_verification_code VARCHAR(6),
-    phone_verification_attempts INTEGER DEFAULT 0,
-    phone_verified_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Status tracking
-    status invitation_status_enum NOT NULL DEFAULT 'sent',
-    sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    accepted_at TIMESTAMP WITH TIME ZONE,
-    approved_at TIMESTAMP WITH TIME ZONE,
-    approved_by_user_id UUID,
-    declined_at TIMESTAMP WITH TIME ZONE,
-    declined_reason TEXT,
-    
-    -- Expiration
-    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '30 days'),
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_verification_codes CHECK (
-        email_verification_code ~ '^[0-9]{6}$' AND
-        phone_verification_code ~ '^[0-9]{6}$'
-    )
-);
-
--- Table 23: invitation_verification_attempts
--- Purpose: Track verification attempts for security
-CREATE TABLE invitation_verification_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    invitation_id UUID NOT NULL,
-    
-    -- Attempt details
-    verification_type VARCHAR(10) NOT NULL CHECK (verification_type IN ('email', 'phone')),
-    attempted_code VARCHAR(6),
-    ip_address INET,
-    user_agent TEXT,
-    
-    -- Result
-    was_successful BOOLEAN NOT NULL DEFAULT FALSE,
-    failure_reason VARCHAR(100),
-    
-    -- Tracking
-    attempted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Phone specific
-    phone_id UUID NOT NULL,
-    
-    -- Multi-tenancy and audit
-    tenant_id INTEGER NOT NULL
-);
-
--- Table 24: user_sessions
--- Purpose: Track active user sessions
-CREATE TABLE user_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    tenant_id INTEGER NOT NULL,
-    
-    -- Session details
-    session_token VARCHAR(500) NOT NULL UNIQUE,
-    refresh_token VARCHAR(500) UNIQUE,
-    
-    -- Device/Browser info
-    ip_address INET,
-    user_agent TEXT,
-    device_id VARCHAR(255),
-    device_type VARCHAR(50),
-    browser VARCHAR(50),
-    os VARCHAR(50),
-    
-    -- Session lifecycle
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Session metadata
-    is_active BOOLEAN DEFAULT TRUE,
-    login_method VARCHAR(50), -- password, sso, mfa
-    
-    -- Revocation
-    revoked_at TIMESTAMP WITH TIME ZONE,
-    revoked_by UUID,
-    revocation_reason TEXT,
-    
-    -- Constraints
-    CONSTRAINT valid_expiration CHECK (expires_at > created_at)
-);
-
--- Table 25: user_mfa_settings
--- Purpose: Multi-factor authentication settings
-CREATE TABLE user_mfa_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    
-    -- MFA configuration
-    mfa_enabled BOOLEAN DEFAULT FALSE,
-    mfa_method VARCHAR(50), -- totp, sms, email
-    
-    -- TOTP settings
-    totp_secret VARCHAR(255),
-    totp_verified BOOLEAN DEFAULT FALSE,
-    totp_verified_at TIMESTAMP WITH TIME ZONE,
-    
-    -- SMS/Phone settings
-    mfa_phone_id UUID,
-    
-    -- Email settings
-    mfa_email_id UUID,
-    
-    -- Target contact points
-    target_phone_id UUID,
-    target_email_id UUID,
-    
-    -- Backup codes
-    backup_codes TEXT[],
-    backup_codes_generated_at TIMESTAMP WITH TIME ZONE,
-    backup_codes_used INTEGER DEFAULT 0,
-    
-    -- Recovery
-    recovery_codes TEXT[],
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT unique_user_mfa UNIQUE (user_id)
-);
-
--- Table 26: password_reset_tokens
--- Purpose: Secure password reset tokens
-CREATE TABLE password_reset_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    
-    -- Token details
-    token_hash VARCHAR(255) NOT NULL UNIQUE,
-    
-    -- Token lifecycle
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    used_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Request metadata
-    requested_ip INET,
-    requested_user_agent TEXT,
-    
-    -- Usage metadata
-    used_ip INET,
-    used_user_agent TEXT,
-    
-    -- Status
-    is_valid BOOLEAN DEFAULT TRUE,
-    invalidated_reason TEXT,
-    
-    -- Constraints
-    CONSTRAINT valid_token_expiration CHECK (expires_at > created_at),
-    CONSTRAINT token_single_use CHECK (
-        (used_at IS NULL AND is_valid = TRUE) OR
-        (used_at IS NOT NULL AND is_valid = FALSE)
-    )
-);
-
--- Table 27: user_login_history
--- Purpose: Track login attempts and history
-CREATE TABLE user_login_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID, -- Can be NULL for failed attempts
-    email VARCHAR(255) NOT NULL, -- Track even failed attempts
-    
-    -- Attempt details
-    attempt_timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    was_successful BOOLEAN NOT NULL,
-    failure_reason VARCHAR(100),
-    
-    -- Device/Location
-    ip_address INET,
-    user_agent TEXT,
-    device_id VARCHAR(255),
-    location_country VARCHAR(2),
-    location_city VARCHAR(100),
-    
-    -- Security
-    required_mfa BOOLEAN DEFAULT FALSE,
-    mfa_completed BOOLEAN DEFAULT FALSE,
-    risk_score INTEGER,
-    risk_factors TEXT[],
-    
-    -- Session created
-    session_id UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_risk_score CHECK (risk_score BETWEEN 0 AND 100 OR risk_score IS NULL)
-);
-```
-
-### Asset Tables
-
-```sql
--- Table 28: assets
--- Purpose: Core asset tracking - parent table for all asset types
-CREATE TABLE assets (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Asset identification
-    category_id UUID NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    
-    -- Ownership
-    ffc_id UUID NOT NULL,
-    acquisition_date DATE,
-    acquisition_value DECIMAL(15, 2),
-    
-    -- Current value
-    current_value DECIMAL(15, 2),
-    value_as_of_date DATE,
-    currency_code VARCHAR(3) DEFAULT 'USD',
-    
-    -- Documentation
-    primary_document_id UUID,
-    supporting_documents UUID[],
-    
-    -- Status
-    status status_enum NOT NULL DEFAULT 'active',
-    is_verified BOOLEAN DEFAULT FALSE,
-    verification_date DATE,
-    verified_by UUID,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_currency CHECK (currency_code ~ '^[A-Z]{3}$'),
-    CONSTRAINT valid_values CHECK (
-        (acquisition_value >= 0 OR acquisition_value IS NULL) AND
-        (current_value >= 0 OR current_value IS NULL)
-    )
-);
-
--- Table 29: asset_persona
--- Purpose: Link assets to personas with ownership details
-CREATE TABLE asset_persona (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Relationships
-    asset_id UUID NOT NULL,
-    persona_id UUID NOT NULL,
-    
-    -- Ownership details
-    ownership_type ownership_type_enum NOT NULL,
-    ownership_percentage DECIMAL(5, 2),
-    
-    -- Legal details
-    legal_title VARCHAR(500),
-    transfer_on_death_to_persona_id UUID,
-    
-    -- Documentation
-    ownership_document_id UUID,
-    
-    -- Status
-    is_primary BOOLEAN DEFAULT FALSE,
-    effective_date DATE DEFAULT CURRENT_DATE,
-    end_date DATE,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_percentage CHECK (ownership_percentage BETWEEN 0 AND 100),
-    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date > effective_date)
-);
-
--- Table 30: asset_permissions (NEW - Hybrid RBAC + Direct Permissions)
--- Purpose: Simple asset-level permissions for personas
-CREATE TABLE asset_permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    asset_id UUID NOT NULL,
-    persona_id UUID NOT NULL,
-    permission_level VARCHAR(20) NOT NULL CHECK (permission_level IN ('read', 'edit', 'admin')),
-    granted_by_persona_id UUID,
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT unique_asset_persona_permission UNIQUE (asset_id, persona_id)
-);
-```
-
-*Note: The asset_permissions table is a new addition that provides hybrid RBAC + direct asset permissions as mentioned in the requirements.*
-
-### Asset Type Specific Tables
-
-```sql
--- Table 31: personal_directives
--- Purpose: Store healthcare directives, POAs, and other personal directives
-CREATE TABLE personal_directives (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL UNIQUE,
-    
-    -- Directive details
-    directive_type directive_type_enum NOT NULL,
-    directive_subtype VARCHAR(100),
-    
-    -- Principal/Grantor
-    principal_persona_id UUID NOT NULL,
-    
-    -- Agents (primary and successor)
-    agent_persona_id UUID,
-    agent_name VARCHAR(255),
-    agent_email_id UUID,
-    agent_phone_id UUID,
-    
-    -- Successor agents (backup agents)
-    successor_agent_1_persona_id UUID,
-    successor_agent_1_name VARCHAR(255),
-    successor_agent_2_persona_id UUID,
-    successor_agent_2_name VARCHAR(255),
-    
-    -- Healthcare specific fields
-    healthcare_wishes TEXT,
-    life_support_preferences TEXT,
-    organ_donation_preferences TEXT,
-    
-    -- POA specific fields
-    powers_granted TEXT[],
-    powers_excluded TEXT[],
-    special_instructions TEXT,
-    
-    -- Execution details
-    execution_date DATE,
-    effective_date DATE,
-    expiration_date DATE,
-    
-    -- Legal details
-    state_of_execution VARCHAR(2),
-    county_of_execution VARCHAR(100),
-    notarized BOOLEAN DEFAULT FALSE,
-    witnesses INTEGER DEFAULT 0,
-    
-    -- Document references
-    primary_document_id UUID,
-    supporting_documents UUID[],
-    
-    -- Status
-    status directive_status_enum NOT NULL DEFAULT 'draft',
-    revoked_date DATE,
-    revocation_document_id UUID,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_execution_state CHECK (state_of_execution ~ '^[A-Z]{2}$' OR state_of_execution IS NULL),
-    CONSTRAINT valid_date_sequence CHECK (
-        (expiration_date IS NULL OR expiration_date > effective_date) AND
-        (revoked_date IS NULL OR revoked_date >= execution_date)
-    )
-);
-
--- Table 32: trusts
--- Purpose: Store trust information
-CREATE TABLE trusts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id UUID NOT NULL UNIQUE,
-    
-    -- Trust identification
-    trust_name VARCHAR(255) NOT NULL,
-    trust_type trust_type_enum NOT NULL,
-    tax_id VARCHAR(20),
-    
-    -- Parties
-    grantor_persona_id UUID NOT NULL,
-    grantor_name VARCHAR(255) NOT NULL,
-    
-    -- Primary Trustee
-    trustee_persona_id UUID,
-    trustee_name VARCHAR(255) NOT NULL,
-    trustee_email_id UUID,
-    trustee_phone_id UUID,
-    
-    -- Successor Trustees (up to 2)
-    successor_trustee_1_persona_id UUID,
-    successor_trustee_1_name VARCHAR(255),
-    successor_trustee_2_persona_id UUID,
-    successor_trustee_2_name VARCHAR(255),
-    
-    -- Trust details
-    execution_date DATE NOT NULL,
-    effective_date DATE,
-    termination_date DATE,
-    state_of_formation VARCHAR(2),
-    
-    -- Trust provisions
-    distribution_provisions TEXT,
-    special_provisions TEXT,
-    amendment_provisions TEXT,
-    
-    -- Financial details
-    initial_funding_amount DECIMAL(15, 2),
-    current_value DECIMAL(15, 2),
-    value_as_of_date DATE,
-    
-    -- Document references
-    trust_document_id UUID,
-    amendments UUID[],
-    
-    -- Status
-    is_funded BOOLEAN DEFAULT FALSE,
-    is_active BOOLEAN DEFAULT TRUE,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_trust_name CHECK (trust_name != ''),
-    CONSTRAINT valid_state CHECK (state_of_formation ~ '^[A-Z]{2}$' OR state_of_formation IS NULL),
-    CONSTRAINT valid_trust_dates CHECK (
-        (termination_date IS NULL OR termination_date > execution_date) AND
-        (effective_date IS NULL OR effective_date >= execution_date)
-    )
-);
-
--- Additional asset-specific tables would continue here...
--- (wills, personal_property, operational_property, inventory, real_estate, 
---  life_insurance, financial_accounts, recurring_income, digital_assets, 
---  ownership_interests, loans)
--- For brevity, I'll include just the key ones above.
-```
-
-### Audit Tables
-
-```sql
--- Table 33: audit_log
--- Purpose: Comprehensive audit trail
-CREATE TABLE audit_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Actor
-    user_id UUID,
-    persona_id UUID,
-    session_id UUID,
-    
-    -- Action
-    action audit_action_enum NOT NULL,
-    entity_type audit_entity_type_enum NOT NULL,
-    entity_id UUID,
-    entity_name VARCHAR(255),
-    
-    -- Change details
-    old_values JSONB,
-    new_values JSONB,
-    change_summary TEXT,
-    
-    -- Context
-    ip_address INET,
-    user_agent TEXT,
-    request_id UUID,
-    
-    -- Timestamp
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Additional metadata
-    metadata JSONB DEFAULT '{}'
-);
-
--- Table 34: audit_events
--- Purpose: System-wide audit events
-CREATE TABLE audit_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Event identification
-    event_type VARCHAR(100) NOT NULL,
-    event_category VARCHAR(50) NOT NULL,
-    severity VARCHAR(20) NOT NULL, -- info, warning, error, critical
-    
-    -- Event details
-    description TEXT NOT NULL,
-    details JSONB DEFAULT '{}',
-    
-    -- Source
-    source_system VARCHAR(50),
-    source_ip INET,
-    
-    -- User context
-    user_id UUID,
-    session_id UUID,
-    
-    -- Timing
-    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    detected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Response
-    response_action TEXT,
-    resolved_at TIMESTAMP WITH TIME ZONE,
-    resolved_by UUID,
-    
-    -- Constraints
-    CONSTRAINT valid_severity CHECK (severity IN ('info', 'warning', 'error', 'critical'))
-);
-```
-
-### Translation Tables
-
-```sql
--- Table 35: translations
--- Purpose: Multi-language support for UI and content
-CREATE TABLE translations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    
-    -- Translation key
-    translation_key VARCHAR(255) NOT NULL,
-    language_code language_code_enum NOT NULL,
-    
-    -- Content
-    translated_text TEXT NOT NULL,
-    context_notes TEXT,
-    
-    -- Metadata
-    is_verified BOOLEAN DEFAULT FALSE,
-    verified_by UUID,
-    verified_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Version control
-    version INTEGER DEFAULT 1,
-    previous_text TEXT,
-    
-    -- Usage
-    usage_count INTEGER DEFAULT 0,
-    last_used_at TIMESTAMP WITH TIME ZONE,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    CONSTRAINT unique_translation_key UNIQUE (translation_key, language_code)
-);
-
--- Table 36: user_language_preferences
--- Purpose: Track user language preferences
-CREATE TABLE user_language_preferences (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    
-    -- Language settings
-    preferred_language language_code_enum NOT NULL DEFAULT 'en',
-    fallback_language language_code_enum DEFAULT 'en',
-    
-    -- Regional settings
-    date_format VARCHAR(20) DEFAULT 'MM/DD/YYYY',
-    time_format VARCHAR(20) DEFAULT '12h',
-    currency_code VARCHAR(3) DEFAULT 'USD',
-    timezone VARCHAR(50) DEFAULT 'America/New_York',
-    
-    -- Accessibility
-    high_contrast_mode BOOLEAN DEFAULT FALSE,
-    large_text_mode BOOLEAN DEFAULT FALSE,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT unique_user_language_pref UNIQUE (user_id),
-    CONSTRAINT valid_currency_code CHECK (currency_code ~ '^[A-Z]{3}$')
-);
-```
+## Database Overview
+
+The Forward Inheritance Platform uses a PostgreSQL database with a sophisticated multi-tenant architecture designed for secure estate planning and asset management. The database implements Row-Level Security (RLS) policies for data isolation and comprehensive audit trails for compliance with SOC 2 requirements.
+
+**Key Features:**
+- Multi-tenant isolation with tenant-scoped data access
+- Row-Level Security (RLS) policies for fine-grained access control
+- AWS Cognito integration for authentication
+- Comprehensive audit logging and compliance tracking
+- PII detection and data masking capabilities
+- Integration support for third-party services (Quillt, Builder.io, Real Estate APIs)
+
+## Database Extensions
+
+The database uses the following PostgreSQL extensions:
+- `uuid-ossp` - UUID generation functions
+- `pgcrypto` - Cryptographic functions
+- `pg_trgm` - Trigram matching for full-text search
+- `btree_gist` - Additional indexing capabilities
+
+## Enums
+
+### Status and State Enums
+- `status_enum`: 'active', 'inactive', 'pending', 'suspended', 'deleted'
+- `user_status_enum`: 'pending_verification', 'active', 'inactive', 'suspended', 'locked'
+- `processing_status_enum`: 'uploaded', 'processing', 'ready', 'failed'
+- `retention_policy_enum`: 'permanent', '7_years', '5_years', '3_years', '1_year', '6_months'
+
+### Document and Media Enums
+- `document_type_enum`: 'will', 'trust', 'insurance_policy', 'deed', 'contract', 'statement', 'certificate', 'directive', 'other'
+- `document_category_enum`: 'legal', 'financial', 'personal', 'medical', 'business', 'tax', 'insurance'
+
+### Personal Demographics Enums
+- `gender_enum`: 'male', 'female', 'non_binary', 'prefer_not_to_say', 'other'
+- `marital_status_enum`: 'single', 'married', 'divorced', 'widowed', 'separated', 'domestic_partnership'
+
+### Contact Information Enums
+- `phone_type_enum`: 'mobile', 'landline', 'voip', 'toll_free', 'fax'
+- `email_type_enum`: 'personal', 'business', 'temporary', 'alias', 'shared'
+- `address_type_enum`: 'residential', 'business', 'mailing', 'billing', 'property', 'temporary'
+- `social_media_platform_enum`: 'facebook', 'twitter', 'linkedin', 'instagram', 'youtube', 'tiktok', 'snapchat', 'other'
+
+### Usage/Relationship Enums
+- `entity_type_enum`: 'user', 'persona', 'asset'
+- `email_usage_type_enum`: 'primary', 'work', 'personal', 'backup', 'billing', 'notifications'
+- `phone_usage_type_enum`: 'primary', 'work', 'home', 'mobile', 'emergency', 'fax'
+- `address_usage_type_enum`: 'primary', 'mailing', 'billing', 'property', 'work', 'emergency'
+- `contact_time_enum`: 'morning', 'afternoon', 'evening', 'anytime', 'business_hours'
+
+### Family and Relationship Enums
+- `family_relationship_enum`: 'spouse', 'child', 'parent', 'sibling', 'grandparent', 'grandchild', 'aunt_uncle', 'cousin', 'in_law', 'step_family', 'other'
+- `ffc_role_enum`: 'owner', 'beneficiary', 'non_beneficiary', 'advisor'
+- `ownership_type_enum`: 'owner', 'beneficiary', 'trustee', 'executor'
+
+### Legal Document Enums
+- `directive_type_enum`: 'power_of_attorney', 'healthcare_directive', 'living_will', 'hipaa_authorization', 'guardianship_designation', 'family_directive'
+- `directive_status_enum`: 'draft', 'executed', 'active', 'suspended', 'revoked', 'expired', 'superseded'
+- `trust_type_enum`: 'revocable', 'irrevocable', 'living', 'testamentary', 'charitable', 'special_needs', 'generation_skipping', 'asset_protection'
+- `trust_role_enum`: 'grantor', 'trustee', 'successor_trustee', 'beneficiary', 'trust_protector', 'trust_advisor'
+
+### Asset Category Enums
+- `asset_type_enum`: 'personal_directives', 'trust', 'will', 'personal_property', 'operational_property', 'inventory', 'real_estate', 'life_insurance', 'financial_accounts', 'recurring_income', 'digital_assets', 'ownership_interests', 'loans'
+
+### Personal Property Enums
+- `personal_property_type_enum`: 'jewelry', 'precious_metals', 'collectibles', 'art', 'furniture', 'pets_animals', 'memorabilia', 'other'
+- `pet_type_enum`: 'dog', 'cat', 'bird', 'reptile', 'fish', 'horse', 'livestock', 'exotic', 'other'
+- `pet_care_status_enum`: 'self_care', 'needs_basic_care', 'needs_special_care', 'needs_medical_care'
+
+### Operational Property Enums
+- `operational_property_type_enum`: 'vehicle', 'boat_yacht', 'aircraft', 'equipment_machinery', 'appliances_gear', 'recreational_vehicle', 'other'
+- `vehicle_type_enum`: 'car', 'truck', 'suv', 'motorcycle', 'rv', 'trailer', 'other'
+- `vehicle_condition_enum`: 'excellent', 'good', 'fair', 'poor', 'non_operational'
+
+### Real Estate Enums
+- `property_type_enum`: 'single_family', 'multi_family', 'condo', 'townhouse', 'commercial', 'land', 'farm_ranch', 'vacation_property', 'other'
+- `property_ownership_enum`: 'sole_ownership', 'joint_tenancy', 'tenancy_in_common', 'community_property', 'trust_owned', 'llc_owned'
+- `property_use_enum`: 'primary_residence', 'rental', 'vacation', 'commercial', 'investment', 'vacant'
+
+### Financial Enums
+- `account_type_enum`: 'checking', 'savings', 'investment', 'retirement_401k', 'retirement_ira', 'retirement_roth', 'retirement_pension', 'college_529', 'college_coverdell', 'hsa', 'trust_account', 'business_account', 'cryptocurrency'
+- `investment_risk_profile_enum`: 'conservative', 'moderate', 'aggressive', 'speculative'
+- `income_type_enum`: 'royalty', 'pension', 'social_security', 'annuity', 'rental_income', 'dividend', 'trust_distribution', 'business_income', 'other'
+- `payment_frequency_enum`: 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual', 'irregular'
+
+### Digital Assets Enums
+- `digital_asset_type_enum`: 'domain_name', 'website', 'social_media_account', 'digital_content', 'cryptocurrency', 'nft', 'online_business', 'intellectual_property', 'software_license', 'cloud_storage', 'email_account', 'other'
+- `ip_type_enum`: 'patent', 'trademark', 'copyright', 'trade_secret'
+
+### Business Enums
+- `business_entity_type_enum`: 'sole_proprietorship', 'partnership', 'llc', 'corporation', 's_corp', 'c_corp', 'non_profit', 'trust', 'other'
+- `ownership_interest_type_enum`: 'stock', 'membership_interest', 'partnership_interest', 'beneficial_interest', 'option', 'warrant', 'convertible_note'
+
+### Loan Enums
+- `loan_type_enum`: 'mortgage', 'heloc', 'personal', 'business', 'auto', 'student', 'family_loan', 'hard_money', 'other'
+- `loan_status_enum`: 'active', 'paid_off', 'defaulted', 'in_forbearance', 'refinanced'
+- `interest_type_enum`: 'fixed', 'variable', 'hybrid'
+
+### Security and Audit Enums
+- `permission_category_enum`: 'asset', 'user', 'admin', 'report', 'document', 'ffc', 'system'
+- `invitation_status_enum`: 'sent', 'phone_verified', 'accepted', 'approved', 'expired', 'cancelled', 'declined'
+- `audit_action_enum`: 'create', 'read', 'update', 'delete', 'login', 'logout', 'export', 'share', 'permission_change', 'status_change'
+- `audit_entity_type_enum`: 'user', 'persona', 'asset', 'document', 'ffc', 'permission', 'system'
+
+### PII and Compliance Enums
+- `pii_type_enum`: 'ssn', 'credit_card', 'bank_account', 'drivers_license', 'passport', 'medical_record', 'tax_id', 'other'
+- `pii_risk_level_enum`: 'low', 'medium', 'high', 'critical'
+
+### Integration Enums
+- `language_code_enum`: 'en', 'es', 'fr', 'de', 'pt', 'zh', 'ja', 'ko', 'ar', 'hi', 'ru'
+- `translation_status_enum`: 'pending', 'in_progress', 'completed', 'approved', 'rejected'
+- `integration_status_enum`: 'connected', 'disconnected', 'error', 'pending', 'expired'
+- `sync_status_enum`: 'pending', 'in_progress', 'completed', 'failed', 'partial'
+- `webhook_status_enum`: 'pending', 'delivered', 'failed', 'retrying'
+
+## Tables (Organized by Category)
+
+### Core System Tables
+
+#### tenants
+Multi-tenancy foundation table that isolates data between different organizations.
+
+**Columns:**
+- `id` (INTEGER, PRIMARY KEY)
+- `name` (TEXT, NOT NULL, UNIQUE) - Unique tenant identifier
+- `display_name` (TEXT, NOT NULL) - User-friendly tenant name
+- `domain` (TEXT) - Tenant domain
+- `logo_url` (TEXT) - Tenant branding logo URL
+- `primary_color` (VARCHAR(7)) - Primary brand color (hex)
+- `secondary_color` (VARCHAR(7)) - Secondary brand color (hex)
+- `settings` (JSONB, DEFAULT '{}') - Tenant configuration settings
+- `feature_flags` (JSONB, DEFAULT '{}') - Feature toggles
+- `is_active` (BOOLEAN, NOT NULL, DEFAULT true)
+- Standard audit fields (created_at, updated_at, created_by, updated_by)
+
+#### media_storage
+Centralized storage for all uploaded files and documents.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL) - Foreign key to tenants
+- File identification (file_name, original_file_name, mime_type, file_size_bytes)
+- Storage details (storage_provider, storage_bucket, storage_key, storage_region, cdn_url)
+- File metadata (checksum, encryption_key_id, is_encrypted)
+- Processing status and error handling
+- Content analysis (has_pii, pii_types, content_classification)
+- Lifecycle management (retention_policy, retention_until, is_archived, archived_at)
+- Standard audit fields
+
+#### document_metadata
+Additional metadata for documents stored in media_storage.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- `media_storage_id` (UUID, NOT NULL) - Foreign key to media_storage
+- Document classification (document_type, document_category)
+- Document details (title, description, document_date, expiration_date)
+- Document attributes (is_original, is_certified_copy, certification_details)
+- Legal metadata (notarized, notary_details, witnessed, witness_details)
+- Searchable content (extracted_text, ocr_processed, searchable_content as TSVECTOR)
+- Tags and categorization (tags as TEXT[], custom_metadata as JSONB)
+- Standard audit fields
+
+### User and Identity Management
+
+#### users
+Core user authentication and profile information with AWS Cognito integration.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Cognito integration (cognito_user_id, cognito_username)
+- Contact references (primary_email_id, primary_phone_id)
+- Verification status (email_verified, email_verified_at, phone_verified, phone_verified_at)
+- Account metadata (last_login_at, last_login_ip)
+- Profile information (first_name, last_name, display_name, profile_picture_url)
+- Preferences (preferred_language, timezone)
+- System fields (status, created_at, updated_at, created_by, updated_by)
+
+#### personas
+Business identity layer representing family members (living or deceased).
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- `user_id` (UUID) - NULL for deceased or non-user personas
+- Personal identification (first_name, middle_name, last_name, suffix, nickname)
+- Demographics (date_of_birth, date_of_death, place_of_birth, gender, marital_status)
+- Documentation (ssn_last_four, has_full_ssn_on_file, drivers_license info)
+- Professional information (occupation, employer)
+- Profile (profile_photo_url, bio)
+- System fields (is_living, status, created_at, updated_at, created_by, updated_by)
+
+#### fwd_family_circles
+Family groups that organize personas and assets.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- FFC identification (name, description)
+- `owner_user_id` (UUID, NOT NULL) - Must be a user with login credentials
+- FFC metadata (family_photo_url, established_date)
+- Settings (settings, privacy_settings as JSONB)
+- System fields (is_active, status, created_at, updated_at, created_by, updated_by)
+
+### Contact Information Tables
+
+#### phone_number
+Centralized phone number storage with validation.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Phone components (country_code, phone_number, extension)
+- Phone metadata (phone_type, is_primary, can_receive_sms, is_verified, verified_at)
+- Carrier information (carrier_name, is_mobile)
+- System fields (status, created_at, updated_at)
+
+#### email_address
+Centralized email address storage with validation.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Email details (email_address, domain)
+- Email metadata (is_verified, verified_at, email_type)
+- System fields (status, created_at, updated_at, created_by, updated_by)
+
+#### address
+Normalized physical address storage.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Address components (address_line_1, address_line_2, city, state_province, postal_code, country)
+- Address metadata (address_type, is_primary)
+- Geocoding (latitude, longitude, geocoding_accuracy)
+- Validation (is_validated, validation_source, validated_at)
+- System fields (status, created_at, updated_at)
+
+#### social_media
+Social media account information.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Platform details (platform, platform_user_id, username, profile_url)
+- Account metadata (display_name, is_verified, is_business_account, follower_count)
+- Privacy settings (is_public, is_active)
+- System fields (status, created_at, updated_at)
+
+### Usage/Relationship Tables
+
+#### usage_email
+Links email addresses to entities (users, personas, assets) with usage context.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Entity reference (entity_type, entity_id)
+- `email_id` (UUID, NOT NULL) - Foreign key to email_address
+- Usage details (usage_type, is_primary)
+- Preferences (preferred_contact_time, notes)
+- System fields (created_at, updated_at)
+
+#### usage_phone
+Links phone numbers to entities with usage context.
+
+**Columns:**
+- Similar structure to usage_email but for phone numbers
+- `phone_id` (UUID, NOT NULL) - Foreign key to phone_number
+
+#### usage_address
+Links addresses to entities with usage context.
+
+**Columns:**
+- Similar structure to usage_email but for addresses
+- `address_id` (UUID, NOT NULL) - Foreign key to address
+- Validity period (effective_date, end_date)
+
+#### usage_social_media
+Links social media accounts to entities with usage context.
+
+**Columns:**
+- Similar structure to usage_email but for social media
+- `social_media_id` (UUID, NOT NULL) - Foreign key to social_media
+- Access details (has_login_credentials, recovery_email_id, recovery_phone_id)
+
+### Asset Management Tables
+
+#### asset_categories
+Define the types of assets that can be tracked.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- Category definition (name, code, description, icon)
+- Hierarchy (parent_category_id, sort_order)
+- Metadata (is_active, requires_valuation, requires_documentation)
+- Standard audit fields
+
+#### assets
+Core asset tracking table.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Asset identification (category_id, name, description)
+- Valuation (estimated_value, currency_code, last_valued_date)
+- Metadata (tags as JSONB)
+- System fields (status, created_at, updated_at, created_by, updated_by)
+
+#### asset_persona
+Links assets to personas with ownership details.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Relationships (asset_id, persona_id)
+- Ownership details (ownership_type, ownership_percentage)
+- Legal details (legal_title, transfer_on_death_to_persona_id)
+- Documentation (ownership_document_id)
+- Status (is_primary, effective_date, end_date)
+- Standard audit fields
+
+#### asset_permissions
+Simple asset-level permissions for personas.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- `asset_id` (UUID, NOT NULL)
+- `persona_id` (UUID, NOT NULL)
+- `permission_level` (VARCHAR(20)) - 'read', 'edit', 'admin'
+- Grant details (granted_by_persona_id, granted_at)
+- Standard audit fields
+
+### Asset Type-Specific Tables
+
+#### personal_directives
+Healthcare directives, POAs, and other personal directives.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Directive details (directive_type, directive_subtype)
+- Principal/Grantor (principal_persona_id)
+- Agents (agent_persona_id, agent_name, agent_email_id, agent_phone_id)
+- Successor agents (successor_agent_1_persona_id, successor_agent_1_name, etc.)
+- Healthcare specific fields (healthcare_wishes, life_support_preferences, organ_donation_preferences)
+- POA specific fields (powers_granted, powers_excluded, special_instructions)
+- Execution details (execution_date, effective_date, expiration_date)
+- Legal details (state_of_execution, county_of_execution, notarized, witnesses)
+- Document references (primary_document_id, supporting_documents)
+- Status (status, revoked_date, revocation_document_id)
+- Standard audit fields
+
+#### trusts
+Trust information storage.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Trust identification (trust_name, trust_type, tax_id)
+- Parties (grantor_persona_id, grantor_name)
+- Trustee information (trustee_persona_id, trustee_name, trustee_email_id, trustee_phone_id)
+- Successor trustees (successor_trustee_1_persona_id, successor_trustee_1_name, etc.)
+- Trust details (execution_date, effective_date, termination_date, state_of_formation)
+- Trust provisions (distribution_provisions, special_provisions, amendment_provisions)
+- Financial details (initial_funding_amount, current_value, value_as_of_date)
+- Document references (trust_document_id, amendments)
+- Status (is_funded, is_active)
+- Standard audit fields
+
+#### wills
+Will information storage.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Testator information (testator_persona_id, testator_name)
+- Executor information (executor_persona_id, executor_name, executor_email_id, executor_phone_id)
+- Successor executors (successor_executor_1_persona_id, successor_executor_1_name, etc.)
+- Will details (will_type, execution_date)
+- Legal details (state_of_execution, county_of_execution)
+- Witnesses (witness_1_name, witness_2_name, notarized, self_proving)
+- Will provisions (guardian_provisions, distribution_provisions, special_bequests, residuary_clause)
+- Codicils and amendments (has_codicils, codicil_dates, codicil_documents)
+- Document storage (original_location, copies_location, will_document_id)
+- Status (is_current, revoked_date, revocation_method, superseded_by_will_id)
+- Standard audit fields
+
+#### personal_property
+Jewelry, collectibles, pets, art, furniture, etc.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Property classification (property_type, property_subtype)
+- Item details (item_name, brand_manufacturer, model_style, serial_number, year_acquired)
+- Physical characteristics (material_composition, dimensions, weight, color, condition_description)
+- Location (storage_address_id, storage_location_detail)
+- Insurance (is_insured, insurance_company, insurance_policy_number, insurance_value, insurance contacts)
+- Documentation (receipt_document_id, appraisal_document_id, photo_ids, certificate_of_authenticity_id)
+- Pet-specific fields (pet_name, pet_type, pet_breed, pet_age, pet_microchip_id, pet_care_instructions, veterinarian contact, pet_care_status)
+- Standard audit fields
+
+#### operational_property
+Vehicles, boats, equipment, machinery, appliances.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Property classification (property_type, property_subtype)
+- Identification (make, model, year, vin_hull_serial, registration_number, registration_state)
+- Specifications (engine_details, mileage_hours, fuel_type, transmission_type, color)
+- Location and storage (storage_address_id, storage_location_detail)
+- Insurance (is_insured, insurance_company, insurance_policy_number, insurance contacts)
+- Operational details (is_operational, last_service_date, next_service_due, service_provider_contact_id)
+- Financial (loan_balance, loan_account_number, loan_institution)
+- Documentation (title_document_id, registration_document_id, service_records)
+- Standard audit fields
+
+#### inventory
+Business inventory, supplies, fixtures.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Inventory identification (inventory_type, category)
+- Quantities (total_units, unit_of_measure, units_per_package)
+- Valuation (cost_per_unit, total_cost, market_value_per_unit, total_market_value)
+- Location (storage_address_id, storage_location_detail)
+- Supplier information (supplier_name, supplier_contact_id, supplier contacts)
+- Documentation (inventory_list_document_id, purchase_orders)
+- Status (last_inventory_date, next_inventory_date)
+- Standard audit fields
+
+#### real_estate
+Real property - homes, land, commercial property.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Property identification (property_type, property_subtype)
+- Location (property_address_id NOT NULL, parcel_number)
+- Property details (lot_size_acres, building_size_sqft, bedrooms, bathrooms, year_built)
+- Ownership details (ownership_type, deed_type, title_company, title_policy_number)
+- Usage (property_use, rental_income_monthly)
+- Mortgage information (has_mortgage, mortgage_balance, mortgage_payment, mortgage_institution, mortgage_account_number)
+- Insurance (homeowners_insurance_company, homeowners_policy_number, insurance_annual_premium, insurance contacts)
+- Tax information (annual_property_tax, tax_assessment_value, tax_assessment_year)
+- HOA/Condo information (has_hoa, hoa_fee_monthly, hoa_contact_id)
+- Documentation (deed_document_id, survey_document_id)
+- Standard audit fields
+
+#### life_insurance
+Life insurance policies.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Policy details (insurance_company, policy_number, policy_type)
+- Coverage (death_benefit_amount, cash_value, cash_value_as_of_date)
+- Policy dates (issue_date, maturity_date)
+- Insured and owner (insured_persona_id, policy_owner_persona_id)
+- Premium information (annual_premium, premium_frequency, premium_paid_to_date)
+- Riders and options (has_riders, rider_details)
+- Agent/Company contact (agent_name, agent_contact_id, insurer contacts)
+- Documentation (policy_document_id, beneficiary_designation_document_id)
+- Status (policy_status)
+- Standard audit fields
+
+#### financial_accounts
+Bank accounts, investment accounts, retirement accounts.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Account identification (institution_name, account_type, account_number_last_four)
+- Institution details (routing_number_last_four, swift_code, institution contacts)
+- Account details (account_title, date_opened)
+- Balances (current_balance, balance_as_of_date, available_balance)
+- Investment specific (total_contributions, vested_balance, investment_risk_profile)
+- Financial advisor (has_advisor, advisor_name, advisor contacts)
+- Online access (online_access_url, online_username)
+- Features (has_checks, has_debit_card, has_overdraft_protection)
+- Documentation (statement_document_ids)
+- Standard audit fields
+
+#### recurring_income
+Royalties, pensions, annuities, rental income.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Income identification (income_type, income_source, description)
+- Payment details (payment_amount, payment_frequency)
+- Payment dates (start_date, end_date, next_payment_date, last_payment_date)
+- Payer information (payer_name, payer_tax_id, contact information)
+- Documentation (contract_document_id, payment_history_document_id)
+- Tax information (is_taxable, tax_form_type)
+- Direct deposit (deposit_account_id)
+- Status (is_active)
+- Standard audit fields
+
+#### digital_assets
+Domains, IP, online accounts, cryptocurrency.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Asset classification (asset_type, asset_subtype)
+- Digital asset details (asset_name, asset_identifier, platform_name)
+- Access information (access_url, username, recovery contacts, two_factor_enabled)
+- Intellectual property specific (ip_type, registration_number, registration_date, expiration_date, jurisdiction)
+- Crypto specific (wallet_type, blockchain, wallet_address, approximate_balance, balance_as_of_date)
+- Documentation (backup_codes_document_id, registration_document_id)
+- Status (is_active, renewal_required, auto_renew_enabled)
+- Standard audit fields
+
+#### ownership_interests
+Business ownership, partnerships, franchises.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Business identification (entity_name, entity_type, tax_id, state_of_formation)
+- Ownership details (ownership_type, ownership_percentage, number_of_shares, share_class)
+- Valuation (initial_investment, current_valuation, valuation_date, valuation_method)
+- Business details (business_description, industry, annual_revenue, number_of_employees)
+- Management (is_active_participant, management_role)
+- Distributions (receives_distributions, distribution_frequency, last_distribution_amount, last_distribution_date)
+- Key contacts (primary_contact_name, primary_contact_title, primary contact information)
+- Governance (has_operating_agreement, has_buy_sell_agreement)
+- Documentation (formation_document_id, operating_agreement_document_id, financial_statements_document_ids)
+- Standard audit fields
+
+#### loans
+Loans receivable, family loans, business loans owed to the persona.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- Loan identification (loan_type, loan_number)
+- Parties (lender_persona_id, lender_name, lender contacts, borrower_name, borrower_tax_id, borrower_contact_id)
+- Loan terms (original_amount, current_balance, interest_rate, interest_type)
+- Dates (origination_date, maturity_date, last_payment_date, next_payment_date)
+- Payment details (payment_amount, payment_frequency, payments_remaining)
+- Collateral (is_secured, collateral_description, collateral_value)
+- Documentation (loan_agreement_document_id, promissory_note_document_id, payment_history_document_id)
+- Status (loan_status)
+- Collection information (is_in_collections, collection_agency_contact_id)
+- Standard audit fields
+
+### Contact and External Entity Tables
+
+#### contact_info
+External contacts (advisors, companies, institutions).
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Contact identification (entity_type, company_name, contact_name, title)
+- Contact references (primary_email_id, primary_phone_id, primary_address_id)
+- Additional info (website, notes)
+- Professional details (license_number, license_state, specialties)
+- System fields (is_preferred, status, created_at, updated_at)
+
+#### ffc_personas
+Links personas to FFCs with their role.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Relationships (ffc_id, persona_id)
+- Role and relationship (ffc_role, family_relationship, relationship_details)
+- Permissions and access (can_view_all_assets, can_manage_assets, custom_permissions)
+- Status (joined_at, invited_at, invitation_accepted_at, is_active)
+- Standard audit fields
+
+### RBAC (Role-Based Access Control) Tables
+
+#### user_roles
+Define roles for RBAC system.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Role definition (name, description)
+- Role metadata (is_system_role, is_assignable, priority)
+- System fields (created_at, updated_at)
+
+#### user_permissions
+Define granular permissions.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Permission definition (name, category, description)
+- Permission metadata (resource, action, conditions)
+- System fields (is_system_permission, created_at, updated_at)
+
+#### role_permissions
+Link roles to permissions.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `role_id` (UUID, NOT NULL)
+- `permission_id` (UUID, NOT NULL)
+- Grant details (granted_at, granted_by)
+
+#### user_role_assignments
+Assign roles to users with optional FFC scope.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL)
+- `role_id` (UUID, NOT NULL)
+- `ffc_id` (UUID) - NULL for platform_admin
+- Assignment details (assigned_by, assigned_at, expires_at)
+- Assignment metadata (assignment_reason, conditions)
+- Status (is_active, revoked_at, revoked_by, revocation_reason)
+- Standard audit fields
+
+### Invitation System Tables
+
+#### ffc_invitations
+Manage invitations to join FFCs.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Invitation details (ffc_id, inviter_user_id, invitee_email_id, invitee_phone_id, invitee_name, proposed_role)
+- Invitation message (personal_message)
+- Verification (email_verification_code, email_verification_attempts, email_verified_at, phone_verification_code, phone_verification_attempts, phone_verified_at)
+- Status tracking (status, sent_at, accepted_at, approved_at, approved_by_user_id, declined_at, declined_reason)
+- Expiration (expires_at)
+- Standard audit fields
+
+#### invitation_verification_attempts
+Track verification attempts for security.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `invitation_id` (UUID, NOT NULL)
+- Attempt details (verification_type, attempted_code, ip_address, user_agent)
+- Result (was_successful, failure_reason)
+- Tracking (attempted_at)
+- Phone specific (phone_id)
+- Multi-tenancy (tenant_id)
+
+### Security and Session Management Tables
+
+#### user_sessions
+Track active user sessions.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL)
+- `tenant_id` (INTEGER, NOT NULL)
+- Session details (session_token, refresh_token)
+- Device/Browser info (ip_address, user_agent, device_id, device_type, browser, os)
+- Session lifecycle (created_at, expires_at, last_activity_at)
+- Session metadata (is_active, login_method)
+- Revocation (revoked_at, revoked_by, revocation_reason)
+
+#### user_mfa_settings
+Multi-factor authentication settings.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL)
+- MFA configuration (mfa_enabled, mfa_method)
+- TOTP settings (totp_secret, totp_verified, totp_verified_at)
+- SMS/Phone settings (mfa_phone_id)
+- Email settings (mfa_email_id)
+- Target contact points (target_phone_id, target_email_id)
+- Backup codes (backup_codes, backup_codes_generated_at, backup_codes_used)
+- Recovery (recovery_codes)
+- Standard audit fields
+
+#### password_reset_tokens
+Secure password reset tokens.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL)
+- Token details (token_hash)
+- Token lifecycle (created_at, expires_at, used_at)
+- Request metadata (requested_ip, requested_user_agent)
+- Usage metadata (used_ip, used_user_agent)
+- Status (is_valid, invalidated_reason)
+
+#### user_login_history
+Track login attempts and history.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID) - Can be NULL for failed attempts
+- `email` (TEXT, NOT NULL) - Track even failed attempts
+- Attempt details (attempt_timestamp, was_successful, failure_reason)
+- Device/Location (ip_address, user_agent, device_id, location_country, location_city)
+- Security (required_mfa, mfa_completed, risk_score, risk_factors)
+- Session created (session_id)
+
+### Audit and Compliance Tables
+
+#### audit_log
+Comprehensive audit trail.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Actor (user_id, persona_id, session_id)
+- Action (action, entity_type, entity_id, entity_name)
+- Change details (old_values, new_values, change_summary)
+- Context (ip_address, user_agent, request_id)
+- Timestamp (created_at)
+- Additional metadata (metadata)
+
+#### audit_events
+System-wide audit events.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Event identification (event_type, event_category, severity)
+- Event details (description, details)
+- Source (source_system, source_ip)
+- User context (user_id, session_id)
+- Timing (occurred_at, detected_at)
+- Response (response_action, resolved_at, resolved_by)
+
+### PII and Data Protection Tables
+
+#### pii_detection_rules
+Rules for detecting and handling PII.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- Rule definition (rule_name, pii_type)
+- Pattern matching (detection_pattern, pattern_type)
+- Rule configuration (confidence_threshold, is_active)
+- Actions (action_on_detection, masking_pattern)
+- Risk assessment (risk_level)
+- Metadata (description, examples)
+- Standard audit fields
+
+#### pii_processing_jobs
+Track PII scanning and processing jobs.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Job details (job_type, target_table, target_columns)
+- Execution (status, started_at, completed_at)
+- Results (records_processed, pii_found_count, pii_masked_count, errors_count)
+- Error handling (error_details)
+- Configuration (rules_applied, processing_options)
+- System fields (created_at, scheduled_by)
+
+#### masking_configurations
+Configure data masking rules.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Target (table_name, column_name)
+- Masking configuration (masking_type, masking_pattern, preserve_format)
+- Conditions (apply_condition, user_roles)
+- Options (show_last_n_chars, show_first_n_chars, replacement_char)
+- Status (is_active)
+- Standard audit fields
+
+#### pii_access_logs
+Track access to PII data.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Access details (user_id, accessed_at)
+- What was accessed (table_name, column_names, record_identifiers)
+- PII details (pii_types, data_classification)
+- Access context (access_reason, access_method)
+- Document reference (document_id)
+- Session info (session_id, ip_address)
+- Compliance (consent_verified, legal_basis)
+- Alert status (requires_review, reviewed_by, reviewed_at)
+
+### Translation and Localization Tables
+
+#### translations
+Multi-language support for UI and content.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- Translation key (translation_key, language_code)
+- Content (translated_text, context_notes)
+- Metadata (is_verified, verified_by, verified_at)
+- Version control (version, previous_text)
+- Usage (usage_count, last_used_at)
+- Standard audit fields
+
+#### user_language_preferences
+Track user language preferences.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL)
+- Language settings (preferred_language, fallback_language)
+- Regional settings (date_format, time_format, currency_code, timezone)
+- Accessibility (high_contrast_mode, large_text_mode)
+- System fields (created_at, updated_at)
 
 ### Integration Tables
 
-```sql
--- Table 37: builder_io_integrations
--- Purpose: Builder.io CMS integration
-CREATE TABLE builder_io_integrations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    
-    -- Builder.io configuration
-    api_key VARCHAR(255) NOT NULL,
-    space_id VARCHAR(255) NOT NULL,
-    environment VARCHAR(50) DEFAULT 'production',
-    
-    -- Content mapping
-    content_model_mappings JSONB DEFAULT '{}',
-    
-    -- Sync settings
-    auto_sync_enabled BOOLEAN DEFAULT FALSE,
-    sync_frequency_hours INTEGER DEFAULT 24,
-    last_sync_at TIMESTAMP WITH TIME ZONE,
-    next_sync_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Status
-    is_active BOOLEAN DEFAULT TRUE,
-    connection_status integration_status_enum DEFAULT 'disconnected',
-    last_error TEXT,
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT unique_builder_integration UNIQUE (tenant_id)
-);
+#### advisor_companies
+Professional service providers.
 
--- Table 38: quillt_integrations
--- Purpose: Quillt financial data integration
-CREATE TABLE quillt_integrations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL,
-    user_id UUID NOT NULL,
-    
-    -- Quillt connection
-    quillt_connection_id VARCHAR(255) NOT NULL,
-    quillt_profile_id VARCHAR(255),
-    
-    -- OAuth tokens
-    access_token_encrypted TEXT,
-    refresh_token_encrypted TEXT,
-    token_expires_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Sync configuration
-    sync_accounts BOOLEAN DEFAULT TRUE,
-    sync_transactions BOOLEAN DEFAULT TRUE,
-    sync_investments BOOLEAN DEFAULT TRUE,
-    
-    -- Sync status
-    last_sync_at TIMESTAMP WITH TIME ZONE,
-    last_successful_sync_at TIMESTAMP WITH TIME ZONE,
-    sync_status sync_status_enum DEFAULT 'pending',
-    sync_error TEXT,
-    
-    -- Connected accounts
-    connected_account_ids TEXT[],
-    
-    -- Status
-    is_active BOOLEAN DEFAULT TRUE,
-    connection_status integration_status_enum DEFAULT 'disconnected',
-    
-    -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT unique_quillt_user UNIQUE (tenant_id, user_id)
-);
-```
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Company details (company_name, company_type, tax_id)
+- Contact information (primary_contact_name, primary contact references, website_url)
+- Licensing (license_number, license_state, license_expiration)
+- Service details (services_provided, specialties)
+- Relationship (client_since, last_review_date, next_review_date)
+- Ratings (service_rating, would_recommend, notes)
+- Status (is_active)
+- Standard audit fields
 
-## Indexes
+#### builder_io_integrations
+Builder.io CMS integration.
 
-```sql
--- ================================================================
--- INDEXES FOR PERFORMANCE
--- ================================================================
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Builder.io configuration (api_key, space_id, environment)
+- Content mapping (content_model_mappings)
+- Sync settings (auto_sync_enabled, sync_frequency_hours, last_sync_at, next_sync_at)
+- Status (is_active, connection_status, last_error)
+- System fields (created_at, updated_at)
 
--- Tenant isolation indexes
-CREATE INDEX idx_media_storage_tenant ON media_storage(tenant_id);
-CREATE INDEX idx_document_metadata_tenant ON document_metadata(tenant_id);
-CREATE INDEX idx_users_tenant ON users(tenant_id);
-CREATE INDEX idx_personas_tenant ON personas(tenant_id);
-CREATE INDEX idx_fwd_family_circles_tenant ON fwd_family_circles(tenant_id);
-CREATE INDEX idx_assets_tenant ON assets(tenant_id);
+#### quillt_integrations
+Quillt financial data integration.
 
--- Authentication and session indexes
-CREATE INDEX idx_users_email_verified ON users(email_verified) WHERE email_verified = FALSE;
-CREATE INDEX idx_users_status ON users(status);
-CREATE INDEX idx_user_sessions_token ON user_sessions(session_token) WHERE is_active = TRUE;
-CREATE INDEX idx_user_sessions_user ON user_sessions(user_id, is_active);
-CREATE INDEX idx_password_reset_tokens_hash ON password_reset_tokens(token_hash) WHERE is_valid = TRUE;
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- `user_id` (UUID, NOT NULL)
+- Quillt connection (quillt_connection_id, quillt_profile_id)
+- OAuth tokens (access_token_encrypted, refresh_token_encrypted, token_expires_at)
+- Sync configuration (sync_accounts, sync_transactions, sync_investments)
+- Sync status (last_sync_at, last_successful_sync_at, sync_status, sync_error)
+- Connected accounts (connected_account_ids)
+- Status (is_active, connection_status)
+- System fields (created_at, updated_at)
 
--- Contact information lookup indexes
-CREATE INDEX idx_email_address_email ON email_address(email_address);
-CREATE INDEX idx_phone_number_phone ON phone_number(country_code, phone_number);
-CREATE INDEX idx_address_postal ON address(postal_code, country);
+#### quillt_webhook_logs
+Track Quillt webhook events.
 
--- Usage relationship indexes
-CREATE INDEX idx_usage_email_entity ON usage_email(entity_type, entity_id);
-CREATE INDEX idx_usage_phone_entity ON usage_phone(entity_type, entity_id);
-CREATE INDEX idx_usage_address_entity ON usage_address(entity_type, entity_id);
-CREATE INDEX idx_usage_social_media_entity ON usage_social_media(entity_type, entity_id);
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- Webhook details (webhook_id, event_type)
+- Payload (payload, headers)
+- Processing (received_at, processed_at, processing_status, processing_error, retry_count)
+- Related entities (user_id, integration_id)
 
--- FFC and persona relationship indexes
-CREATE INDEX idx_ffc_personas_ffc ON ffc_personas(ffc_id);
-CREATE INDEX idx_ffc_personas_persona ON ffc_personas(persona_id);
-CREATE INDEX idx_personas_user ON personas(user_id) WHERE user_id IS NOT NULL;
+#### real_estate_provider_integrations
+Real estate data provider integration.
 
--- Asset relationship indexes
-CREATE INDEX idx_assets_ffc ON assets(ffc_id);
-CREATE INDEX idx_assets_category ON assets(category_id);
-CREATE INDEX idx_asset_persona_asset ON asset_persona(asset_id);
-CREATE INDEX idx_asset_persona_persona ON asset_persona(persona_id);
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Provider details (provider_name, api_key_encrypted, api_endpoint)
+- Configuration (update_frequency_days, property_data_fields)
+- Status (is_active, last_sync_at)
+- System fields (created_at, updated_at)
 
--- Document and media indexes
-CREATE INDEX idx_media_storage_processing ON media_storage(processing_status) WHERE processing_status != 'ready';
-CREATE INDEX idx_document_metadata_media ON document_metadata(media_storage_id);
-CREATE INDEX idx_document_metadata_type ON document_metadata(document_type, document_category);
-CREATE INDEX idx_document_metadata_search ON document_metadata USING GIN(searchable_content);
+#### real_estate_sync_logs
+Track real estate data synchronization.
 
--- Audit and compliance indexes
-CREATE INDEX idx_audit_log_user ON audit_log(user_id);
-CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id);
-CREATE INDEX idx_audit_log_created ON audit_log(created_at DESC);
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- Sync details (integration_id, property_id)
+- Sync data (sync_type)
+- Results (old_value, new_value, data_source)
+- Status (sync_status, error_message)
+- Timing (initiated_at, completed_at)
 
--- RBAC indexes
-CREATE INDEX idx_user_role_assignments_user ON user_role_assignments(user_id) WHERE is_active = TRUE;
-CREATE INDEX idx_user_role_assignments_role ON user_role_assignments(role_id) WHERE is_active = TRUE;
-CREATE INDEX idx_role_permissions_role ON role_permissions(role_id);
+## Relationships (Foreign Keys - Deduplicated)
 
--- Invitation indexes
-CREATE INDEX idx_ffc_invitations_ffc ON ffc_invitations(ffc_id);
-CREATE INDEX idx_ffc_invitations_status ON ffc_invitations(status);
-CREATE INDEX idx_ffc_invitations_email ON ffc_invitations(invitee_email_id);
+### Tenant Relationships
+All major tables have foreign key constraints to `tenants(id)` for multi-tenant isolation:
+- `media_storage.tenant_id` → `tenants(id)`
+- `document_metadata.tenant_id` → `tenants(id)`
+- `users.tenant_id` → `tenants(id)`
+- `personas.tenant_id` → `tenants(id)`
+- `fwd_family_circles.tenant_id` → `tenants(id)`
+- All contact and usage tables have tenant_id foreign keys
+- All asset-related tables have tenant_id foreign keys
+- All RBAC tables have tenant_id foreign keys
+- All audit and compliance tables have tenant_id foreign keys
 
--- Asset permissions index
-CREATE INDEX idx_asset_permissions_asset ON asset_permissions(asset_id);
-CREATE INDEX idx_asset_permissions_persona ON asset_permissions(persona_id);
+### Core Entity Relationships
+- `users.primary_email_id` → `email_address(id)`
+- `users.primary_phone_id` → `phone_number(id)`
+- `personas.user_id` → `users(id)` (NULL allowed for deceased personas)
+- `fwd_family_circles.owner_user_id` → `users(id)`
+- `ffc_personas.ffc_id` → `fwd_family_circles(id)`
+- `ffc_personas.persona_id` → `personas(id)`
 
--- ================================================================
--- PARTIAL UNIQUE INDEXES (PostgreSQL 17 compatible)
--- ================================================================
+### Asset Relationships
+- `assets.category_id` → `asset_categories(id)`
+- `asset_persona.asset_id` → `assets(id)`
+- `asset_persona.persona_id` → `personas(id)`
+- `asset_persona.transfer_on_death_to_persona_id` → `personas(id)`
+- `asset_permissions.asset_id` → `assets(id)`
+- `asset_permissions.persona_id` → `personas(id)`
 
--- These replace invalid UNIQUE constraints with WHERE clauses
-CREATE UNIQUE INDEX unique_primary_email_per_entity ON usage_email (entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
-CREATE UNIQUE INDEX unique_primary_phone_per_entity ON usage_phone (entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
-CREATE UNIQUE INDEX unique_primary_address_per_entity ON usage_address (entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
-CREATE UNIQUE INDEX unique_primary_social_per_entity ON usage_social_media (entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
-CREATE UNIQUE INDEX unique_active_role_assignment ON user_role_assignments (user_id, role_id, ffc_id, is_active) WHERE is_active = TRUE;
-CREATE UNIQUE INDEX unique_primary_owner_per_asset ON asset_persona (asset_id, is_primary) WHERE is_primary = TRUE;
-```
+### Asset Type-Specific Relationships
+Each asset type table has:
+- `[asset_type].asset_id` → `assets(id)` (UNIQUE constraint)
+- Various persona references for roles (owner, trustee, executor, etc.)
+- Document references to `media_storage(id)`
+- Contact information references
 
-## Constraints
+### Contact Information Relationships
+- `usage_email.email_id` → `email_address(id)`
+- `usage_phone.phone_id` → `phone_number(id)`
+- `usage_address.address_id` → `address(id)`
+- `usage_social_media.social_media_id` → `social_media(id)`
 
-```sql
--- Foreign key constraints are defined in the relationship script (3_SQL_create_schema_relationships.sql)
--- Key constraints include:
--- - All tables reference tenants(id) for multi-tenancy
--- - Users reference primary_email_id and primary_phone_id for normalized contact info
--- - Personas can optionally reference users(id) for living family members with accounts
--- - Assets reference category_id, ffc_id, and various document references
--- - Asset permissions enforce unique asset-persona combinations
--- - All usage tables use polymorphic entity references with proper foreign keys
-```
+### Document and Media Relationships
+- `document_metadata.media_storage_id` → `media_storage(id)`
+- `media_storage.uploaded_by` → `users(id)`
 
-## Functions and Stored Procedures
+### RBAC Relationships
+- `role_permissions.role_id` → `user_roles(id)`
+- `role_permissions.permission_id` → `user_permissions(id)`
+- `user_role_assignments.user_id` → `users(id)`
+- `user_role_assignments.role_id` → `user_roles(id)`
+- `user_role_assignments.ffc_id` → `fwd_family_circles(id)`
 
-The platform includes 28+ stored procedures with parameter conversions for persona ID to user ID as needed. Key procedures include:
+### Invitation System Relationships
+- `ffc_invitations.ffc_id` → `fwd_family_circles(id)`
+- `ffc_invitations.inviter_user_id` → `users(id)`
+- `ffc_invitations.invitee_email_id` → `email_address(id)`
+- `ffc_invitations.invitee_phone_id` → `phone_number(id)`
+- `invitation_verification_attempts.invitation_id` → `ffc_invitations(id)`
 
-### Authentication & User Management
+### Security and Session Relationships
+- `user_sessions.user_id` → `users(id)` (ON DELETE CASCADE)
+- `user_mfa_settings.user_id` → `users(id)` (ON DELETE CASCADE)
+- `password_reset_tokens.user_id` → `users(id)` (ON DELETE CASCADE)
+- `user_login_history.user_id` → `users(id)` (ON DELETE CASCADE)
 
-```sql
--- Register a new user with normalized contact information
-CREATE OR REPLACE FUNCTION sp_register_user(
-    p_tenant_id INTEGER,
-    p_email VARCHAR(255),
-    p_phone VARCHAR(20),
-    p_password_hash VARCHAR(255),
-    p_password_salt VARCHAR(255),
-    p_first_name VARCHAR(100),
-    p_last_name VARCHAR(100),
-    p_country_code VARCHAR(5) DEFAULT '+1'
-) RETURNS TABLE (
-    user_id UUID,
-    persona_id UUID,
-    email_id UUID,
-    phone_id UUID
-);
+### Audit Relationships
+- `audit_log.user_id` → `users(id)`
+- `audit_log.persona_id` → `personas(id)`
+- `audit_log.session_id` → `user_sessions(id)`
 
--- Login user with email (updated for normalized schema)
-CREATE OR REPLACE FUNCTION sp_login_user(
-    p_tenant_id INTEGER,
-    p_email VARCHAR(255)
-) RETURNS TABLE (
-    user_id UUID,
-    password_hash VARCHAR(255),
-    password_salt VARCHAR(255),
-    status user_status_enum,
-    account_locked BOOLEAN,
-    failed_login_attempts INTEGER
-);
+### Integration Relationships
+- `quillt_integrations.user_id` → `users(id)`
+- `quillt_webhook_logs.user_id` → `users(id)`
+- `quillt_webhook_logs.integration_id` → `quillt_integrations(id)`
+- `real_estate_sync_logs.integration_id` → `real_estate_provider_integrations(id)`
+- `real_estate_sync_logs.property_id` → `real_estate(id)`
 
--- Email and phone verification functions
-CREATE OR REPLACE FUNCTION sp_verify_email(p_token UUID) RETURNS BOOLEAN;
-CREATE OR REPLACE FUNCTION sp_verify_phone(p_user_id UUID, p_code VARCHAR(6)) RETURNS BOOLEAN;
+### Self-Referential Relationships
+- `asset_categories.parent_category_id` → `asset_categories(id)`
+- `wills.superseded_by_will_id` → `wills(id)`
+- Various audit fields referencing `users(id)` for created_by/updated_by
 
--- Password reset functions
-CREATE OR REPLACE FUNCTION sp_request_password_reset(p_email VARCHAR(255)) RETURNS UUID;
-CREATE OR REPLACE FUNCTION sp_reset_password(p_token UUID, p_new_password_hash VARCHAR(255), p_new_password_salt VARCHAR(255)) RETURNS BOOLEAN;
+## Indexes (Deduplicated)
 
--- Session management
-CREATE OR REPLACE FUNCTION sp_create_session(p_user_id UUID, p_ip_address INET, p_user_agent TEXT, p_device_info JSONB DEFAULT NULL) RETURNS UUID;
-CREATE OR REPLACE FUNCTION sp_refresh_session(p_session_token UUID) RETURNS UUID;
-CREATE OR REPLACE FUNCTION sp_revoke_session(p_session_token UUID) RETURNS VOID;
-```
+### Unique Partial Indexes (PostgreSQL 17 compatible)
+These replace invalid UNIQUE constraints with WHERE clauses:
+- `unique_primary_email_per_entity` ON `usage_email(entity_type, entity_id, is_primary)` WHERE `is_primary = TRUE`
+- `unique_primary_phone_per_entity` ON `usage_phone(entity_type, entity_id, is_primary)` WHERE `is_primary = TRUE`
+- `unique_primary_address_per_entity` ON `usage_address(entity_type, entity_id, is_primary)` WHERE `is_primary = TRUE`
+- `unique_primary_social_per_entity` ON `usage_social_media(entity_type, entity_id, is_primary)` WHERE `is_primary = TRUE`
+- `unique_active_role_assignment` ON `user_role_assignments(user_id, role_id, ffc_id, is_active)` WHERE `is_active = TRUE`
+- `unique_primary_owner_per_asset` ON `asset_persona(asset_id, is_primary)` WHERE `is_primary = TRUE`
 
-### Forward Family Circles (FFCs)
+### Tenant Isolation Indexes (Critical for Multi-tenancy)
+- `idx_media_storage_tenant` ON `media_storage(tenant_id)`
+- `idx_document_metadata_tenant` ON `document_metadata(tenant_id)`
+- `idx_users_tenant` ON `users(tenant_id)`
+- `idx_personas_tenant` ON `personas(tenant_id)`
+- `idx_fwd_family_circles_tenant` ON `fwd_family_circles(tenant_id)`
+- `idx_assets_tenant` ON `assets(tenant_id)`
+- All major tables with tenant_id have corresponding tenant isolation indexes
 
-```sql
--- Create a new FFC
-CREATE OR REPLACE FUNCTION sp_create_ffc(
-    p_tenant_id INTEGER,
-    p_owner_user_id UUID,
-    p_name VARCHAR(255),
-    p_description TEXT DEFAULT NULL
-) RETURNS UUID;
+### Authentication and Session Indexes
+- `idx_users_cognito_user_id` ON `users(cognito_user_id)`
+- `idx_users_email_verified` ON `users(email_verified)` WHERE `email_verified = FALSE`
+- `idx_users_status` ON `users(status)`
+- `idx_user_sessions_token` ON `user_sessions(session_token)` WHERE `is_active = TRUE`
+- `idx_user_sessions_user` ON `user_sessions(user_id, is_active)`
+- `idx_password_reset_tokens_hash` ON `password_reset_tokens(token_hash)` WHERE `is_valid = TRUE`
 
--- FFC member management
-CREATE OR REPLACE FUNCTION sp_add_ffc_member(
-    p_tenant_id INTEGER,
-    p_ffc_id UUID,
-    p_persona_id UUID,
-    p_role ffc_role_enum DEFAULT 'beneficiary',
-    p_relationship family_relationship_enum DEFAULT NULL
-) RETURNS BOOLEAN;
+### Contact Information Lookup Indexes
+- `idx_email_address_email` ON `email_address(email_address)`
+- `idx_phone_number_phone` ON `phone_number(country_code, phone_number)`
+- `idx_address_postal` ON `address(postal_code, country)`
 
-CREATE OR REPLACE FUNCTION sp_update_ffc_member_role(
-    p_ffc_id UUID,
-    p_persona_id UUID,
-    p_new_role ffc_role_enum,
-    p_updated_by UUID
-) RETURNS BOOLEAN;
+### Entity Relationship Indexes (Polymorphic)
+- `idx_usage_email_entity` ON `usage_email(entity_type, entity_id)`
+- `idx_usage_phone_entity` ON `usage_phone(entity_type, entity_id)`
+- `idx_usage_address_entity` ON `usage_address(entity_type, entity_id)`
+- `idx_usage_social_media_entity` ON `usage_social_media(entity_type, entity_id)`
 
-CREATE OR REPLACE FUNCTION sp_remove_ffc_member(
-    p_ffc_id UUID,
-    p_persona_id UUID,
-    p_removed_by UUID
-) RETURNS BOOLEAN;
-```
+### FFC and Persona Relationship Indexes
+- `idx_ffc_personas_ffc` ON `ffc_personas(ffc_id)`
+- `idx_ffc_personas_persona` ON `ffc_personas(persona_id)`
+- `idx_personas_user` ON `personas(user_id)` WHERE `user_id IS NOT NULL`
+- `idx_ffc_personas_role` ON `ffc_personas(ffc_role)`
 
-### Asset Management
+### Asset Relationship Indexes
+- `idx_assets_category` ON `assets(category_id)`
+- `idx_asset_persona_asset` ON `asset_persona(asset_id)`
+- `idx_asset_persona_persona` ON `asset_persona(persona_id)`
 
-```sql
--- Create assets with proper persona-to-user ID conversion
-CREATE OR REPLACE FUNCTION sp_create_asset(
-    p_tenant_id INTEGER,
-    p_ffc_id UUID,
-    p_category_code VARCHAR(50),
-    p_name VARCHAR(255),
-    p_description TEXT DEFAULT NULL,
-    p_acquisition_value DECIMAL(15,2) DEFAULT NULL,
-    p_created_by UUID DEFAULT NULL
-) RETURNS UUID;
+### Document and Media Indexes
+- `idx_media_storage_processing` ON `media_storage(processing_status)` WHERE `processing_status != 'ready'`
+- `idx_document_metadata_media` ON `document_metadata(media_storage_id)`
+- `idx_document_metadata_type` ON `document_metadata(document_type, document_category)`
+- `idx_document_metadata_search` ON `document_metadata` USING GIN(`searchable_content`)
 
--- Update asset values
-CREATE OR REPLACE FUNCTION sp_update_asset_value(
-    p_asset_id UUID,
-    p_new_value DECIMAL(15,2),
-    p_value_date DATE DEFAULT CURRENT_DATE,
-    p_updated_by UUID DEFAULT NULL
-) RETURNS BOOLEAN;
+### Audit and Compliance Indexes
+- `idx_audit_log_user` ON `audit_log(user_id)`
+- `idx_audit_log_entity` ON `audit_log(entity_type, entity_id)`
+- `idx_audit_log_created` ON `audit_log(created_at DESC)`
+- `idx_pii_access_logs_user` ON `pii_access_logs(user_id)`
+- `idx_pii_access_logs_document` ON `pii_access_logs(document_id)`
 
--- Assign assets to personas
-CREATE OR REPLACE FUNCTION sp_assign_asset_to_persona(
-    p_tenant_id INTEGER,
-    p_asset_id UUID,
-    p_persona_id UUID,
-    p_ownership_type ownership_type_enum DEFAULT 'owner',
-    p_ownership_percentage DECIMAL(5,2) DEFAULT 100.0,
-    p_is_primary BOOLEAN DEFAULT TRUE,
-    p_created_by UUID DEFAULT NULL
-) RETURNS UUID;
-```
+### RBAC Indexes
+- `idx_user_role_assignments_user` ON `user_role_assignments(user_id)` WHERE `is_active = TRUE`
+- `idx_user_role_assignments_role` ON `user_role_assignments(role_id)` WHERE `is_active = TRUE`
+- `idx_role_permissions_role` ON `role_permissions(role_id)`
 
-### Helper Functions
+### Invitation Indexes
+- `idx_ffc_invitations_ffc` ON `ffc_invitations(ffc_id)`
+- `idx_ffc_invitations_status` ON `ffc_invitations(status)`
+- `idx_ffc_invitations_email` ON `ffc_invitations(invitee_email_id)`
 
-```sql
--- Contact information management
-CREATE OR REPLACE FUNCTION sp_add_email_to_persona(
-    p_tenant_id INTEGER,
-    p_persona_id UUID,
-    p_email VARCHAR(255),
-    p_usage_type email_usage_type_enum DEFAULT 'personal',
-    p_is_primary BOOLEAN DEFAULT FALSE
-) RETURNS UUID;
+### Financial and Asset-Specific Indexes
+- `idx_financial_accounts_asset` ON `financial_accounts(asset_id)`
+- `idx_real_estate_asset` ON `real_estate(asset_id)`
+- `idx_life_insurance_asset` ON `life_insurance(asset_id)`
+- `idx_personal_property_asset` ON `personal_property(asset_id)`
 
-CREATE OR REPLACE FUNCTION sp_add_phone_to_persona(
-    p_tenant_id INTEGER,
-    p_persona_id UUID,
-    p_phone VARCHAR(20),
-    p_country_code VARCHAR(5) DEFAULT '+1',
-    p_usage_type phone_usage_type_enum DEFAULT 'primary',
-    p_is_primary BOOLEAN DEFAULT FALSE
-) RETURNS UUID;
+### Integration Indexes
+- `idx_quillt_integrations_user` ON `quillt_integrations(user_id)`
+- `idx_quillt_webhook_logs_status` ON `quillt_webhook_logs(processing_status)` WHERE `processing_status = 'pending'`
 
--- Audit logging
-CREATE OR REPLACE FUNCTION sp_log_audit_event(
-    p_tenant_id INTEGER,
-    p_user_id UUID,
-    p_action audit_action_enum,
-    p_entity_type audit_entity_type_enum,
-    p_entity_id UUID,
-    p_entity_name VARCHAR(255) DEFAULT NULL,
-    p_old_values JSONB DEFAULT NULL,
-    p_new_values JSONB DEFAULT NULL,
-    p_metadata JSONB DEFAULT '{}'
-) RETURNS UUID;
-```
+## Stored Procedures
 
-*Note: All stored procedures have been updated to work with the normalized contact tables schema and include proper parameter conversions from persona ID to user ID where needed.*
+The database includes 46+ comprehensive stored procedures organized into the following categories:
 
----
+### Core Procedures (28)
 
-## Summary
+#### RLS Helper Functions (3)
+- `current_user_id()` - Get current user's ID from session context
+- `current_tenant_id()` - Get current tenant ID from session context
+- `is_ffc_member(p_ffc_id, p_user_id)` - Check if user is member of an FFC
 
-This architecture documentation now accurately reflects the current SQL scripts (`fwd_db` database) and includes all the key features:
+#### User Management (2)
+- `sp_create_user_from_cognito()` - Create user from Cognito registration with email/phone
+- `sp_update_user_profile()` - Update user profile information
 
-1. **Database name**: Updated to `fwd_db` (not `forward_inheritance`)
-2. **New asset_permissions table**: Documented for hybrid RBAC + direct asset permissions
-3. **Updated enums**: All enum definitions now match the SQL scripts exactly
-4. **Normalized contact schema**: Proper documentation of the phone_number, email_address, address, and social_media tables with usage linking tables
-5. **Updated constraints**: Including the corrected `valid_values` constraint for assets
-6. **Stored procedures**: All 28+ procedures documented with parameter conversions and proper signatures
-7. **Complete relationships**: All foreign key relationships properly documented
+#### FFC Management (4)
+- `sp_create_ffc()` - Create a new FFC and add owner as member
+- `sp_add_persona_to_ffc()` - Add persona to FFC with specified role
+- `sp_update_ffc_member_role()` - Update member's role within FFC
+- `sp_remove_ffc_member()` - Remove member from FFC (cannot remove owner)
 
-The architecture is now 100% consistent with the source-of-truth SQL scripts.
+#### Asset Management (8)
+- `sp_create_asset()` - Create new asset and assign ownership to persona
+- `sp_update_asset()` - Update existing asset properties
+- `sp_delete_asset()` - Soft or hard delete asset with audit trail
+- `sp_transfer_asset_ownership()` - Transfer ownership between personas
+- `sp_update_asset_value()` - Update asset valuation with history tracking
+- `sp_get_asset_details()` - Retrieve comprehensive asset information
+- `sp_search_assets()` - Search assets with filtering and pagination
+- `sp_assign_asset_to_persona()` - Link assets to personas with ownership details
+
+#### Contact Management (2)
+- `sp_add_email_to_persona()` - Add email address to persona with usage type
+- `sp_add_phone_to_persona()` - Add phone number to persona with usage type
+
+#### Invitation Management (1)
+- `sp_create_invitation()` - Create FFC invitation with verification codes
+
+#### Audit & Compliance (4)
+- `sp_log_audit_event()` - Log detailed audit events for compliance
+- `sp_create_audit_event()` - Create compliance-specific audit events
+- `sp_get_audit_trail()` - Retrieve audit history with filtering
+- `sp_generate_compliance_report()` - Generate SOC 2 compliance reports
+
+#### Reporting (1)
+- `sp_get_ffc_summary()` - Get comprehensive FFC summary with statistics
+
+#### Session Context (2)
+- `sp_set_session_context()` - Set user and tenant context for session
+- `sp_clear_session_context()` - Clear session context
+
+#### Utility Functions (1)
+- `update_updated_at_column()` - Trigger function to update timestamps
+
+### Integration Procedures (18+)
+
+#### PII Management (2)
+- `sp_detect_pii()` - Detect PII in text using configurable rules with masking
+- `sp_update_pii_job_status()` - Update status of PII processing jobs
+
+#### Quillt Integration (4)
+- `sp_configure_quillt_integration()` - Configure financial data sync with Quillt
+- `sp_sync_quillt_data()` - Synchronize financial account data
+- `sp_validate_quillt_credentials()` - Validate API credentials and token expiry
+- `sp_get_quillt_sync_status()` - Get sync history and statistics
+
+#### Real Estate Integration (2)
+- `sp_sync_real_estate_data()` - Sync property valuations and market data
+- `sp_get_real_estate_sync_history()` - Retrieve sync history and performance
+
+#### Advisor Companies (2)
+- `sp_manage_advisor_company()` - Create, update, or delete advisor companies
+- `sp_get_advisor_companies()` - Search and filter advisor companies
+
+#### Integration Health (2)
+- `sp_check_integration_health()` - Monitor health of all integrations
+- `sp_retry_failed_integration()` - Retry failed integration processes
+
+#### Builder.io Integration (3)
+- `sp_configure_builder_integration()` - Configure CMS integration
+- `sp_refresh_builder_content()` - Refresh content from Builder.io
+- `sp_get_builder_content_status()` - Get content sync status
+
+#### Translation Management (2)
+- `sp_manage_translation()` - Create, update, or delete translations
+- `sp_get_translations()` - Retrieve translations with filtering
+
+#### System Configuration (1)
+- `sp_update_system_configuration()` - Update system-wide settings
+
+## Helper Functions
+
+### Trigger Functions
+- `update_updated_at_column()` - Automatically updates `updated_at` timestamp on row modifications
+
+### RLS Policy Functions
+- `current_user_id()` - Returns current session user ID for RLS policies
+- `current_tenant_id()` - Returns current session tenant ID for RLS policies
+- `is_ffc_member()` - Determines FFC membership for access control
+
+## RLS Policies
+
+The database implements comprehensive Row-Level Security (RLS) policies for data isolation and access control:
+
+### Tenant Isolation Policies
+All major tables have tenant isolation policies using `current_tenant_id()`:
+- `users_tenant_isolation` - Users can only see data from their tenant
+- `personas_tenant_isolation` - Personas scoped to tenant
+- `assets_tenant_isolation` - Assets scoped to tenant
+- `ffc_tenant_isolation` - FFCs scoped to tenant
+
+### User Access Policies
+- `users_self_read` - Users can read their own profile
+- `users_self_update` - Users can update their own profile
+
+### FFC Access Policies
+- `ffc_member_access` - Users can access FFCs they're members of
+- `ffc_owner_full_access` - FFC owners have full access to their FFCs
+
+### Asset Access Policies
+- `assets_persona_owner_access` - Users can access assets owned by their personas
+
+### Persona Access Policies
+- `personas_ffc_access` - Users can access personas in FFCs they're members of
+
+### Contact Information Policies
+- `email_tenant_isolation`, `phone_tenant_isolation`, `address_tenant_isolation` - Contact info scoped to tenant
+- `usage_email_entity_access`, `usage_phone_entity_access`, `usage_address_entity_access` - Usage records accessible based on entity ownership
+
+### Media and Document Policies
+- `media_tenant_isolation` - Media files scoped to tenant
+- `media_uploader_access` - Users can access files they uploaded
+- `documents_tenant_isolation` - Document metadata scoped to tenant
+
+This comprehensive RLS implementation ensures data security, privacy, and proper multi-tenant isolation while maintaining performance through strategic indexing.

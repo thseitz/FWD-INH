@@ -16,16 +16,14 @@ The core infrastructure tables form the foundation of the Forward Inheritance Pl
 
 ### Core Tables List
 1. **tenants** - Multi-tenant organization management
-2. **users** - Authentication and system access
+2. **users** - Authentication and system access (AWS Cognito integrated)
 3. **personas** - Business identity layer
 4. **fwd_family_circles** - Family financial organizations
-5. **ffc_members** - Family circle membership
-6. **roles** - Permission-based access control
-7. **permissions** - Granular permission definitions
-8. **role_permissions** - Role-permission assignments
-9. **usage_tracking** - System usage analytics
-10. **invitation_codes** - User invitation management
-11. **invitations** - Invitation workflow tracking
+5. **ffc_personas** - Family circle membership with role-based access
+6. **ffc_invitations** - Invitation workflow tracking
+7. **email_address** - Normalized email storage
+8. **phone_number** - Normalized phone storage
+9. **address** - Physical address storage
 
 ## Multi-Tenant Architecture
 
@@ -35,9 +33,9 @@ The `tenants` table serves as the root of the multi-tenant hierarchy, providing 
 ```sql
 CREATE TABLE tenants (
     id INTEGER PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    display_name VARCHAR(255) NOT NULL,
-    domain VARCHAR(255),
+    name TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    domain TEXT,
     logo_url VARCHAR(500),
     primary_color VARCHAR(7),
     secondary_color VARCHAR(7),
@@ -81,20 +79,27 @@ WHERE id = ?;
 The platform separates authentication concerns (`users`) from business identity (`personas`), enabling flexible family representation and improved security.
 
 ### users table
-Handles authentication, system access, and security-related functionality.
+Handles authentication integration with AWS Cognito and system access.
 
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    
+    -- AWS Cognito integration
+    cognito_user_id TEXT UNIQUE NOT NULL,
+    cognito_username TEXT UNIQUE,
+    
+    -- Normalized contact references
     primary_email_id UUID REFERENCES email_address(id),
     primary_phone_id UUID REFERENCES phone_number(id),
-    email_verified BOOLEAN DEFAULT FALSE,
-    phone_verified BOOLEAN DEFAULT FALSE,
-    password_hash VARCHAR(255) NOT NULL,
-    password_salt VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
+    
+    -- Profile information
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    display_name TEXT,
+    
+    -- Status and tracking
     status user_status_enum NOT NULL DEFAULT 'pending_verification',
     last_login_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -103,9 +108,9 @@ CREATE TABLE users (
 ```
 
 **Key Features:**
-- **Dual-Channel Verification**: Both email and phone verification required
+- **AWS Cognito Integration**: Authentication handled by Cognito, no passwords stored
 - **Normalized Contact Info**: References to email_address and phone_number tables
-- **Security Tracking**: Last login and status monitoring with password salting
+- **Security Tracking**: Last login monitoring, verification handled by Cognito
 - **Tenant Isolation**: All users belong to specific tenant (INTEGER FK)
 
 **Status Flow:**
@@ -122,9 +127,9 @@ CREATE TABLE personas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id INTEGER NOT NULL REFERENCES tenants(id),
     user_id UUID REFERENCES users(id),
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
-    middle_name VARCHAR(255),
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    middle_name TEXT,
     date_of_birth DATE,
     date_of_death DATE,
     is_living BOOLEAN NOT NULL DEFAULT true,
@@ -171,7 +176,8 @@ Forward Family Circles (FFCs) are the organizational units that group family mem
 CREATE TABLE fwd_family_circles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-    name VARCHAR(255) NOT NULL,
+    owner_user_id UUID NOT NULL REFERENCES users(id),
+    name TEXT NOT NULL,
     description TEXT,
     family_picture_id UUID REFERENCES media_storage(id),
     established_date DATE DEFAULT CURRENT_DATE,
@@ -196,22 +202,25 @@ CREATE TABLE fwd_family_circles (
 - Extended family: "Smith Family Trust"
 - Business interests: "Smith Family Business Holdings"
 
-### ffc_members table
-Manages membership in Family Financial Circles with role-based access control.
+### ffc_personas table
+Manages membership in Forward Family Circles with role-based access control.
 
 ```sql
-CREATE TABLE ffc_members (
-    ffc_member_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ffc_id UUID NOT NULL REFERENCES fwd_family_circles(ffc_id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(role_id),
-    invited_by UUID REFERENCES users(user_id),
-    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    left_at TIMESTAMP,
-    status status_enum DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(ffc_id, user_id)
+CREATE TABLE ffc_personas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    ffc_id UUID NOT NULL REFERENCES fwd_family_circles(id),
+    persona_id UUID NOT NULL REFERENCES personas(id),
+    ffc_role ffc_role_enum NOT NULL DEFAULT 'beneficiary',
+    added_by UUID REFERENCES users(id),
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    left_at TIMESTAMP WITH TIME ZONE,
+    status status_enum NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_by UUID,
+    updated_by UUID,
+    UNIQUE(ffc_id, persona_id)
 );
 ```
 
@@ -228,64 +237,40 @@ CREATE TABLE ffc_members (
 
 ## Role-Based Access Control
 
-### roles table
-Defines permission templates for different types of FFC members.
+The platform uses a simplified enum-based role system for FFC membership rather than separate tables.
+
+### FFC Role System
+
+Roles are defined using the `ffc_role_enum` type:
 
 ```sql
-CREATE TABLE roles (
-    role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    role_name VARCHAR(50) NOT NULL,
-    description TEXT,
-    is_system_role BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, role_name)
+CREATE TYPE ffc_role_enum AS ENUM (
+    'owner',
+    'beneficiary', 
+    'non_beneficiary',
+    'advisor'
 );
 ```
 
-**Standard System Roles:**
+**Standard FFC Roles:**
 - **owner**: Full control over FFC and all assets
 - **beneficiary**: Can view assets they have inheritance rights to
-- **non_beneficiary**: Limited view of family financial information
+- **non_beneficiary**: Limited view of family financial information  
 - **advisor**: Professional advisor with read-only access
 
-### permissions table
-Granular permission definitions for system functionality.
+**Role Assignment:**
+- Roles are assigned directly in the `ffc_personas` table
+- Each persona has exactly one role per FFC
+- The FFC creator automatically gets the 'owner' role
+- Additional owners can be designated as needed
 
-```sql
-CREATE TABLE permissions (
-    permission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    permission_name VARCHAR(100) NOT NULL,
-    description TEXT,
-    category permission_category_enum NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, permission_name)
-);
-```
+### Permission Model
 
-**Permission Categories:**
-- **asset**: Asset viewing, editing, creation, deletion
-- **user**: User management within FFC
-- **admin**: Administrative functions
-- **report**: Report generation and viewing
-- **document**: Document access and management
-- **ffc**: Family circle management
-- **system**: System-level configuration
-
-### role_permissions table
-Junction table linking roles to their specific permissions.
-
-```sql
-CREATE TABLE role_permissions (
-    role_permission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
-    permission_id UUID NOT NULL REFERENCES permissions(permission_id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(role_id, permission_id)
-);
-```
+Permissions are enforced at the application level based on the FFC role:
+- **Owners**: Full CRUD on all FFC resources
+- **Beneficiaries**: Read access to assets, limited write access
+- **Non-Beneficiaries**: Read-only access to general information
+- **Advisors**: Read-only access for professional consultation
 
 ## Usage Tracking
 
@@ -346,7 +331,7 @@ CREATE TABLE invitations (
     invitation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
     ffc_id UUID NOT NULL REFERENCES fwd_family_circles(ffc_id) ON DELETE CASCADE,
-    email VARCHAR(255) NOT NULL,
+    email TEXT NOT NULL,
     phone VARCHAR(20),
     role VARCHAR(50) NOT NULL,
     invited_by UUID NOT NULL REFERENCES users(user_id),
@@ -376,25 +361,27 @@ CREATE TABLE invitations (
 ### Relationship Hierarchy
 ```
 tenants (root)
-├── users
+├── users (Cognito integrated)
 │   ├── personas (1:many)
-│   ├── user_sessions
-│   └── usage_tracking
+│   └── primary contacts → email_address, phone_number
 ├── fwd_family_circles
-│   ├── ffc_members → users (many:many)
-│   ├── invitations
-│   └── invitation_codes
-├── roles
-│   └── role_permissions → permissions (many:many)
-└── permissions
+│   ├── ffc_personas → personas (many:many)
+│   └── ffc_invitations
+├── personas
+│   ├── ffc_personas (membership)
+│   └── asset_persona (ownership)
+└── normalized contacts
+    ├── email_address
+    ├── phone_number
+    └── address
 ```
 
 ### Key Foreign Key Relationships
-- All tables reference `tenants.tenant_id` for multi-tenant isolation
-- `personas.user_id` → `users.user_id` (multiple personas per user)
-- `ffc_members.ffc_id` → `fwd_family_circles.ffc_id` (FFC membership)
-- `ffc_members.user_id` → `users.user_id` (user membership)
-- `ffc_members.role_id` → `roles.role_id` (role assignment)
+- All tables reference `tenants.id` (INTEGER) for multi-tenant isolation
+- `personas.user_id` → `users.id` (multiple personas per user)
+- `ffc_personas.ffc_id` → `fwd_family_circles.id` (FFC membership)
+- `ffc_personas.persona_id` → `personas.id` (persona membership)
+- `fwd_family_circles.owner_user_id` → `users.id` (FFC ownership)
 
 ### Business Rules Enforced by Schema
 1. **Tenant Isolation**: Every entity belongs to exactly one tenant

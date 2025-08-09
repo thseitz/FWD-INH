@@ -22,11 +22,11 @@ The Forward Inheritance Platform implements a **normalized contact management sy
 - **Privacy Controls**: Granular privacy and sharing settings
 
 ### Key Statistics
-- **Core Contact Tables**: 4 tables (email, phone, address, social_media)
+- **Core Contact Tables**: 4 tables (email_address, phone_number, address, social_media)
 - **Usage Junction Tables**: 4 tables linking contacts to entities
-- **External Contact Tables**: 2 tables for external relationship management
-- **Total Tables**: 10 contact management tables
-- **Supported Entity Types**: users, personas, assets (for addresses)
+- **External Contact Tables**: 1 table (contact_info) for external relationship management
+- **Total Tables**: 9 contact management tables
+- **Supported Entity Types**: users, personas, assets (polymorphic via entity_type enum)
 
 ## Normalized Contact Architecture
 
@@ -45,8 +45,7 @@ Usage Junction Tables (context):
 └── usage_social_media (entity → social_media)
 
 External Contact Management:
-├── contact_info (external entities)
-└── contact_relationships (relationship tracking)
+└── contact_info (external entities)
 ```
 
 ### Entity Relationship Pattern
@@ -68,28 +67,26 @@ Centralized email address storage with verification and type classification.
 ```sql
 CREATE TABLE email_address (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    tenant_id INTEGER NOT NULL,
     
     -- Email details
-    email_address VARCHAR(255) NOT NULL,
-    domain VARCHAR(255), -- Extracted domain part
+    email_address TEXT NOT NULL,
+    domain TEXT, -- Extracted domain part
     
     -- Email metadata
     is_verified BOOLEAN DEFAULT FALSE,
     verified_at TIMESTAMP WITH TIME ZONE,
     email_type email_type_enum,
     
-    -- Status
+    -- Multi-tenancy and audit
     status status_enum NOT NULL DEFAULT 'active',
-    
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
-    CONSTRAINT valid_email_format CHECK (email_address ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$')
+    CONSTRAINT valid_email_format CHECK (email_address ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
 ```
 
@@ -107,35 +104,37 @@ CREATE TABLE email_address (
 - **Type Classification**: Categorization for appropriate usage
 
 ### phone_number table
-International phone number storage with E.164 format support.
+International phone number storage with country code support.
 
 ```sql
 CREATE TABLE phone_number (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    tenant_id INTEGER NOT NULL,
     
-    -- Phone number details
-    phone_number VARCHAR(20) NOT NULL, -- E.164 format: +1234567890
-    country_code VARCHAR(5), -- Extracted country code  
-    national_number VARCHAR(15), -- National format without country code
+    -- Phone number components
+    country_code VARCHAR(5) NOT NULL DEFAULT '+1',
+    phone_number VARCHAR(20) NOT NULL,
+    extension VARCHAR(10),
     
     -- Phone metadata
+    phone_type phone_type_enum,
+    is_primary BOOLEAN DEFAULT FALSE,
+    can_receive_sms BOOLEAN DEFAULT TRUE,
     is_verified BOOLEAN DEFAULT FALSE,
     verified_at TIMESTAMP WITH TIME ZONE,
-    phone_type phone_type_enum,
-    carrier_name VARCHAR(100),
     
-    -- Status
+    -- Carrier information
+    carrier_name TEXT,
+    is_mobile BOOLEAN,
+    
+    -- Multi-tenancy and audit
     status status_enum NOT NULL DEFAULT 'active',
-    
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
     
     -- Constraints
-    CONSTRAINT valid_e164_format CHECK (phone_number ~ '^\\+[1-9]\\d{1,14}$')
+    CONSTRAINT valid_phone_format CHECK (phone_number ~ '^[0-9]{10,15}$'),
+    CONSTRAINT valid_country_code CHECK (country_code ~ '^\+[0-9]{1,4}$')
 );
 ```
 
@@ -147,46 +146,53 @@ CREATE TABLE phone_number (
 - **fax** - Fax numbers
 
 **Key Features:**
-- **E.164 Format**: International standard phone number format
-- **Component Extraction**: Separate country code and national number
-- **Carrier Information**: Optional carrier name for mobile numbers
-- **Verification Support**: SMS verification tracking
+- **Country Code Support**: Separate country code field with default '+1'
+- **Extension Support**: Optional extension field for business numbers
+- **SMS Capability**: Track whether number can receive SMS
+- **Mobile Detection**: Flag to indicate mobile vs landline
+- **Carrier Information**: Optional carrier name tracking
 
 ### address table
-Physical address storage with geocoding support and international format handling.
+Physical address storage with geocoding support and validation.
 
 ```sql
 CREATE TABLE address (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    tenant_id INTEGER NOT NULL,
     
     -- Address components
-    address_line_1 VARCHAR(255) NOT NULL,
-    address_line_2 VARCHAR(255),
-    city VARCHAR(100) NOT NULL,
-    state_or_province VARCHAR(50),
-    postal_code VARCHAR(20),
-    country CHAR(2) NOT NULL DEFAULT 'US', -- ISO 3166-1 alpha-2
+    address_line_1 TEXT NOT NULL,
+    address_line_2 TEXT,
+    city TEXT NOT NULL,
+    state_province TEXT NOT NULL,
+    postal_code VARCHAR(20) NOT NULL,
+    country VARCHAR(2) NOT NULL DEFAULT 'US',
     
-    -- Formatted versions
-    formatted_address TEXT, -- Full formatted address
-    
-    -- Geocoding (optional)
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    
-    -- Address metadata  
+    -- Address metadata
     address_type address_type_enum,
     is_primary BOOLEAN DEFAULT FALSE,
     
-    -- Status
-    status status_enum NOT NULL DEFAULT 'active',
+    -- Geocoding
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    geocoding_accuracy VARCHAR(50),
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID
+    -- Validation
+    is_validated BOOLEAN DEFAULT FALSE,
+    validation_source VARCHAR(50),
+    validated_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Multi-tenancy and audit
+    status status_enum NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    
+    -- Constraints
+    CONSTRAINT valid_country_code CHECK (country ~ '^[A-Z]{2}$'),
+    CONSTRAINT valid_coordinates CHECK (
+        (latitude IS NULL AND longitude IS NULL) OR
+        (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
+    )
 );
 ```
 
@@ -200,8 +206,9 @@ CREATE TABLE address (
 
 **Key Features:**  
 - **International Support**: ISO 3166-1 alpha-2 country codes
-- **Geocoding Ready**: Latitude/longitude fields for mapping
-- **Formatted Address**: Pre-formatted address for display
+- **Geocoding Support**: Latitude/longitude with accuracy tracking
+- **Address Validation**: Track validation status and source
+- **Coordinate Validation**: Ensures valid lat/long ranges
 - **Flexible Structure**: Supports various international address formats
 
 ### social_media table
@@ -210,31 +217,32 @@ Social media account and profile information storage.
 ```sql
 CREATE TABLE social_media (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    tenant_id INTEGER NOT NULL,
     
-    -- Social media details
+    -- Platform details
     platform social_media_platform_enum NOT NULL,
-    username VARCHAR(255) NOT NULL,
-    profile_url VARCHAR(500),
-    account_id VARCHAR(255), -- Platform-specific ID
+    platform_user_id TEXT,
+    username TEXT NOT NULL,
+    profile_url TEXT,
     
     -- Account metadata
+    display_name TEXT,
     is_verified BOOLEAN DEFAULT FALSE,
-    verified_at TIMESTAMP WITH TIME ZONE,
-    follower_count INTEGER,
     is_business_account BOOLEAN DEFAULT FALSE,
+    follower_count INTEGER,
     
-    -- Status
+    -- Privacy settings
+    is_public BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    
+    -- Multi-tenancy and audit
     status status_enum NOT NULL DEFAULT 'active',
-    
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
     
     -- Constraints
-    UNIQUE(tenant_id, platform, username)
+    CONSTRAINT valid_username CHECK (username != ''),
+    CONSTRAINT valid_follower_count CHECK (follower_count >= 0 OR follower_count IS NULL)
 );
 ```
 
@@ -251,33 +259,31 @@ CREATE TABLE social_media (
 ## Usage Junction Tables
 
 ### usage_email table
-Links entities (users/personas) to email addresses with usage context.
+Links entities (users/personas/assets) to email addresses with usage context.
 
 ```sql
 CREATE TABLE usage_email (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type entity_type_enum NOT NULL CHECK (entity_type IN ('user', 'persona')),
+    tenant_id INTEGER NOT NULL,
+    
+    -- Entity reference (polymorphic)
+    entity_type entity_type_enum NOT NULL,
     entity_id UUID NOT NULL,
-    email_id UUID NOT NULL REFERENCES email_address(id),
+    
+    -- Email reference
+    email_id UUID NOT NULL,
     
     -- Usage details
     usage_type email_usage_type_enum NOT NULL,
     is_primary BOOLEAN DEFAULT FALSE,
     
     -- Preferences
-    can_receive_notifications BOOLEAN DEFAULT TRUE,
-    can_receive_marketing BOOLEAN DEFAULT FALSE,
+    preferred_contact_time contact_time_enum,
+    notes TEXT,
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    UNIQUE(entity_type, entity_id, email_id),
-    CHECK ((entity_type = 'user' AND entity_id IN (SELECT id FROM users)) OR 
-           (entity_type = 'persona' AND entity_id IN (SELECT id FROM personas)))
+    -- Multi-tenancy and audit
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
@@ -295,27 +301,26 @@ Links entities to phone numbers with communication preferences.
 ```sql
 CREATE TABLE usage_phone (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type entity_type_enum NOT NULL CHECK (entity_type IN ('user', 'persona')),
+    tenant_id INTEGER NOT NULL,
+    
+    -- Entity reference (polymorphic)
+    entity_type entity_type_enum NOT NULL,
     entity_id UUID NOT NULL,
-    phone_id UUID NOT NULL REFERENCES phone_number(id),
+    
+    -- Phone reference
+    phone_id UUID NOT NULL,
     
     -- Usage details
     usage_type phone_usage_type_enum NOT NULL,
     is_primary BOOLEAN DEFAULT FALSE,
     
     -- Preferences
-    can_receive_sms BOOLEAN DEFAULT TRUE,
-    can_receive_calls BOOLEAN DEFAULT TRUE,
     preferred_contact_time contact_time_enum,
+    notes TEXT,
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    UNIQUE(entity_type, entity_id, phone_id)
+    -- Multi-tenancy and audit
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
@@ -340,26 +345,29 @@ Links entities (users/personas/assets) to addresses with usage context.
 ```sql
 CREATE TABLE usage_address (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type entity_type_enum NOT NULL CHECK (entity_type IN ('user', 'persona', 'asset')),
+    tenant_id INTEGER NOT NULL,
+    
+    -- Entity reference (polymorphic)
+    entity_type entity_type_enum NOT NULL,
     entity_id UUID NOT NULL,
-    address_id UUID NOT NULL REFERENCES address(id),
+    
+    -- Address reference
+    address_id UUID NOT NULL,
     
     -- Usage details
     usage_type address_usage_type_enum NOT NULL,
     is_primary BOOLEAN DEFAULT FALSE,
     
-    -- Date ranges for temporary addresses
-    effective_from DATE,
-    effective_to DATE,
+    -- Validity period
+    effective_date DATE,
+    end_date DATE,
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  
-    created_by UUID,
-    updated_by UUID,
+    -- Multi-tenancy and audit
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
     
     -- Constraints
-    UNIQUE(entity_type, entity_id, address_id, usage_type)
+    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date > effective_date)
 );
 ```
 
@@ -372,32 +380,32 @@ CREATE TABLE usage_address (
 - **emergency** - Emergency contact address
 
 ### usage_social_media table
-Links entities to social media accounts with privacy controls.
+Links entities to social media accounts with access details.
 
 ```sql  
 CREATE TABLE usage_social_media (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type entity_type_enum NOT NULL CHECK (entity_type IN ('user', 'persona')),
+    tenant_id INTEGER NOT NULL,
+    
+    -- Entity reference (polymorphic)
+    entity_type entity_type_enum NOT NULL,
     entity_id UUID NOT NULL,
-    social_media_id UUID NOT NULL REFERENCES social_media(id),
+    
+    -- Social media reference
+    social_media_id UUID NOT NULL,
     
     -- Usage details
     usage_type social_media_usage_type_enum NOT NULL,
     is_primary BOOLEAN DEFAULT FALSE,
-    is_public BOOLEAN DEFAULT TRUE,
     
-    -- Privacy settings
-    share_with_family BOOLEAN DEFAULT TRUE,
-    share_with_advisors BOOLEAN DEFAULT FALSE,
+    -- Access details
+    has_login_credentials BOOLEAN DEFAULT FALSE,
+    recovery_email_id UUID,
+    recovery_phone_id UUID,
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID,
-    
-    -- Constraints
-    UNIQUE(entity_type, entity_id, social_media_id)
+    -- Multi-tenancy and audit
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
@@ -416,29 +424,36 @@ Manages external contacts like advisors, companies, and institutions.
 ```sql
 CREATE TABLE contact_info (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    tenant_id INTEGER NOT NULL,
     
-    -- Entity identification
-    entity_name VARCHAR(255) NOT NULL,
+    -- Contact identification
     entity_type contact_entity_type_enum NOT NULL,
+    company_name TEXT,
+    contact_name TEXT,
+    title TEXT,
     
-    -- Contact references (linking to normalized contact tables)
-    primary_email_id UUID REFERENCES email_address(id),
-    primary_phone_id UUID REFERENCES phone_number(id),
-    primary_address_id UUID REFERENCES address(id),
+    -- Contact references
+    primary_email_id UUID,
+    primary_phone_id UUID,
+    primary_address_id UUID,
     
     -- Additional info
-    website_url VARCHAR(500),
+    website TEXT,
     notes TEXT,
     
-    -- Status
-    status status_enum NOT NULL DEFAULT 'active',
+    -- Professional details
+    license_number TEXT,
+    license_state VARCHAR(2),
+    specialties TEXT[],
     
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID,
-    updated_by UUID
+    -- System fields
+    is_preferred BOOLEAN DEFAULT FALSE,
+    status status_enum NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    
+    -- Constraints
+    CONSTRAINT valid_license_state CHECK (license_state ~ '^[A-Z]{2}$' OR license_state IS NULL)
 );
 ```
 
@@ -452,43 +467,6 @@ CREATE TABLE contact_info (
 - **insurance_agent** - Insurance agents
 - **other** - Other external entities
 
-### contact_relationships table
-Tracks relationships between family members and external contacts.
-
-```sql
-CREATE TABLE contact_relationships (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-    
-    -- Relationship participants
-    persona_id UUID NOT NULL REFERENCES personas(id),
-    contact_info_id UUID NOT NULL REFERENCES contact_info(id),
-    
-    -- Relationship details
-    relationship_type VARCHAR(100) NOT NULL, -- attorney, financial_advisor, insurance_agent, etc.
-    relationship_status VARCHAR(50) DEFAULT 'active',
-    
-    -- Relationship dates
-    relationship_start_date DATE DEFAULT CURRENT_DATE,
-    relationship_end_date DATE,
-    
-    -- Service details
-    services_provided TEXT,
-    contract_terms TEXT,
-    
-    -- Notes
-    notes TEXT,
-    
-    -- Audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
-    updated_by UUID REFERENCES users(id),
-    
-    -- Constraints
-    UNIQUE(persona_id, contact_info_id, relationship_type)
-);
-```
 
 ## Contact Relationships
 
@@ -506,21 +484,16 @@ contact_info.primary_phone_id → phone_number.id
 contact_info.primary_address_id → address.id
 ```
 
-### Usage Relationship Patterns
+### Usage Relationship Patterns (Polymorphic)
 ```sql
--- User contact usage
-users → usage_email ← email_address
-users → usage_phone ← phone_number  
-users → usage_address ← address
+-- Entity contact usage through polymorphic entity_type_enum
+entity (via entity_type + entity_id) → usage_email ← email_address
+entity (via entity_type + entity_id) → usage_phone ← phone_number  
+entity (via entity_type + entity_id) → usage_address ← address
+entity (via entity_type + entity_id) → usage_social_media ← social_media
 
--- Persona contact usage
-personas → usage_email ← email_address
-personas → usage_phone ← phone_number
-personas → usage_address ← address
-personas → usage_social_media ← social_media
-
--- Asset address usage (for property assets)
-assets → usage_address ← address
+-- Where entity_type can be: 'user', 'persona', 'asset'
+-- This allows flexible contact association without separate junction tables
 ```
 
 ### Cross-Reference Patterns
@@ -548,17 +521,28 @@ WHERE u.id = ?;
 ```sql
 -- Email format validation
 CONSTRAINT valid_email_format CHECK (
-    email_address ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'
+    email_address ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
 );
 
--- E.164 phone number format
-CONSTRAINT valid_e164_format CHECK (
-    phone_number ~ '^\\+[1-9]\\d{1,14}$'
+-- Phone number format (10-15 digits)
+CONSTRAINT valid_phone_format CHECK (
+    phone_number ~ '^[0-9]{10,15}$'
 );
 
--- Country code validation (ISO 3166-1 alpha-2)
+-- Country code format for phone
+CONSTRAINT valid_country_code CHECK (
+    country_code ~ '^\+[0-9]{1,4}$'
+);
+
+-- Country code validation for address (ISO 3166-1 alpha-2)
 CONSTRAINT valid_country_code CHECK (
     country ~ '^[A-Z]{2}$'
+);
+
+-- Coordinate validation for geocoding
+CONSTRAINT valid_coordinates CHECK (
+    (latitude IS NULL AND longitude IS NULL) OR
+    (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
 );
 ```
 
@@ -577,23 +561,27 @@ CREATE UNIQUE INDEX idx_usage_address_primary
 ON usage_address (entity_type, entity_id)
 WHERE is_primary = true;
 
--- Social media username uniqueness per platform per tenant
-ALTER TABLE social_media ADD CONSTRAINT uq_social_media_platform_username 
-UNIQUE (tenant_id, platform, username);
+-- No unique constraint on social media username in implementation
+-- Each record is unique by ID only
 ```
 
 ### Data Integrity
 ```sql
--- Ensure entity references are valid
-ALTER TABLE usage_email ADD CONSTRAINT chk_valid_entity_reference
-CHECK (
-    (entity_type = 'user' AND EXISTS (SELECT 1 FROM users WHERE id = entity_id)) OR
-    (entity_type = 'persona' AND EXISTS (SELECT 1 FROM personas WHERE id = entity_id))
-);
+-- Ensure date ranges are valid for addresses
+ALTER TABLE usage_address ADD CONSTRAINT valid_date_range
+CHECK (end_date IS NULL OR end_date > effective_date);
 
--- Ensure effective date ranges are valid
-ALTER TABLE usage_address ADD CONSTRAINT chk_valid_date_range
-CHECK (effective_to IS NULL OR effective_to >= effective_from);
+-- Ensure follower count is positive
+ALTER TABLE social_media ADD CONSTRAINT valid_follower_count
+CHECK (follower_count >= 0 OR follower_count IS NULL);
+
+-- Ensure usernames are not empty
+ALTER TABLE social_media ADD CONSTRAINT valid_username
+CHECK (username != '');
+
+-- Ensure license state is valid format
+ALTER TABLE contact_info ADD CONSTRAINT valid_license_state
+CHECK (license_state ~ '^[A-Z]{2}$' OR license_state IS NULL);
 ```
 
 ## Usage Patterns
@@ -654,18 +642,19 @@ GROUP BY phone_number
 HAVING COUNT(*) > 1;
 ```
 
-#### Contact Privacy and Sharing
+#### Contact Privacy and Access
 ```sql
--- Get contacts shared with family
+-- Get social media accounts with login credentials
 SELECT 
     sm.platform,
     sm.username,
-    usm.usage_type
+    usm.usage_type,
+    usm.has_login_credentials
 FROM personas p
 JOIN usage_social_media usm ON usm.entity_id = p.id AND usm.entity_type = 'persona'
 JOIN social_media sm ON usm.social_media_id = sm.id
 WHERE p.id = ? 
-AND usm.share_with_family = true;
+AND usm.has_login_credentials = true;
 ```
 
 ### Performance Optimization
@@ -700,7 +689,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fn_validate_phone(phone TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
-    RETURN phone ~ '^\+[1-9]\d{1,14}$';
+    RETURN phone ~ '^[0-9]{10,15}$';
 END;
 $$ LANGUAGE plpgsql;
 ```

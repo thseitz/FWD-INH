@@ -78,17 +78,24 @@ class StoredProcTestDataGenerator {
      * Create a tenant using the tenant creation process
      */
     async createTenant(client, name) {
-        // Check if tenant already exists, if so return existing ID
-        const existingResult = await client.query(`SELECT id FROM tenants WHERE name = $1`, [name.toLowerCase().replace(/\s+/g, '_')]);
+        const tenantName = name.toLowerCase().replace(/\s+/g, '_');
+        // First check if tenant ID 1 exists (default Forward tenant)
+        const tenant1Result = await client.query(`SELECT id, name FROM tenants WHERE id = 1`);
+        if (tenant1Result.rows.length > 0) {
+            console.log(`📋 Using existing tenant: ${tenant1Result.rows[0].name} (ID: 1)`);
+            return 1;
+        }
+        // Check if tenant with this name already exists
+        const existingResult = await client.query(`SELECT id FROM tenants WHERE name = $1`, [tenantName]);
         if (existingResult.rows.length > 0) {
             console.log(`📋 Using existing tenant: ${name} (ID: ${existingResult.rows[0].id})`);
             return existingResult.rows[0].id;
         }
-        // Create new tenant with explicit ID (use 1 for Forward tenant)
-        const testTenantId = 1;
+        // Create new tenant with explicit ID 1 for Forward tenant
         const result = await client.query(`INSERT INTO tenants (id, name, display_name, is_active, created_at, updated_at) 
-       VALUES ($1, $2, $3, true, NOW(), NOW()) 
-       RETURNING id`, [testTenantId, name.toLowerCase().replace(/\s+/g, '_'), name]);
+       VALUES (1, $1, $2, true, NOW(), NOW()) 
+       RETURNING id`, [tenantName, name]);
+        console.log(`✅ Created new tenant: ${name} (ID: ${result.rows[0].id})`);
         return result.rows[0].id;
     }
     /**
@@ -142,20 +149,23 @@ class StoredProcTestDataGenerator {
         return ffcs;
     }
     /**
-     * Register user and create persona using sp_register_user stored procedure
+     * Register user and create persona using sp_create_user_from_cognito stored procedure
+     * In test environment, we simulate Cognito user creation
      */
     async registerUserAndCreatePersona(client, tenantId, persona) {
-        const password = faker_1.faker.internet.password({ length: 12 });
-        const passwordSalt = faker_1.faker.string.alphanumeric(32);
-        const passwordHash = faker_1.faker.string.alphanumeric(64); // In real app, this would be hashed with salt
-        const result = await client.query(`SELECT * FROM sp_register_user($1, $2, $3, $4, $5, $6, $7, $8)`, [
+        // Simulate Cognito user ID and username (in production, these come from Cognito)
+        const cognitoUserId = `test-${faker_1.faker.string.uuid()}`;
+        const cognitoUsername = persona.email.split('@')[0] + faker_1.faker.number.int({ min: 100, max: 999 });
+        const result = await client.query(`SELECT * FROM sp_create_user_from_cognito($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, [
             tenantId,
+            cognitoUserId,
+            cognitoUsername,
             persona.email,
             persona.phone,
-            passwordHash,
-            passwordSalt,
             persona.first_name,
             persona.last_name,
+            true, // email_verified (for testing, assume verified)
+            true, // phone_verified (for testing, assume verified)
             '+1' // US country code
         ]);
         return result.rows[0].persona_id;
@@ -176,7 +186,8 @@ class StoredProcTestDataGenerator {
         return result.rows[0].ffc_id;
     }
     /**
-     * Add member to FFC using sp_add_ffc_member stored procedure
+     * Add member to FFC using sp_add_persona_to_ffc stored procedure
+     * Updated to match new stored procedure signature
      */
     async addFfcMember(client, ffcId, personaId, invitedByPersonaId) {
         const role = faker_1.faker.helpers.weightedArrayElement([
@@ -190,7 +201,10 @@ class StoredProcTestDataGenerator {
         if (!tenantId) {
             throw new Error(`FFC ${ffcId} not found`);
         }
-        await client.query(`SELECT sp_add_ffc_member($1, $2, $3, $4)`, [tenantId, ffcId, personaId, role]);
+        // Get the user_id of the person adding the member
+        const adderUserResult = await client.query(`SELECT user_id FROM personas WHERE id = $1`, [invitedByPersonaId]);
+        const addedBy = adderUserResult.rows[0]?.user_id;
+        await client.query(`SELECT sp_add_persona_to_ffc($1, $2, $3, $4, $5)`, [tenantId, ffcId, personaId, role, addedBy]);
     }
     /**
      * Generate comprehensive asset coverage across all 13 categories
@@ -223,8 +237,11 @@ class StoredProcTestDataGenerator {
                     const assetId = await this.createAssetByCategory(client, tenantId, ffc.ffcId, category, createdBy, 'mixed' // Use mixed wealth scenario
                     );
                     totalAssets++;
-                    // Create asset ownership and permissions
-                    const ownershipCount = await this.createAssetOwnership(client, tenantId, assetId, ffc.memberPersonaIds, createdBy);
+                    // Note: sp_create_asset already creates 100% ownership for the owner_persona_id
+                    // so we don't need to call createAssetOwnership separately
+                    // const ownershipCount = await this.createAssetOwnership(client, tenantId, assetId, ffc.memberPersonaIds, createdBy);
+                    const ownershipCount = 1; // Already created by sp_create_asset
+                    // Create asset permissions for other family members
                     const permissionCount = await this.createAssetPermissions(client, tenantId, assetId, ffc.memberPersonaIds, createdBy);
                     totalOwnerships += ownershipCount;
                     totalPermissions += permissionCount;
@@ -238,19 +255,41 @@ class StoredProcTestDataGenerator {
     }
     /**
      * Create asset using sp_create_asset stored procedure with category-specific data
+     * Updated to match new stored procedure signature with owner_persona_id and asset_type
      */
     async createAssetByCategory(client, tenantId, ffcId, category, createdBy, scenario) {
         const assetData = this.assetGenerator.generateAssetByCategory(category, tenantId.toString(), ffcId, createdBy, scenario === 'mixed' ? (faker_1.faker.datatype.boolean(0.3) ? 'high_net_worth' : 'mass_affluent') : scenario);
-        // Convert category name to category code (lowercase with underscores)
-        const categoryCode = category.toLowerCase().replace(/\s+/g, '_');
+        // Map category to asset_type_enum values - these must match the enum definition exactly
+        const assetTypeMap = {
+            'personal_directives': 'personal_directives',
+            'trust': 'trust',
+            'will': 'will',
+            'personal_property': 'personal_property',
+            'operational_property': 'operational_property',
+            'inventory': 'inventory',
+            'real_estate': 'real_estate',
+            'life_insurance': 'life_insurance',
+            'financial_accounts': 'financial_accounts',
+            'recurring_income': 'recurring_income',
+            'digital_assets': 'digital_assets',
+            'ownership_interests': 'ownership_interests',
+            'loans': 'loans'
+        };
+        const assetType = assetTypeMap[category];
+        if (!assetType) {
+            throw new Error(`Invalid asset category: ${category}`);
+        }
+        // Get the user_id for the creator
+        const userResult = await client.query(`SELECT user_id FROM personas WHERE id = $1`, [createdBy]);
+        const createdByUserId = userResult.rows[0]?.user_id;
         const result = await client.query(`SELECT sp_create_asset($1, $2, $3, $4, $5, $6, $7) as asset_id`, [
             tenantId,
-            ffcId,
-            categoryCode,
+            createdBy, // owner_persona_id
+            assetType, // asset_type enum
             assetData.name,
             assetData.description || `${category} asset`,
-            assetData.estimated_value,
-            createdBy
+            100.00, // ownership_percentage (default 100%)
+            createdByUserId // created_by_user_id
         ]);
         const assetId = result.rows[0].asset_id;
         // Update asset with estimated value using sp_update_asset_value
@@ -261,7 +300,10 @@ class StoredProcTestDataGenerator {
      * Update asset value using sp_update_asset_value stored procedure
      */
     async updateAssetValue(client, assetId, value, updatedBy) {
-        await client.query(`SELECT sp_update_asset_value($1, $2, $3, $4)`, [assetId, value, new Date(), updatedBy]);
+        // Get the user_id for the updater
+        const userResult = await client.query(`SELECT user_id FROM personas WHERE id = $1`, [updatedBy]);
+        const updatedByUserId = userResult.rows[0]?.user_id;
+        await client.query(`SELECT sp_update_asset_value($1, $2, $3, $4, $5)`, [assetId, value, new Date(), 'market', updatedByUserId]);
     }
     /**
      * Create asset ownership using sp_assign_asset_to_persona stored procedure
@@ -282,15 +324,17 @@ class StoredProcTestDataGenerator {
                 { value: 'beneficiary', weight: 20 },
                 { value: 'trustee', weight: 10 }
             ]);
+            // Get the user_id for the assigner
+            const assignerUserResult = await client.query(`SELECT user_id FROM personas WHERE id = $1`, [assignedBy]);
+            const assignedByUserId = assignerUserResult.rows[0]?.user_id;
             try {
-                await client.query(`SELECT sp_assign_asset_to_persona($1, $2, $3, $4, $5, $6, $7)`, [
-                    tenantId,
+                await client.query(`SELECT sp_assign_asset_to_persona($1, $2, $3, $4, $5, $6)`, [
                     assetId,
                     owner,
                     ownershipType,
                     percentage,
                     i === 0, // is_primary for first owner
-                    assignedBy
+                    assignedByUserId
                 ]);
                 totalPercentage += percentage;
                 ownershipCount++;

@@ -60,19 +60,14 @@ CREATE INDEX idx_documents_asset_id ON documents(asset_id);
 -- etc. for all foreign key relationships
 ```
 
-## 6. Array Foreign Keys
+## 6. ~~Array Foreign Keys~~
 **Your Point:** Can't enforce foreign key constraints on array columns
 
-**Action:** ✅ **ACCEPTED** - Replace arrays with junction tables:
-```sql
--- Instead of: rules_applied UUID[] in pii_processing_job
--- Create junction table:
-CREATE TABLE pii_job_rules (
-    job_id UUID REFERENCES pii_processing_job(id) ON DELETE CASCADE,
-    rule_id UUID REFERENCES pii_detection_rules(id),
-    PRIMARY KEY (job_id, rule_id)
-);
-```
+**Action:** ❌ **NOT IMPLEMENTING** - Keeping array columns for flexibility:
+- Arrays work well for our use case
+- Performance benefits for read-heavy operations
+- Application will handle referential integrity
+- Simpler queries for array contains operations
 
 ## 7. Connection Limits
 **Your Point:** Don't set connection_limit to -1, use default (100) with proxy if needed
@@ -177,7 +172,7 @@ CREATE POLICY assets_ffc_member ON assets
 3. ✅ Add UTC timezone to all timestamps
 4. ✅ Add audit fields to all tables
 5. ✅ Create explicit indexes for foreign keys
-6. ✅ Replace array foreign keys with junction tables
+6. ~~Replace array foreign keys with junction tables~~ ❌ NOT IMPLEMENTING
 7. ✅ Remove connection limit override
 8. ✅ Simplify email validation
 

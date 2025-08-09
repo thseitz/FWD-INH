@@ -15,8 +15,8 @@ The Forward Inheritance Platform database consists of **56 tables** organized in
 
 ### Key Statistics
 - **Total Tables**: 56
-- **Enum Types**: 25+
-- **Stored Procedures**: 45+
+- **Enum Types**: 59
+- **Stored Procedures**: 46
 - **Indexes**: 60+ (including composite indexes)
 - **Primary Key Strategy**: INTEGER for tenants (1=Forward, 2-50 for customers), UUID for entities
 
@@ -357,9 +357,9 @@ CREATE TYPE pii_status_enum AS ENUM ('pending', 'processing', 'completed', 'fail
 ### Composite Indexes
 ```sql
 -- Core access patterns
-CREATE INDEX idx_users_tenant_email ON users(tenant_id, email);
+CREATE INDEX idx_users_tenant_cognito ON users(tenant_id, cognito_user_id);
 CREATE INDEX idx_personas_user_primary ON personas(user_id, is_primary);
-CREATE INDEX idx_assets_tenant_category ON assets(tenant_id, asset_category);
+CREATE INDEX idx_assets_tenant_category ON assets(tenant_id, category_id);
 CREATE INDEX idx_asset_persona_persona_type ON asset_persona(persona_id, ownership_type);
 
 -- Audit and logging
@@ -372,9 +372,9 @@ CREATE INDEX idx_user_sessions_active ON user_sessions(user_id, is_active, expir
 
 ### JSONB Indexes
 ```sql
--- Metadata search capabilities
-CREATE INDEX idx_assets_metadata_gin ON assets USING gin(metadata);
-CREATE INDEX idx_real_estate_metadata_gin ON real_estate USING gin(metadata);
+-- Tags and metadata search capabilities
+CREATE INDEX idx_assets_tags_gin ON assets USING gin(tags);
+-- Note: Specialized asset tables may have their own JSONB fields for metadata
 ```
 
 ## Constraint Summary
@@ -394,15 +394,14 @@ CHECK (ownership_percentage >= 0 AND ownership_percentage <= 100);
 ALTER TABLE personas ADD CONSTRAINT chk_birth_date 
 CHECK (date_of_birth <= CURRENT_DATE);
 
--- Status consistency
-ALTER TABLE users ADD CONSTRAINT chk_verification_status 
-CHECK ((email_verified = true AND phone_verified = true) OR status != 'active');
+-- Status consistency (verification handled by AWS Cognito)
+-- Users are only active after Cognito verification process
 ```
 
 ### Unique Constraints
 ```sql
 -- Business rule enforcement
-ALTER TABLE users ADD CONSTRAINT uq_users_tenant_email UNIQUE (tenant_id, email);
+ALTER TABLE users ADD CONSTRAINT uq_users_cognito_id UNIQUE (cognito_user_id);
 ALTER TABLE personas ADD CONSTRAINT uq_personas_user_primary UNIQUE (user_id, is_primary) 
 WHERE is_primary = true;
 ALTER TABLE builder_io_integrations ADD CONSTRAINT uq_builder_page UNIQUE (page_name);
@@ -420,8 +419,8 @@ ALTER TABLE builder_io_integrations ADD CONSTRAINT uq_builder_page UNIQUE (page_
 - Relationships: Parent to all other entities
 
 **users** 
-- Purpose: Authentication and system access
-- Key Fields: `id` UUID (PK), `tenant_id` INTEGER (FK), `email`, `password_hash`, `status`
+- Purpose: Authentication and system access (integrated with AWS Cognito)
+- Key Fields: `id` UUID (PK), `tenant_id` INTEGER (FK), `cognito_user_id`, `cognito_username`, `status`
 - Relationships: One-to-many with personas, sessions
 
 **personas**

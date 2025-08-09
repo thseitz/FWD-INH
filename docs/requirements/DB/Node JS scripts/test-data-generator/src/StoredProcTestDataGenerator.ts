@@ -99,10 +99,22 @@ export class StoredProcTestDataGenerator {
    * Create a tenant using the tenant creation process
    */
   private async createTenant(client: PoolClient, name: string): Promise<number> {
-    // Check if tenant already exists, if so return existing ID
+    const tenantName = name.toLowerCase().replace(/\s+/g, '_');
+    
+    // First check if tenant ID 1 exists (default Forward tenant)
+    const tenant1Result = await client.query(
+      `SELECT id, name FROM tenants WHERE id = 1`
+    );
+    
+    if (tenant1Result.rows.length > 0) {
+      console.log(`📋 Using existing tenant: ${tenant1Result.rows[0].name} (ID: 1)`);
+      return 1;
+    }
+    
+    // Check if tenant with this name already exists
     const existingResult = await client.query(
       `SELECT id FROM tenants WHERE name = $1`,
-      [name.toLowerCase().replace(/\s+/g, '_')]
+      [tenantName]
     );
     
     if (existingResult.rows.length > 0) {
@@ -110,15 +122,15 @@ export class StoredProcTestDataGenerator {
       return existingResult.rows[0].id;
     }
     
-    // Create new tenant with explicit ID (use 1 for Forward tenant)
-    const testTenantId = 1;
+    // Create new tenant with explicit ID 1 for Forward tenant
     const result = await client.query(
       `INSERT INTO tenants (id, name, display_name, is_active, created_at, updated_at) 
-       VALUES ($1, $2, $3, true, NOW(), NOW()) 
+       VALUES (1, $1, $2, true, NOW(), NOW()) 
        RETURNING id`,
-      [testTenantId, name.toLowerCase().replace(/\s+/g, '_'), name]
+      [tenantName, name]
     );
     
+    console.log(`✅ Created new tenant: ${name} (ID: ${result.rows[0].id})`);
     return result.rows[0].id;
   }
 
@@ -189,27 +201,30 @@ export class StoredProcTestDataGenerator {
   }
 
   /**
-   * Register user and create persona using sp_register_user stored procedure
+   * Register user and create persona using sp_create_user_from_cognito stored procedure
+   * In test environment, we simulate Cognito user creation
    */
   private async registerUserAndCreatePersona(
     client: PoolClient,
     tenantId: number,
     persona: TestPersona
   ): Promise<string> {
-    const password = faker.internet.password({ length: 12 });
-    const passwordSalt = faker.string.alphanumeric(32);
-    const passwordHash = faker.string.alphanumeric(64); // In real app, this would be hashed with salt
+    // Simulate Cognito user ID and username (in production, these come from Cognito)
+    const cognitoUserId = `test-${faker.string.uuid()}`;
+    const cognitoUsername = persona.email.split('@')[0] + faker.number.int({ min: 100, max: 999 });
     
     const result = await client.query(
-      `SELECT * FROM sp_register_user($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `SELECT * FROM sp_create_user_from_cognito($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         tenantId,
+        cognitoUserId,
+        cognitoUsername,
         persona.email,
         persona.phone,
-        passwordHash,
-        passwordSalt,
         persona.first_name,
         persona.last_name,
+        true, // email_verified (for testing, assume verified)
+        true, // phone_verified (for testing, assume verified)
         '+1' // US country code
       ]
     );
@@ -250,7 +265,8 @@ export class StoredProcTestDataGenerator {
   }
 
   /**
-   * Add member to FFC using sp_add_ffc_member stored procedure
+   * Add member to FFC using sp_add_persona_to_ffc stored procedure
+   * Updated to match new stored procedure signature
    */
   private async addFfcMember(
     client: PoolClient,
@@ -275,9 +291,17 @@ export class StoredProcTestDataGenerator {
       throw new Error(`FFC ${ffcId} not found`);
     }
     
+    // Get the user_id of the person adding the member
+    const adderUserResult = await client.query(
+      `SELECT user_id FROM personas WHERE id = $1`,
+      [invitedByPersonaId]
+    );
+    
+    const addedBy = adderUserResult.rows[0]?.user_id;
+    
     await client.query(
-      `SELECT sp_add_ffc_member($1, $2, $3, $4)`,
-      [tenantId, ffcId, personaId, role]
+      `SELECT sp_add_persona_to_ffc($1, $2, $3, $4, $5)`,
+      [tenantId, ffcId, personaId, role, addedBy]
     );
   }
 
@@ -331,8 +355,12 @@ export class StoredProcTestDataGenerator {
           
           totalAssets++;
           
-          // Create asset ownership and permissions
-          const ownershipCount = await this.createAssetOwnership(client, tenantId, assetId, ffc.memberPersonaIds, createdBy);
+          // Note: sp_create_asset already creates 100% ownership for the owner_persona_id
+          // so we don't need to call createAssetOwnership separately
+          // const ownershipCount = await this.createAssetOwnership(client, tenantId, assetId, ffc.memberPersonaIds, createdBy);
+          const ownershipCount = 1; // Already created by sp_create_asset
+          
+          // Create asset permissions for other family members
           const permissionCount = await this.createAssetPermissions(client, tenantId, assetId, ffc.memberPersonaIds, createdBy);
           
           totalOwnerships += ownershipCount;
@@ -349,6 +377,7 @@ export class StoredProcTestDataGenerator {
 
   /**
    * Create asset using sp_create_asset stored procedure with category-specific data
+   * Updated to match new stored procedure signature with owner_persona_id and asset_type
    */
   private async createAssetByCategory(
     client: PoolClient,
@@ -367,19 +396,45 @@ export class StoredProcTestDataGenerator {
       scenario === 'mixed' ? (faker.datatype.boolean(0.3) ? 'high_net_worth' : 'mass_affluent') : scenario
     );
     
-    // Convert category name to category code (lowercase with underscores)
-    const categoryCode = category.toLowerCase().replace(/\s+/g, '_');
+    // Map category to asset_type_enum values - these must match the enum definition exactly
+    const assetTypeMap: { [key: string]: string } = {
+      'personal_directives': 'personal_directives',
+      'trust': 'trust',
+      'will': 'will',
+      'personal_property': 'personal_property',
+      'operational_property': 'operational_property',
+      'inventory': 'inventory',
+      'real_estate': 'real_estate',
+      'life_insurance': 'life_insurance',
+      'financial_accounts': 'financial_accounts',
+      'recurring_income': 'recurring_income',
+      'digital_assets': 'digital_assets',
+      'ownership_interests': 'ownership_interests',
+      'loans': 'loans'
+    };
+    
+    const assetType = assetTypeMap[category];
+    if (!assetType) {
+      throw new Error(`Invalid asset category: ${category}`);
+    }
+    
+    // Get the user_id for the creator
+    const userResult = await client.query(
+      `SELECT user_id FROM personas WHERE id = $1`,
+      [createdBy]
+    );
+    const createdByUserId = userResult.rows[0]?.user_id;
     
     const result = await client.query(
       `SELECT sp_create_asset($1, $2, $3, $4, $5, $6, $7) as asset_id`,
       [
         tenantId,
-        ffcId,
-        categoryCode,
+        createdBy, // owner_persona_id
+        assetType, // asset_type enum
         assetData.name,
         assetData.description || `${category} asset`,
-        assetData.estimated_value,
-        createdBy
+        100.00, // ownership_percentage (default 100%)
+        createdByUserId // created_by_user_id
       ]
     );
     
@@ -400,9 +455,16 @@ export class StoredProcTestDataGenerator {
     value: number,
     updatedBy: string
   ): Promise<void> {
+    // Get the user_id for the updater
+    const userResult = await client.query(
+      `SELECT user_id FROM personas WHERE id = $1`,
+      [updatedBy]
+    );
+    const updatedByUserId = userResult.rows[0]?.user_id;
+    
     await client.query(
-      `SELECT sp_update_asset_value($1, $2, $3, $4)`,
-      [assetId, value, new Date(), updatedBy]
+      `SELECT sp_update_asset_value($1, $2, $3, $4, $5)`,
+      [assetId, value, new Date(), 'market', updatedByUserId]
     );
   }
 
@@ -436,17 +498,23 @@ export class StoredProcTestDataGenerator {
         { value: 'trustee', weight: 10 }
       ]);
       
+      // Get the user_id for the assigner
+      const assignerUserResult = await client.query(
+        `SELECT user_id FROM personas WHERE id = $1`,
+        [assignedBy]
+      );
+      const assignedByUserId = assignerUserResult.rows[0]?.user_id;
+      
       try {
         await client.query(
-          `SELECT sp_assign_asset_to_persona($1, $2, $3, $4, $5, $6, $7)`,
+          `SELECT sp_assign_asset_to_persona($1, $2, $3, $4, $5, $6)`,
           [
-            tenantId,
             assetId, 
             owner, 
             ownershipType, 
             percentage,
             i === 0, // is_primary for first owner
-            assignedBy
+            assignedByUserId
           ]
         );
         

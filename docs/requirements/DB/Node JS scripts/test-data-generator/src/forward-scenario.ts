@@ -5,6 +5,10 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { StoredProcTestDataGenerator } from './StoredProcTestDataGenerator';
 import { DatabaseConfig } from './types';
+import * as dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const program = new Command();
 
@@ -12,7 +16,7 @@ const program = new Command();
 const defaultDbConfig: DatabaseConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'forward_inheritance',
+  database: process.env.DB_NAME || 'fwd_db',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'password'
 };

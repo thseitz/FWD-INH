@@ -47,4 +47,3 @@ https://riverqueue.com/docs
 22. But I’m sure there’s a good one for js out there as well
 
 23. If you do still want to go with elasticache don’t start with the serverless option. Looks like it’s going to be quite a bit more expensive at smaller scale. Also you might consider skipping the background job thing entirely and go straight for a workflow orchestrator. It sounds like you might have a lot of “if x happens do y otherwise do z” kind of workflows which kind of suck to try to hack into a job queue yourself.
-

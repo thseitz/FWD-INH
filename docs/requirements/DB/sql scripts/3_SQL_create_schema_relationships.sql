@@ -315,12 +315,6 @@ ALTER TABLE asset_categories ADD CONSTRAINT fk_asset_categories_updated_by
 -- assets relationships
 ALTER TABLE assets ADD CONSTRAINT fk_assets_category 
     FOREIGN KEY (category_id) REFERENCES asset_categories(id);
-ALTER TABLE assets ADD CONSTRAINT fk_assets_ffc 
-    FOREIGN KEY (ffc_id) REFERENCES fwd_family_circles(id);
-ALTER TABLE assets ADD CONSTRAINT fk_assets_primary_document 
-    FOREIGN KEY (primary_document_id) REFERENCES media_storage(id);
-ALTER TABLE assets ADD CONSTRAINT fk_assets_verified_by 
-    FOREIGN KEY (verified_by) REFERENCES users(id);
 ALTER TABLE assets ADD CONSTRAINT fk_assets_created_by 
     FOREIGN KEY (created_by) REFERENCES users(id);
 ALTER TABLE assets ADD CONSTRAINT fk_assets_updated_by 
@@ -747,6 +741,89 @@ ALTER TABLE real_estate_sync_logs ADD CONSTRAINT fk_real_estate_sync_logs_integr
     FOREIGN KEY (integration_id) REFERENCES real_estate_provider_integrations(id);
 ALTER TABLE real_estate_sync_logs ADD CONSTRAINT fk_real_estate_sync_logs_property 
     FOREIGN KEY (property_id) REFERENCES real_estate(id);
+
+-- ================================================================
+-- INDEXES FOR FOREIGN KEYS
+-- PostgreSQL doesn't automatically create indexes for foreign keys
+-- These are critical for query performance
+-- ================================================================
+
+-- Tenant foreign key indexes (most important - used in all queries)
+CREATE INDEX idx_media_storage_tenant_id ON media_storage(tenant_id);
+CREATE INDEX idx_document_metadata_tenant_id ON document_metadata(tenant_id);
+CREATE INDEX idx_users_tenant_id ON users(tenant_id);
+CREATE INDEX idx_personas_tenant_id ON personas(tenant_id);
+CREATE INDEX idx_ffc_tenant_id ON fwd_family_circles(tenant_id);
+CREATE INDEX idx_phone_tenant_id ON phone_number(tenant_id);
+CREATE INDEX idx_email_tenant_id ON email_address(tenant_id);
+CREATE INDEX idx_address_tenant_id ON address(tenant_id);
+CREATE INDEX idx_social_media_tenant_id ON social_media(tenant_id);
+CREATE INDEX idx_usage_email_tenant_id ON usage_email(tenant_id);
+CREATE INDEX idx_usage_phone_tenant_id ON usage_phone(tenant_id);
+CREATE INDEX idx_usage_address_tenant_id ON usage_address(tenant_id);
+CREATE INDEX idx_usage_social_media_tenant_id ON usage_social_media(tenant_id);
+CREATE INDEX idx_contact_info_tenant_id ON contact_info(tenant_id);
+CREATE INDEX idx_ffc_personas_tenant_id ON ffc_personas(tenant_id);
+CREATE INDEX idx_user_roles_tenant_id ON user_roles(tenant_id);
+CREATE INDEX idx_user_permissions_tenant_id ON user_permissions(tenant_id);
+CREATE INDEX idx_ffc_invitations_tenant_id ON ffc_invitations(tenant_id);
+CREATE INDEX idx_invitation_verification_tenant_id ON invitation_verification_attempts(tenant_id);
+CREATE INDEX idx_assets_tenant_id ON assets(tenant_id);
+CREATE INDEX idx_asset_persona_tenant_id ON asset_persona(tenant_id);
+CREATE INDEX idx_user_sessions_tenant_id ON user_sessions(tenant_id);
+
+-- User relationship indexes
+CREATE INDEX idx_personas_user_id ON personas(user_id);
+CREATE INDEX idx_ffc_owner_user_id ON fwd_family_circles(owner_user_id);
+CREATE INDEX idx_users_primary_email_id ON users(primary_email_id);
+CREATE INDEX idx_users_primary_phone_id ON users(primary_phone_id);
+
+-- FFC relationship indexes
+CREATE INDEX idx_ffc_personas_ffc_id ON ffc_personas(ffc_id);
+CREATE INDEX idx_ffc_personas_persona_id ON ffc_personas(persona_id);
+CREATE INDEX idx_ffc_invitations_ffc_id ON ffc_invitations(ffc_id);
+
+-- Asset relationship indexes
+-- Assets are owned by personas through the asset_persona junction table
+-- No direct owner_id column on assets table
+CREATE INDEX idx_asset_persona_asset_id ON asset_persona(asset_id);
+CREATE INDEX idx_asset_persona_persona_id ON asset_persona(persona_id);
+CREATE INDEX idx_document_metadata_media_storage_id ON document_metadata(media_storage_id);
+
+-- Contact relationship indexes
+CREATE INDEX idx_usage_email_email_id ON usage_email(email_id);
+CREATE INDEX idx_usage_phone_phone_id ON usage_phone(phone_id);
+CREATE INDEX idx_usage_address_address_id ON usage_address(address_id);
+CREATE INDEX idx_usage_social_media_social_media_id ON usage_social_media(social_media_id);
+
+-- Entity relationship indexes for polymorphic relationships
+CREATE INDEX idx_usage_email_entity_type_id ON usage_email(entity_type, entity_id);
+CREATE INDEX idx_usage_phone_entity_type_id ON usage_phone(entity_type, entity_id);
+CREATE INDEX idx_usage_address_entity_type_id ON usage_address(entity_type, entity_id);
+CREATE INDEX idx_usage_social_media_entity_type_id ON usage_social_media(entity_type, entity_id);
+
+-- Permission relationship indexes
+CREATE INDEX idx_user_role_assignments_user_id ON user_role_assignments(user_id);
+CREATE INDEX idx_user_role_assignments_role_id ON user_role_assignments(role_id);
+CREATE INDEX idx_role_permissions_role_id ON role_permissions(role_id);
+CREATE INDEX idx_role_permissions_permission_id ON role_permissions(permission_id);
+
+-- Session and audit indexes
+CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX idx_audit_log_user_id ON audit_log(user_id);
+CREATE INDEX idx_audit_log_entity_type_id ON audit_log(entity_type, entity_id);
+
+-- Invitation indexes
+CREATE INDEX idx_invitation_verification_invitation_id ON invitation_verification_attempts(invitation_id);
+CREATE INDEX idx_ffc_invitations_phone_id ON ffc_invitations(invitee_phone_id);
+-- Removed idx_ffc_invitations_status - already created in script 2 line 2735
+
+-- Additional performance indexes for common queries
+CREATE INDEX idx_users_cognito_user_id ON users(cognito_user_id);
+CREATE INDEX idx_media_storage_processing_status ON media_storage(processing_status);
+CREATE INDEX idx_document_metadata_document_type ON document_metadata(document_type);
+CREATE INDEX idx_assets_category_id ON assets(category_id);
+CREATE INDEX idx_ffc_personas_role ON ffc_personas(ffc_role);
 
 -- ================================================================
 -- INITIAL DATA INSERTS

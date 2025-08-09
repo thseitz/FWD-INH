@@ -2,951 +2,653 @@
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Financial Data Integration (Quillt)](#financial-data-integration-quillt)
-3. [Content Management Integration (Builder.io)](#content-management-integration-builderio)
-4. [Real Estate Data Integration](#real-estate-data-integration)
-5. [Translation & Localization](#translation--localization)
-6. [External Advisor Management](#external-advisor-management)
-7. [System Health & Monitoring](#system-health--monitoring)
-8. [Error Handling & Retry Logic](#error-handling--retry-logic)
-9. [Security & Authentication](#security--authentication)
-10. [Integration Best Practices](#integration-best-practices)
+2. [Quillt Integration Procedures](#quillt-integration-procedures)
+3. [Real Estate Integration Procedures](#real-estate-integration-procedures)
+4. [Advisor Company Management](#advisor-company-management)
+5. [Builder.io Integration](#builderio-integration)
+6. [Translation Management](#translation-management)
+7. [Integration Health Monitoring](#integration-health-monitoring)
+8. [System Configuration](#system-configuration)
 
 ## Overview
 
-The Forward Inheritance Platform implements **14 integration procedures** that handle external system connectivity, data synchronization, and third-party service management. These procedures ensure secure, reliable, and auditable integration with financial data providers, content management systems, and other external services.
+The Forward Inheritance Platform implements **14 integration procedures** that connect with external services including Quillt for financial data, real estate valuation services, Builder.io for content management, and translation services. These procedures provide secure, audited integration capabilities with comprehensive error handling and retry mechanisms.
 
 ### Integration Categories
-- **Financial Data**: 4 procedures for Quillt financial account synchronization
-- **Content Management**: 3 procedures for Builder.io dynamic content delivery
-- **Real Estate**: 2 procedures for property valuation and market data
-- **Localization**: 2 procedures for multi-language content management
-- **External Services**: 3 procedures for advisor and third-party management
+- **Quillt Financial Integration**: 4 procedures for financial account synchronization
+- **Real Estate Services**: 2 procedures for property data synchronization
+- **Advisor Management**: 2 procedures for professional service provider management
+- **Builder.io CMS**: 3 procedures for content management
+- **Translation Services**: 2 procedures for multi-language support
+- **System Monitoring**: 2 procedures for health checks and error recovery
 
 ### Key Integration Features
-- **Secure Credential Management**: Encrypted API keys and tokens
-- **Automatic Retry Logic**: Built-in retry mechanisms for failed operations
-- **Rate Limiting**: Compliance with third-party API rate limits
-- **Data Quality Validation**: Comprehensive data validation and error handling
-- **Audit Logging**: Complete tracking of all integration activities
+- **Secure Credential Storage**: Encrypted storage of API keys and tokens
+- **Automatic Retry Logic**: Failed integration retry with exponential backoff
+- **Comprehensive Logging**: All integration activities logged for audit
+- **Error Recovery**: Automatic error detection and recovery mechanisms
+- **Rate Limiting**: Built-in rate limiting for external API calls
 
-## Financial Data Integration (Quillt)
+## Quillt Integration Procedures
 
 ### sp_configure_quillt_integration
-Sets up financial data integration with secure credential management.
+Configures or updates Quillt financial data integration settings.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_configure_quillt_integration(
-    p_tenant_id INTEGER,
     p_user_id UUID,
-    p_integration_name VARCHAR(200),
-    p_provider_name VARCHAR(100),
-    p_api_credentials JSONB,
-    p_sync_frequency VARCHAR(50) DEFAULT 'daily',
-    p_configured_by UUID DEFAULT NULL
-)
-RETURNS TABLE (
-    success BOOLEAN,
-    integration_id UUID,
-    message TEXT
-) AS $$
+    p_connection_id VARCHAR(255),
+    p_profile_id VARCHAR(255) DEFAULT NULL,
+    p_access_token TEXT DEFAULT NULL,
+    p_refresh_token TEXT DEFAULT NULL,
+    p_sync_settings JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
 DECLARE
     v_integration_id UUID;
-    v_credentials_encrypted TEXT;
-    v_webhook_secret UUID;
-    v_existing_integration UUID;
+    v_tenant_id INTEGER;
 BEGIN
-    -- Input validation
-    IF p_api_credentials IS NULL OR p_api_credentials = '{}'::jsonb THEN
-        RETURN QUERY SELECT FALSE, NULL::UUID, 'API credentials are required';
-        RETURN;
-    END IF;
-
-    -- Check for existing integration
-    SELECT id INTO v_existing_integration
-    FROM quillt_integrations
-    WHERE tenant_id = p_tenant_id
-    AND user_id = p_user_id
-    AND provider_name = p_provider_name
-    AND integration_status = 'active';
+    v_tenant_id := current_tenant_id();
     
-    IF v_existing_integration IS NOT NULL THEN
-        RETURN QUERY SELECT FALSE, NULL::UUID, 'Integration already exists for this provider';
-        RETURN;
+    -- Check for existing integration
+    SELECT id INTO v_integration_id
+    FROM quillt_integrations
+    WHERE tenant_id = v_tenant_id AND user_id = p_user_id;
+    
+    IF v_integration_id IS NULL THEN
+        -- Create new integration
+        INSERT INTO quillt_integrations (
+            tenant_id,
+            user_id,
+            quillt_connection_id,
+            quillt_profile_id,
+            access_token_encrypted,
+            refresh_token_encrypted,
+            sync_accounts,
+            sync_transactions,
+            sync_investments,
+            connection_status,
+            created_at
+        ) VALUES (
+            v_tenant_id,
+            p_user_id,
+            p_connection_id,
+            p_profile_id,
+            encrypt_text(p_access_token),
+            encrypt_text(p_refresh_token),
+            COALESCE((p_sync_settings->>'sync_accounts')::boolean, TRUE),
+            COALESCE((p_sync_settings->>'sync_transactions')::boolean, TRUE),
+            COALESCE((p_sync_settings->>'sync_investments')::boolean, TRUE),
+            'connected',
+            (NOW() AT TIME ZONE 'UTC')
+        ) RETURNING id INTO v_integration_id;
+    ELSE
+        -- Update existing integration
+        UPDATE quillt_integrations SET
+            quillt_connection_id = COALESCE(p_connection_id, quillt_connection_id),
+            quillt_profile_id = COALESCE(p_profile_id, quillt_profile_id),
+            access_token_encrypted = COALESCE(encrypt_text(p_access_token), access_token_encrypted),
+            refresh_token_encrypted = COALESCE(encrypt_text(p_refresh_token), refresh_token_encrypted),
+            sync_accounts = COALESCE((p_sync_settings->>'sync_accounts')::boolean, sync_accounts),
+            sync_transactions = COALESCE((p_sync_settings->>'sync_transactions')::boolean, sync_transactions),
+            sync_investments = COALESCE((p_sync_settings->>'sync_investments')::boolean, sync_investments),
+            connection_status = 'connected',
+            updated_at = (NOW() AT TIME ZONE 'UTC')
+        WHERE id = v_integration_id;
     END IF;
-
-    -- Encrypt API credentials (simplified - would use proper encryption in production)
-    v_credentials_encrypted := encode(p_api_credentials::text::bytea, 'base64');
-    v_webhook_secret := gen_random_uuid();
-    v_integration_id := gen_random_uuid();
-
-    -- Create integration record
-    INSERT INTO quillt_integrations (
-        id, tenant_id, user_id, integration_name, provider_name,
-        api_credentials_encrypted, sync_frequency, webhook_secret_encrypted,
-        configured_by
+    
+    -- Log configuration
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        entity_name,
+        metadata
     ) VALUES (
-        v_integration_id, p_tenant_id, p_user_id, p_integration_name, p_provider_name,
-        v_credentials_encrypted, p_sync_frequency, encode(v_webhook_secret::text::bytea, 'base64'),
-        COALESCE(p_configured_by, fn_get_current_user_id())
-    );
-
-    -- Create initial sync log entry
-    INSERT INTO quillt_sync_logs (
-        integration_id, sync_type, sync_status, started_at
-    ) VALUES (
-        v_integration_id, 'initial_setup', 'started', NOW()
-    );
-
-    -- Audit log
-    PERFORM sp_log_audit_event(
-        p_tenant_id, COALESCE(p_configured_by, fn_get_current_user_id()), NULL,
-        'QUILLT_INTEGRATION_CONFIGURED', 'quillt_integration', v_integration_id,
-        NULL, jsonb_build_object(
-            'provider_name', p_provider_name,
-            'sync_frequency', p_sync_frequency
+        v_tenant_id,
+        p_user_id,
+        'configure',
+        'integration',
+        v_integration_id,
+        'Quillt Integration',
+        jsonb_build_object(
+            'integration_type', 'quillt',
+            'sync_settings', p_sync_settings
         )
     );
-
-    RETURN QUERY SELECT TRUE, v_integration_id, 'Quillt integration configured successfully';
+    
+    RETURN v_integration_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
+**Key Features:**
+- Encrypted credential storage using helper functions
+- Flexible sync configuration for different data types
+- Automatic connection status management
+- Complete audit logging of configuration changes
+
 ### sp_sync_quillt_data
-Performs financial data synchronization with comprehensive error handling.
+Synchronizes financial data from Quillt for a user.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_sync_quillt_data(
-    p_integration_id UUID,
-    p_sync_type VARCHAR(50) DEFAULT 'incremental',
-    p_force_sync BOOLEAN DEFAULT FALSE
-)
-RETURNS TABLE (
-    success BOOLEAN,
-    sync_log_id UUID,
-    accounts_processed INTEGER,
-    transactions_added INTEGER,
-    message TEXT
+    p_user_id UUID,
+    p_sync_type VARCHAR(50) DEFAULT 'all'
+) RETURNS TABLE (
+    sync_id UUID,
+    accounts_synced INTEGER,
+    transactions_synced INTEGER,
+    investments_synced INTEGER,
+    errors_count INTEGER,
+    sync_status VARCHAR(20)
 ) AS $$
 DECLARE
-    v_integration_record quillt_integrations%ROWTYPE;
-    v_sync_log_id UUID;
-    v_last_sync TIMESTAMP WITH TIME ZONE;
-    v_accounts_processed INTEGER := 0;
-    v_transactions_added INTEGER := 0;
-    v_transactions_updated INTEGER := 0;
-    v_error_count INTEGER := 0;
-    v_success_count INTEGER := 0;
-    v_data_quality_score DECIMAL(3,2) := 1.00;
+    v_integration_id UUID;
+    v_tenant_id INTEGER;
+    v_sync_id UUID;
+    v_accounts_count INTEGER := 0;
+    v_transactions_count INTEGER := 0;
+    v_investments_count INTEGER := 0;
+    v_errors INTEGER := 0;
+    v_status VARCHAR(20);
 BEGIN
-    -- Get integration record
-    SELECT * INTO v_integration_record
-    FROM quillt_integrations
-    WHERE id = p_integration_id
-    AND integration_status = 'active';
+    v_tenant_id := current_tenant_id();
+    v_sync_id := gen_random_uuid();
     
-    IF NOT FOUND THEN
-        RETURN QUERY SELECT FALSE, NULL::UUID, 0, 0, 'Integration not found or inactive';
-        RETURN;
-    END IF;
-
-    -- Check rate limiting (prevent too frequent syncs)
-    SELECT last_successful_sync INTO v_last_sync
+    -- Get integration configuration
+    SELECT id INTO v_integration_id
     FROM quillt_integrations
-    WHERE id = p_integration_id;
+    WHERE tenant_id = v_tenant_id 
+    AND user_id = p_user_id
+    AND is_active = TRUE;
     
-    IF NOT p_force_sync AND v_last_sync IS NOT NULL THEN
-        CASE v_integration_record.sync_frequency
-            WHEN 'hourly' THEN
-                IF v_last_sync > NOW() - INTERVAL '55 minutes' THEN
-                    RETURN QUERY SELECT FALSE, NULL::UUID, 0, 0, 'Sync too recent, rate limited';
-                    RETURN;
-                END IF;
-            WHEN 'daily' THEN
-                IF v_last_sync > NOW() - INTERVAL '23 hours' THEN
-                    RETURN QUERY SELECT FALSE, NULL::UUID, 0, 0, 'Sync too recent, rate limited';
-                    RETURN;
-                END IF;
-        END CASE;
+    IF v_integration_id IS NULL THEN
+        RAISE EXCEPTION 'No active Quillt integration found for user';
     END IF;
-
-    -- Create sync log entry
-    v_sync_log_id := gen_random_uuid();
-    INSERT INTO quillt_sync_logs (
-        id, integration_id, sync_type, sync_status, started_at
-    ) VALUES (
-        v_sync_log_id, p_integration_id, p_sync_type, 'started', NOW()
-    );
-
+    
+    -- Update sync status to running
+    UPDATE quillt_integrations SET
+        sync_status = 'running',
+        last_sync_at = (NOW() AT TIME ZONE 'UTC')
+    WHERE id = v_integration_id;
+    
     BEGIN
-        -- Simulate data synchronization process
-        -- In real implementation, this would call external APIs
-        
-        -- Process accounts (simplified simulation)
-        v_accounts_processed := array_length(
-            COALESCE((v_integration_record.connected_accounts::jsonb)::text[]::uuid[], '{}'), 1
-        );
-        
-        -- Simulate transaction processing based on sync type
-        IF p_sync_type = 'full' THEN
-            v_transactions_added := v_accounts_processed * 50; -- Simulate full sync
-            v_success_count := v_accounts_processed;
-        ELSE
-            v_transactions_added := v_accounts_processed * 5; -- Simulate incremental sync
-            v_transactions_updated := v_accounts_processed * 2;
-            v_success_count := v_accounts_processed;
+        -- Sync accounts if enabled
+        IF p_sync_type IN ('all', 'accounts') THEN
+            -- Actual sync logic would call Quillt API here
+            v_accounts_count := 5; -- Placeholder for actual sync
         END IF;
-
-        -- Simulate some validation errors for realism
-        IF RANDOM() < 0.1 THEN -- 10% chance of some errors
-            v_error_count := 1;
-            v_data_quality_score := 0.95;
+        
+        -- Sync transactions if enabled
+        IF p_sync_type IN ('all', 'transactions') THEN
+            -- Actual sync logic would call Quillt API here
+            v_transactions_count := 150; -- Placeholder for actual sync
         END IF;
-
-        -- Update sync log with results
-        UPDATE quillt_sync_logs
-        SET sync_status = 'completed',
-            completed_at = NOW(),
-            duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000,
-            accounts_processed = v_accounts_processed,
-            transactions_added = v_transactions_added,
-            transactions_updated = v_transactions_updated,
-            success_count = v_success_count,
-            error_count = v_error_count,
-            data_quality_score = v_data_quality_score
-        WHERE id = v_sync_log_id;
-
-        -- Update integration last sync time
-        UPDATE quillt_integrations
-        SET last_successful_sync = NOW(),
-            last_error_message = NULL
-        WHERE id = p_integration_id;
-
-        -- Audit log
-        PERFORM sp_log_audit_event(
-            v_integration_record.tenant_id, v_integration_record.user_id, NULL,
-            'QUILLT_SYNC_COMPLETED', 'quillt_integration', p_integration_id,
-            NULL, jsonb_build_object(
-                'sync_type', p_sync_type,
-                'accounts_processed', v_accounts_processed,
-                'transactions_added', v_transactions_added,
-                'data_quality_score', v_data_quality_score
-            )
-        );
-
-        RETURN QUERY SELECT TRUE, v_sync_log_id, v_accounts_processed, v_transactions_added, 'Sync completed successfully';
-
-    EXCEPTION
-        WHEN OTHERS THEN
-            -- Update sync log with failure
-            UPDATE quillt_sync_logs
-            SET sync_status = 'failed',
-                completed_at = NOW(),
-                duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000,
-                error_details = jsonb_build_object('error', SQLERRM)
-            WHERE id = v_sync_log_id;
-
-            -- Update integration with error
-            UPDATE quillt_integrations
-            SET last_error_message = SQLERRM
-            WHERE id = p_integration_id;
-
-            -- Audit log
-            PERFORM sp_log_audit_event(
-                v_integration_record.tenant_id, v_integration_record.user_id, NULL,
-                'QUILLT_SYNC_FAILED', 'quillt_integration', p_integration_id,
-                NULL, jsonb_build_object('error', SQLERRM)
-            );
-
-            RETURN QUERY SELECT FALSE, v_sync_log_id, 0, 0, 'Sync failed: ' || SQLERRM;
+        
+        -- Sync investments if enabled
+        IF p_sync_type IN ('all', 'investments') THEN
+            -- Actual sync logic would call Quillt API here
+            v_investments_count := 3; -- Placeholder for actual sync
+        END IF;
+        
+        v_status := 'completed';
+        
+        -- Update successful sync timestamp
+        UPDATE quillt_integrations SET
+            sync_status = v_status,
+            last_successful_sync_at = (NOW() AT TIME ZONE 'UTC'),
+            sync_error = NULL
+        WHERE id = v_integration_id;
+        
+    EXCEPTION WHEN OTHERS THEN
+        v_status := 'failed';
+        v_errors := 1;
+        
+        -- Update with error information
+        UPDATE quillt_integrations SET
+            sync_status = v_status,
+            sync_error = SQLERRM
+        WHERE id = v_integration_id;
     END;
+    
+    -- Log sync operation
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        entity_name,
+        metadata
+    ) VALUES (
+        v_tenant_id,
+        p_user_id,
+        'sync',
+        'integration',
+        v_integration_id,
+        'Quillt Data Sync',
+        jsonb_build_object(
+            'sync_id', v_sync_id,
+            'sync_type', p_sync_type,
+            'accounts_synced', v_accounts_count,
+            'transactions_synced', v_transactions_count,
+            'investments_synced', v_investments_count,
+            'status', v_status,
+            'errors', v_errors
+        )
+    );
+    
+    RETURN QUERY
+    SELECT v_sync_id, v_accounts_count, v_transactions_count, 
+           v_investments_count, v_errors, v_status;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ### sp_validate_quillt_credentials
-Validates API credentials and connectivity.
+Validates Quillt API credentials and connection.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_validate_quillt_credentials(
-    p_integration_id UUID
-)
-RETURNS TABLE (
-    valid BOOLEAN,
-    connection_test_result JSONB,
-    message TEXT
+    p_user_id UUID
+) RETURNS TABLE (
+    is_valid BOOLEAN,
+    connection_status VARCHAR(50),
+    error_message TEXT,
+    last_validated TIMESTAMP WITH TIME ZONE
 ) AS $$
 DECLARE
-    v_integration_record quillt_integrations%ROWTYPE;
-    v_test_result JSONB;
-    v_is_valid BOOLEAN := FALSE;
+    v_integration_id UUID;
+    v_tenant_id INTEGER;
+    v_is_valid BOOLEAN;
+    v_status VARCHAR(50);
+    v_error TEXT;
 BEGIN
-    -- Get integration record
-    SELECT * INTO v_integration_record
-    FROM quillt_integrations
-    WHERE id = p_integration_id;
+    v_tenant_id := current_tenant_id();
     
-    IF NOT FOUND THEN
-        RETURN QUERY SELECT FALSE, '{}'::jsonb, 'Integration not found';
+    -- Get integration
+    SELECT id, connection_status 
+    INTO v_integration_id, v_status
+    FROM quillt_integrations
+    WHERE tenant_id = v_tenant_id AND user_id = p_user_id;
+    
+    IF v_integration_id IS NULL THEN
+        RETURN QUERY
+        SELECT FALSE, 'not_configured'::VARCHAR(50), 
+               'No Quillt integration configured'::TEXT, 
+               NULL::TIMESTAMP WITH TIME ZONE;
         RETURN;
     END IF;
-
+    
+    -- Validate credentials (placeholder for actual API call)
     BEGIN
-        -- Simulate credential validation
-        -- In real implementation, this would test API connectivity
+        -- Actual validation would decrypt tokens and test API connection
+        v_is_valid := TRUE;
+        v_status := 'connected';
+        v_error := NULL;
         
-        -- Simulate validation logic
-        IF v_integration_record.api_credentials_encrypted IS NOT NULL THEN
-            -- Simulate API test call
-            v_is_valid := TRUE;
-            v_test_result := jsonb_build_object(
-                'api_accessible', true,
-                'response_time_ms', 150 + (RANDOM() * 100)::INTEGER,
-                'test_timestamp', NOW(),
-                'provider_status', 'online'
-            );
-        ELSE
-            v_test_result := jsonb_build_object(
-                'api_accessible', false,
-                'error', 'No credentials configured'
-            );
-        END IF;
-
-        -- Update integration status based on validation
-        UPDATE quillt_integrations
-        SET integration_status = CASE WHEN v_is_valid THEN 'active' ELSE 'error' END,
-            last_error_message = CASE WHEN NOT v_is_valid THEN 'Credential validation failed' ELSE NULL END
-        WHERE id = p_integration_id;
-
-        -- Audit log
-        PERFORM sp_log_audit_event(
-            v_integration_record.tenant_id, v_integration_record.user_id, NULL,
-            'QUILLT_CREDENTIALS_VALIDATED', 'quillt_integration', p_integration_id,
-            NULL, jsonb_build_object('valid', v_is_valid, 'test_result', v_test_result)
-        );
-
-        RETURN QUERY SELECT v_is_valid, v_test_result, 
-            CASE WHEN v_is_valid THEN 'Credentials validated successfully' 
-                 ELSE 'Credential validation failed' END;
-
-    EXCEPTION
-        WHEN OTHERS THEN
-            v_test_result := jsonb_build_object(
-                'api_accessible', false,
-                'error', SQLERRM
-            );
-            
-            RETURN QUERY SELECT FALSE, v_test_result, 'Validation error: ' || SQLERRM;
+        -- Update integration status
+        UPDATE quillt_integrations SET
+            connection_status = v_status,
+            updated_at = (NOW() AT TIME ZONE 'UTC')
+        WHERE id = v_integration_id;
+        
+    EXCEPTION WHEN OTHERS THEN
+        v_is_valid := FALSE;
+        v_status := 'disconnected';
+        v_error := SQLERRM;
+        
+        UPDATE quillt_integrations SET
+            connection_status = v_status,
+            sync_error = v_error,
+            updated_at = (NOW() AT TIME ZONE 'UTC')
+        WHERE id = v_integration_id;
     END;
+    
+    RETURN QUERY
+    SELECT v_is_valid, v_status, v_error, (NOW() AT TIME ZONE 'UTC');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ### sp_get_quillt_sync_status
-Retrieves synchronization status and history.
+Retrieves current sync status and history for Quillt integration.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_get_quillt_sync_status(
-    p_integration_id UUID,
-    p_limit INTEGER DEFAULT 10
-)
-RETURNS TABLE (
-    sync_log_id UUID,
-    sync_type VARCHAR(50),
-    sync_status VARCHAR(50),
-    started_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    accounts_processed INTEGER,
-    transactions_added INTEGER,
-    transactions_updated INTEGER,
-    data_quality_score DECIMAL(3,2),
-    error_details JSONB
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        qsl.id,
-        qsl.sync_type,
-        qsl.sync_status,
-        qsl.started_at,
-        qsl.completed_at,
-        qsl.accounts_processed,
-        qsl.transactions_added,
-        qsl.transactions_updated,
-        qsl.data_quality_score,
-        qsl.error_details
-    FROM quillt_sync_logs qsl
-    WHERE qsl.integration_id = p_integration_id
-    ORDER BY qsl.started_at DESC
-    LIMIT p_limit;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-## Content Management Integration (Builder.io)
-
-### sp_configure_builder_integration
-Configures Builder.io content management integration.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_configure_builder_integration(
-    p_tenant_id INTEGER,
-    p_space_id VARCHAR(100),
-    p_api_key TEXT,
-    p_page_name VARCHAR(200),
-    p_model_name VARCHAR(100) DEFAULT 'page',
-    p_cache_duration_minutes INTEGER DEFAULT 60
-)
-RETURNS TABLE (
-    success BOOLEAN,
+    p_user_id UUID,
+    p_include_history BOOLEAN DEFAULT FALSE
+) RETURNS TABLE (
     integration_id UUID,
-    message TEXT
+    connection_status VARCHAR(50),
+    sync_status VARCHAR(20),
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+    last_successful_sync_at TIMESTAMP WITH TIME ZONE,
+    accounts_enabled BOOLEAN,
+    transactions_enabled BOOLEAN,
+    investments_enabled BOOLEAN,
+    error_message TEXT,
+    sync_history JSONB
 ) AS $$
 DECLARE
-    v_integration_id UUID;
-    v_api_key_encrypted TEXT;
-    v_existing_page UUID;
+    v_tenant_id INTEGER;
+    v_history JSONB;
 BEGIN
-    -- Input validation
-    IF p_space_id IS NULL OR p_api_key IS NULL OR p_page_name IS NULL THEN
-        RETURN QUERY SELECT FALSE, NULL::UUID, 'Required parameters missing';
-        RETURN;
-    END IF;
-
-    -- Check for existing page configuration
-    SELECT id INTO v_existing_page
-    FROM builder_io_integrations
-    WHERE page_name = p_page_name;
+    v_tenant_id := current_tenant_id();
     
-    IF v_existing_page IS NOT NULL THEN
-        RETURN QUERY SELECT FALSE, NULL::UUID, 'Page configuration already exists';
-        RETURN;
+    IF p_include_history THEN
+        -- Get sync history from audit log
+        SELECT jsonb_agg(
+            jsonb_build_object(
+                'timestamp', created_at,
+                'status', metadata->>'status',
+                'accounts_synced', metadata->'accounts_synced',
+                'transactions_synced', metadata->'transactions_synced',
+                'investments_synced', metadata->'investments_synced'
+            ) ORDER BY created_at DESC
+        ) INTO v_history
+        FROM audit_log
+        WHERE tenant_id = v_tenant_id
+        AND user_id = p_user_id
+        AND entity_type = 'integration'
+        AND action = 'sync'
+        AND created_at > (NOW() - INTERVAL '30 days')
+        LIMIT 10;
     END IF;
-
-    -- Encrypt API key
-    v_api_key_encrypted := encode(p_api_key::bytea, 'base64');
-    v_integration_id := gen_random_uuid();
-
-    -- Create integration record
-    INSERT INTO builder_io_integrations (
-        id, tenant_id, space_id, api_key_encrypted, model_name,
-        page_name, cache_duration_minutes
-    ) VALUES (
-        v_integration_id, p_tenant_id, p_space_id, v_api_key_encrypted, p_model_name,
-        p_page_name, p_cache_duration_minutes
-    );
-
-    -- Audit log
-    PERFORM sp_log_audit_event(
-        p_tenant_id, fn_get_current_user_id(), NULL,
-        'BUILDER_IO_CONFIGURED', 'builder_io_integration', v_integration_id,
-        NULL, jsonb_build_object(
-            'page_name', p_page_name,
-            'space_id', p_space_id,
-            'model_name', p_model_name
-        )
-    );
-
-    RETURN QUERY SELECT TRUE, v_integration_id, 'Builder.io integration configured successfully';
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-### sp_refresh_builder_content
-Refreshes content from Builder.io with caching.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_refresh_builder_content(
-    p_integration_id UUID,
-    p_force_refresh BOOLEAN DEFAULT FALSE
-)
-RETURNS TABLE (
-    success BOOLEAN,
-    content_version VARCHAR(50),
-    cache_updated BOOLEAN,
-    message TEXT
-) AS $$
-DECLARE
-    v_integration_record builder_io_integrations%ROWTYPE;
-    v_should_refresh BOOLEAN := FALSE;
-    v_new_version VARCHAR(50);
-    v_new_checksum VARCHAR(64);
-    v_content_url VARCHAR(500);
-BEGIN
-    -- Get integration record
-    SELECT * INTO v_integration_record
-    FROM builder_io_integrations
-    WHERE id = p_integration_id
-    AND is_active = TRUE;
     
-    IF NOT FOUND THEN
-        RETURN QUERY SELECT FALSE, NULL::VARCHAR(50), FALSE, 'Integration not found or inactive';
-        RETURN;
-    END IF;
-
-    -- Check if refresh is needed
-    IF p_force_refresh OR 
-       v_integration_record.last_cache_refresh IS NULL OR
-       v_integration_record.last_cache_refresh < NOW() - (v_integration_record.cache_duration_minutes || ' minutes')::INTERVAL THEN
-        v_should_refresh := TRUE;
-    END IF;
-
-    IF NOT v_should_refresh THEN
-        RETURN QUERY SELECT TRUE, v_integration_record.content_version, FALSE, 'Content is up to date';
-        RETURN;
-    END IF;
-
-    BEGIN
-        -- Simulate content fetch from Builder.io
-        -- In real implementation, this would call Builder.io API
-        
-        v_new_version := 'v' || EXTRACT(EPOCH FROM NOW())::TEXT;
-        v_new_checksum := encode(digest(v_new_version, 'sha256'), 'hex');
-        v_content_url := 'https://cdn.builder.io/api/v1/content/' || v_integration_record.space_id;
-
-        -- Update integration record
-        UPDATE builder_io_integrations
-        SET content_version = v_new_version,
-            content_checksum = v_new_checksum,
-            content_url = v_content_url,
-            last_cache_refresh = NOW(),
-            last_successful_fetch = NOW()
-        WHERE id = p_integration_id;
-
-        -- Audit log
-        PERFORM sp_log_audit_event(
-            v_integration_record.tenant_id, fn_get_current_user_id(), NULL,
-            'BUILDER_CONTENT_REFRESHED', 'builder_io_integration', p_integration_id,
-            NULL, jsonb_build_object(
-                'new_version', v_new_version,
-                'page_name', v_integration_record.page_name
-            )
-        );
-
-        RETURN QUERY SELECT TRUE, v_new_version, TRUE, 'Content refreshed successfully';
-
-    EXCEPTION
-        WHEN OTHERS THEN
-            -- Log error but don't fail completely
-            PERFORM sp_log_audit_event(
-                v_integration_record.tenant_id, fn_get_current_user_id(), NULL,
-                'BUILDER_CONTENT_REFRESH_FAILED', 'builder_io_integration', p_integration_id,
-                NULL, jsonb_build_object('error', SQLERRM)
-            );
-
-            RETURN QUERY SELECT FALSE, NULL::VARCHAR(50), FALSE, 'Content refresh failed: ' || SQLERRM;
-    END;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-### sp_get_builder_content_status
-Retrieves Builder.io content status and cache information.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_get_builder_content_status(
-    p_tenant_id INTEGER
-)
-RETURNS TABLE (
-    integration_id UUID,
-    page_name VARCHAR(200),
-    content_version VARCHAR(50),
-    last_cache_refresh TIMESTAMP WITH TIME ZONE,
-    cache_expires_at TIMESTAMP WITH TIME ZONE,
-    is_cache_valid BOOLEAN,
-    content_url VARCHAR(500)
-) AS $$
-BEGIN
     RETURN QUERY
     SELECT 
-        bio.id,
-        bio.page_name,
-        bio.content_version,
-        bio.last_cache_refresh,
-        bio.last_cache_refresh + (bio.cache_duration_minutes || ' minutes')::INTERVAL,
-        CASE 
-            WHEN bio.last_cache_refresh IS NULL THEN FALSE
-            WHEN bio.last_cache_refresh + (bio.cache_duration_minutes || ' minutes')::INTERVAL > NOW() THEN TRUE
-            ELSE FALSE
-        END,
-        bio.content_url
-    FROM builder_io_integrations bio
-    WHERE bio.tenant_id = p_tenant_id
-    AND bio.is_active = TRUE
-    ORDER BY bio.page_name;
+        qi.id,
+        qi.connection_status,
+        qi.sync_status,
+        qi.last_sync_at,
+        qi.last_successful_sync_at,
+        qi.sync_accounts,
+        qi.sync_transactions,
+        qi.sync_investments,
+        qi.sync_error,
+        COALESCE(v_history, '[]'::jsonb)
+    FROM quillt_integrations qi
+    WHERE qi.tenant_id = v_tenant_id
+    AND qi.user_id = p_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-## Real Estate Data Integration
+## Real Estate Integration Procedures
 
 ### sp_sync_real_estate_data
-Synchronizes real estate valuations and market data.
+Synchronizes real estate property valuations and market data.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_sync_real_estate_data(
-    p_real_estate_id UUID,
-    p_provider VARCHAR(100) DEFAULT 'Zillow',
-    p_sync_type VARCHAR(50) DEFAULT 'valuation'
-)
-RETURNS TABLE (
-    success BOOLEAN,
+    p_asset_id UUID,
+    p_data_source TEXT DEFAULT 'zillow'
+) RETURNS TABLE (
     sync_log_id UUID,
-    previous_value DECIMAL(15,2),
-    new_value DECIMAL(15,2),
-    value_change_percentage DECIMAL(5,2),
-    message TEXT
+    property_value DECIMAL(15,2),
+    tax_assessment DECIMAL(15,2),
+    market_trend JSONB,
+    confidence_score DECIMAL(3,2),
+    sync_status VARCHAR(20)
 ) AS $$
 DECLARE
-    v_real_estate_record real_estate%ROWTYPE;
-    v_asset_record assets%ROWTYPE;
+    v_tenant_id INTEGER;
     v_sync_log_id UUID;
-    v_previous_value DECIMAL(15,2);
-    v_new_value DECIMAL(15,2);
-    v_value_change DECIMAL(5,2);
-    v_data_confidence DECIMAL(3,2);
+    v_old_value JSONB;
+    v_new_value JSONB;
+    v_property_data RECORD;
+    v_confidence DECIMAL(3,2);
+    v_status VARCHAR(20);
 BEGIN
-    -- Get real estate record
-    SELECT re.*, a.estimated_value INTO v_real_estate_record, v_previous_value
-    FROM real_estate re
-    JOIN assets a ON re.asset_id = a.id
-    WHERE re.id = p_real_estate_id;
-    
-    IF NOT FOUND THEN
-        RETURN QUERY SELECT FALSE, NULL::UUID, NULL::DECIMAL(15,2), NULL::DECIMAL(15,2), NULL::DECIMAL(5,2), 'Real estate property not found';
-        RETURN;
-    END IF;
-
-    -- Create sync log entry
+    v_tenant_id := current_tenant_id();
     v_sync_log_id := gen_random_uuid();
     
+    -- Get current property data
+    SELECT 
+        a.id,
+        a.tags->>'property_value' as current_value,
+        a.tags->>'tax_assessment' as current_tax,
+        a.tags->>'last_valuation_date' as last_valuation
+    INTO v_property_data
+    FROM assets a
+    WHERE a.id = p_asset_id
+    AND a.tenant_id = v_tenant_id
+    AND a.asset_type = 'real_estate';
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Real estate asset not found';
+    END IF;
+    
+    -- Store old values for audit
+    v_old_value := jsonb_build_object(
+        'property_value', v_property_data.current_value,
+        'tax_assessment', v_property_data.current_tax,
+        'last_valuation_date', v_property_data.last_valuation
+    );
+    
     BEGIN
-        -- Simulate real estate data sync
-        -- In real implementation, this would call external APIs (Zillow, Redfin, MLS)
+        -- Simulate external API call to get property data
+        -- In production, this would call actual real estate APIs
+        v_new_value := jsonb_build_object(
+            'property_value', 850000,
+            'tax_assessment', 8500,
+            'market_trend', jsonb_build_object(
+                '30_day_change', 0.02,
+                '90_day_change', 0.05,
+                'year_over_year', 0.08
+            ),
+            'last_valuation_date', (NOW() AT TIME ZONE 'UTC')
+        );
         
-        CASE p_sync_type
-            WHEN 'valuation' THEN
-                -- Simulate market valuation update
-                v_new_value := v_previous_value * (0.95 + (RANDOM() * 0.1)); -- ±5% change
-                v_data_confidence := 0.80 + (RANDOM() * 0.15); -- 80-95% confidence
-                
-            WHEN 'details' THEN
-                -- Property details sync (taxes, insurance, etc.)
-                v_new_value := v_previous_value; -- No value change for details sync
-                v_data_confidence := 0.95;
-                
-            WHEN 'images' THEN
-                -- Property images sync
-                v_new_value := v_previous_value; -- No value change for images
-                v_data_confidence := 1.00;
-        END CASE;
-
-        -- Calculate percentage change
-        IF v_previous_value > 0 AND v_new_value != v_previous_value THEN
-            v_value_change := ((v_new_value - v_previous_value) / v_previous_value) * 100;
-        ELSE
-            v_value_change := 0;
-        END IF;
-
-        -- Insert sync log
-        INSERT INTO real_estate_sync_logs (
-            id, real_estate_id, provider, sync_type,
-            previous_value, new_value, value_change_percentage,
-            sync_successful, data_confidence, data_as_of_date
-        ) VALUES (
-            v_sync_log_id, p_real_estate_id, p_provider, p_sync_type,
-            v_previous_value, v_new_value, v_value_change,
-            TRUE, v_data_confidence, CURRENT_DATE
-        );
-
-        -- Update asset value if this is a valuation sync
-        IF p_sync_type = 'valuation' AND v_new_value != v_previous_value THEN
-            UPDATE assets
-            SET estimated_value = v_new_value,
-                last_valued_date = CURRENT_DATE,
-                updated_at = NOW()
-            WHERE id = v_real_estate_record.asset_id;
-
-            -- Update real estate specific fields
-            UPDATE real_estate
-            SET current_market_value = v_new_value,
-                last_appraisal_date = CURRENT_DATE
-            WHERE id = p_real_estate_id;
-        END IF;
-
-        -- Audit log
-        PERFORM sp_log_audit_event(
-            fn_get_current_tenant_id(), fn_get_current_user_id(), NULL,
-            'REAL_ESTATE_SYNC_COMPLETED', 'real_estate', p_real_estate_id,
-            jsonb_build_object('previous_value', v_previous_value),
-            jsonb_build_object('new_value', v_new_value, 'provider', p_provider),
-            NULL, NULL,
-            jsonb_build_object(
-                'sync_type', p_sync_type,
-                'value_change_percentage', v_value_change,
-                'data_confidence', v_data_confidence
-            )
-        );
-
-        RETURN QUERY SELECT TRUE, v_sync_log_id, v_previous_value, v_new_value, v_value_change, 'Real estate data sync completed successfully';
-
-    EXCEPTION
-        WHEN OTHERS THEN
-            -- Insert failed sync log
-            INSERT INTO real_estate_sync_logs (
-                id, real_estate_id, provider, sync_type,
-                previous_value, sync_successful, error_message
-            ) VALUES (
-                v_sync_log_id, p_real_estate_id, p_provider, p_sync_type,
-                v_previous_value, FALSE, SQLERRM
-            );
-
-            RETURN QUERY SELECT FALSE, v_sync_log_id, v_previous_value, NULL::DECIMAL(15,2), NULL::DECIMAL(5,2), 'Real estate sync failed: ' || SQLERRM;
+        v_confidence := 0.95;
+        v_status := 'completed';
+        
+        -- Update asset with new valuation
+        UPDATE assets SET
+            tags = tags || jsonb_build_object(
+                'property_value', v_new_value->'property_value',
+                'tax_assessment', v_new_value->'tax_assessment',
+                'market_trend', v_new_value->'market_trend',
+                'last_valuation_date', v_new_value->'last_valuation_date',
+                'valuation_source', p_data_source,
+                'valuation_confidence', v_confidence
+            ),
+            updated_at = (NOW() AT TIME ZONE 'UTC')
+        WHERE id = p_asset_id;
+        
+    EXCEPTION WHEN OTHERS THEN
+        v_status := 'failed';
+        v_confidence := 0;
+        
+        -- Log error
+        v_new_value := jsonb_build_object('error', SQLERRM);
     END;
+    
+    -- Log sync operation
+    INSERT INTO real_estate_sync_logs (
+        integration_id,
+        property_id,
+        sync_type,
+        old_value,
+        new_value,
+        data_source,
+        confidence_score,
+        sync_status,
+        synced_at
+    ) VALUES (
+        gen_random_uuid(), -- Would be actual integration ID
+        p_asset_id,
+        'valuation',
+        v_old_value,
+        v_new_value,
+        p_data_source,
+        v_confidence,
+        v_status,
+        (NOW() AT TIME ZONE 'UTC')
+    ) RETURNING id INTO v_sync_log_id;
+    
+    RETURN QUERY
+    SELECT 
+        v_sync_log_id,
+        (v_new_value->>'property_value')::DECIMAL(15,2),
+        (v_new_value->>'tax_assessment')::DECIMAL(15,2),
+        v_new_value->'market_trend',
+        v_confidence,
+        v_status;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ### sp_get_real_estate_sync_history
-Retrieves real estate synchronization history and trends.
+Retrieves synchronization history for real estate properties.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_get_real_estate_sync_history(
-    p_real_estate_id UUID,
-    p_limit INTEGER DEFAULT 20
-)
-RETURNS TABLE (
-    sync_date TIMESTAMP WITH TIME ZONE,
-    provider VARCHAR(100),
+    p_asset_id UUID DEFAULT NULL,
+    p_days_back INTEGER DEFAULT 30
+) RETURNS TABLE (
+    sync_log_id UUID,
+    property_id UUID,
     sync_type VARCHAR(50),
-    previous_value DECIMAL(15,2),
-    new_value DECIMAL(15,2),
-    value_change_percentage DECIMAL(5,2),
-    data_confidence DECIMAL(3,2),
-    sync_successful BOOLEAN
+    sync_date TIMESTAMP WITH TIME ZONE,
+    old_value JSONB,
+    new_value JSONB,
+    data_source TEXT,
+    confidence_score DECIMAL(3,2),
+    sync_status VARCHAR(20)
 ) AS $$
 BEGIN
     RETURN QUERY
     SELECT 
-        resl.synced_at,
-        resl.provider,
+        resl.id,
+        resl.property_id,
         resl.sync_type,
-        resl.previous_value,
+        resl.synced_at,
+        resl.old_value,
         resl.new_value,
-        resl.value_change_percentage,
-        resl.data_confidence,
-        resl.sync_successful
+        resl.data_source,
+        resl.confidence_score,
+        resl.sync_status
     FROM real_estate_sync_logs resl
-    WHERE resl.real_estate_id = p_real_estate_id
-    ORDER BY resl.synced_at DESC
-    LIMIT p_limit;
+    JOIN assets a ON resl.property_id = a.id
+    WHERE a.tenant_id = current_tenant_id()
+    AND (p_asset_id IS NULL OR resl.property_id = p_asset_id)
+    AND resl.synced_at > (NOW() - (p_days_back || ' days')::INTERVAL)
+    ORDER BY resl.synced_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-## Translation & Localization
-
-### sp_manage_translation
-Creates or updates translation entries for multi-language support.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_manage_translation(
-    p_tenant_id INTEGER DEFAULT NULL,
-    p_language_code VARCHAR(5),
-    p_translation_key VARCHAR(200),
-    p_translation_value TEXT,
-    p_context VARCHAR(100) DEFAULT 'ui',
-    p_translator VARCHAR(200) DEFAULT NULL,
-    p_translation_quality VARCHAR(20) DEFAULT 'professional'
-)
-RETURNS TABLE (
-    success BOOLEAN,
-    translation_id UUID,
-    message TEXT
-) AS $$
-DECLARE
-    v_translation_id UUID;
-    v_existing_translation UUID;
-BEGIN
-    -- Input validation
-    IF p_language_code IS NULL OR p_translation_key IS NULL OR p_translation_value IS NULL THEN
-        RETURN QUERY SELECT FALSE, NULL::UUID, 'Required parameters missing';
-        RETURN;
-    END IF;
-
-    -- Check for existing translation
-    SELECT id INTO v_existing_translation
-    FROM translations
-    WHERE COALESCE(tenant_id, 0) = COALESCE(p_tenant_id, 0)
-    AND language_code = p_language_code
-    AND translation_key = p_translation_key;
-
-    IF v_existing_translation IS NOT NULL THEN
-        -- Update existing translation
-        UPDATE translations
-        SET translation_value = p_translation_value,
-            context = p_context,
-            translator = p_translator,
-            translation_quality = p_translation_quality,
-            updated_at = NOW()
-        WHERE id = v_existing_translation;
-        
-        v_translation_id := v_existing_translation;
-        
-        -- Audit log
-        PERFORM sp_log_audit_event(
-            COALESCE(p_tenant_id, fn_get_current_tenant_id()), fn_get_current_user_id(), NULL,
-            'TRANSLATION_UPDATED', 'translation', v_translation_id,
-            NULL, jsonb_build_object(
-                'language_code', p_language_code,
-                'translation_key', p_translation_key,
-                'context', p_context
-            )
-        );
-
-        RETURN QUERY SELECT TRUE, v_translation_id, 'Translation updated successfully';
-    ELSE
-        -- Create new translation
-        v_translation_id := gen_random_uuid();
-        INSERT INTO translations (
-            id, tenant_id, language_code, translation_key, translation_value,
-            context, translator, translation_quality
-        ) VALUES (
-            v_translation_id, p_tenant_id, p_language_code, p_translation_key, p_translation_value,
-            p_context, p_translator, p_translation_quality
-        );
-
-        -- Audit log
-        PERFORM sp_log_audit_event(
-            COALESCE(p_tenant_id, fn_get_current_tenant_id()), fn_get_current_user_id(), NULL,
-            'TRANSLATION_CREATED', 'translation', v_translation_id,
-            NULL, jsonb_build_object(
-                'language_code', p_language_code,
-                'translation_key', p_translation_key,
-                'context', p_context
-            )
-        );
-
-        RETURN QUERY SELECT TRUE, v_translation_id, 'Translation created successfully';
-    END IF;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-### sp_get_translations
-Retrieves translations for a specific language and context.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_get_translations(
-    p_tenant_id INTEGER DEFAULT NULL,
-    p_language_code VARCHAR(5),
-    p_context VARCHAR(100) DEFAULT NULL
-)
-RETURNS TABLE (
-    translation_key VARCHAR(200),
-    translation_value TEXT,
-    context VARCHAR(100),
-    translation_quality VARCHAR(20)
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        t.translation_key,
-        t.translation_value,
-        t.context,
-        t.translation_quality
-    FROM translations t
-    WHERE COALESCE(t.tenant_id, 0) = COALESCE(p_tenant_id, 0)
-    AND t.language_code = p_language_code
-    AND (p_context IS NULL OR t.context = p_context)
-    AND t.is_active = TRUE
-    ORDER BY t.translation_key;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-## External Advisor Management
+## Advisor Company Management
 
 ### sp_manage_advisor_company
-Creates or updates external advisor company records.
+Creates or updates advisor company information.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_manage_advisor_company(
-    p_tenant_id INTEGER,
-    p_company_name VARCHAR(200),
-    p_company_type VARCHAR(100),
-    p_contact_info_id UUID,
-    p_license_numbers VARCHAR(200)[] DEFAULT NULL,
-    p_certifications VARCHAR(200)[] DEFAULT NULL,
-    p_specializations VARCHAR(200)[] DEFAULT NULL,
-    p_service_areas VARCHAR(100)[] DEFAULT NULL,
-    p_is_preferred BOOLEAN DEFAULT FALSE
-)
-RETURNS TABLE (
-    success BOOLEAN,
-    advisor_company_id UUID,
-    message TEXT
-) AS $$
+    p_action VARCHAR(20), -- create, update, deactivate
+    p_company_id UUID DEFAULT NULL,
+    p_company_name TEXT DEFAULT NULL,
+    p_company_type TEXT DEFAULT NULL,
+    p_tax_id VARCHAR(20) DEFAULT NULL,
+    p_contact_info JSONB DEFAULT '{}',
+    p_services TEXT[] DEFAULT NULL,
+    p_licensing JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
 DECLARE
-    v_advisor_company_id UUID;
-    v_existing_company UUID;
+    v_tenant_id INTEGER;
+    v_company_id UUID;
+    v_user_id UUID;
 BEGIN
-    -- Check for existing company
-    SELECT id INTO v_existing_company
-    FROM advisor_companies
-    WHERE tenant_id = p_tenant_id
-    AND company_name = p_company_name
-    AND company_type = p_company_type;
-
-    IF v_existing_company IS NOT NULL THEN
-        -- Update existing company
-        UPDATE advisor_companies
-        SET contact_info_id = p_contact_info_id,
-            license_numbers = p_license_numbers,
-            certifications = p_certifications,
-            specializations = p_specializations,
-            service_areas = p_service_areas,
-            is_preferred = p_is_preferred,
-            updated_at = NOW()
-        WHERE id = v_existing_company;
-        
-        v_advisor_company_id := v_existing_company;
-        
-        PERFORM sp_log_audit_event(
-            p_tenant_id, fn_get_current_user_id(), NULL,
-            'ADVISOR_COMPANY_UPDATED', 'advisor_company', v_advisor_company_id,
-            NULL, jsonb_build_object(
-                'company_name', p_company_name,
-                'company_type', p_company_type
-            )
-        );
-
-        RETURN QUERY SELECT TRUE, v_advisor_company_id, 'Advisor company updated successfully';
-    ELSE
-        -- Create new company
-        v_advisor_company_id := gen_random_uuid();
-        INSERT INTO advisor_companies (
-            id, tenant_id, company_name, company_type, contact_info_id,
-            license_numbers, certifications, specializations, service_areas,
-            is_preferred, created_by
-        ) VALUES (
-            v_advisor_company_id, p_tenant_id, p_company_name, p_company_type, p_contact_info_id,
-            p_license_numbers, p_certifications, p_specializations, p_service_areas,
-            p_is_preferred, fn_get_current_user_id()
-        );
-
-        PERFORM sp_log_audit_event(
-            p_tenant_id, fn_get_current_user_id(), NULL,
-            'ADVISOR_COMPANY_CREATED', 'advisor_company', v_advisor_company_id,
-            NULL, jsonb_build_object(
-                'company_name', p_company_name,
-                'company_type', p_company_type
-            )
-        );
-
-        RETURN QUERY SELECT TRUE, v_advisor_company_id, 'Advisor company created successfully';
-    END IF;
+    v_tenant_id := current_tenant_id();
+    v_user_id := current_user_id();
+    
+    CASE p_action
+        WHEN 'create' THEN
+            INSERT INTO advisor_companies (
+                tenant_id,
+                company_name,
+                company_type,
+                tax_id,
+                primary_contact_name,
+                website_url,
+                services_provided,
+                license_number,
+                license_state,
+                license_expiration,
+                created_at,
+                created_by
+            ) VALUES (
+                v_tenant_id,
+                p_company_name,
+                p_company_type,
+                p_tax_id,
+                p_contact_info->>'contact_name',
+                p_contact_info->>'website',
+                p_services,
+                p_licensing->>'license_number',
+                p_licensing->>'license_state',
+                (p_licensing->>'license_expiration')::DATE,
+                (NOW() AT TIME ZONE 'UTC'),
+                v_user_id
+            ) RETURNING id INTO v_company_id;
+            
+        WHEN 'update' THEN
+            UPDATE advisor_companies SET
+                company_name = COALESCE(p_company_name, company_name),
+                company_type = COALESCE(p_company_type, company_type),
+                tax_id = COALESCE(p_tax_id, tax_id),
+                primary_contact_name = COALESCE(p_contact_info->>'contact_name', primary_contact_name),
+                website_url = COALESCE(p_contact_info->>'website', website_url),
+                services_provided = COALESCE(p_services, services_provided),
+                license_number = COALESCE(p_licensing->>'license_number', license_number),
+                license_state = COALESCE(p_licensing->>'license_state', license_state),
+                license_expiration = COALESCE((p_licensing->>'license_expiration')::DATE, license_expiration),
+                updated_at = (NOW() AT TIME ZONE 'UTC'),
+                updated_by = v_user_id
+            WHERE id = p_company_id
+            AND tenant_id = v_tenant_id
+            RETURNING id INTO v_company_id;
+            
+        WHEN 'deactivate' THEN
+            UPDATE advisor_companies SET
+                is_active = FALSE,
+                updated_at = (NOW() AT TIME ZONE 'UTC'),
+                updated_by = v_user_id
+            WHERE id = p_company_id
+            AND tenant_id = v_tenant_id
+            RETURNING id INTO v_company_id;
+            
+        ELSE
+            RAISE EXCEPTION 'Invalid action: %', p_action;
+    END CASE;
+    
+    -- Audit log
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        entity_name,
+        metadata
+    ) VALUES (
+        v_tenant_id,
+        v_user_id,
+        p_action,
+        'advisor_company',
+        v_company_id,
+        p_company_name,
+        jsonb_build_object(
+            'company_type', p_company_type,
+            'services', p_services
+        )
+    );
+    
+    RETURN v_company_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
@@ -956,20 +658,20 @@ Retrieves advisor companies with filtering options.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_get_advisor_companies(
-    p_tenant_id INTEGER,
-    p_company_type VARCHAR(100) DEFAULT NULL,
-    p_specialization VARCHAR(200) DEFAULT NULL,
-    p_preferred_only BOOLEAN DEFAULT FALSE
-)
-RETURNS TABLE (
-    advisor_company_id UUID,
-    company_name VARCHAR(200),
-    company_type VARCHAR(100),
-    specializations VARCHAR(200)[],
-    is_preferred BOOLEAN,
-    rating DECIMAL(2,1),
-    contact_email VARCHAR(255),
-    contact_phone VARCHAR(20)
+    p_company_type TEXT DEFAULT NULL,
+    p_is_active BOOLEAN DEFAULT TRUE,
+    p_include_ratings BOOLEAN DEFAULT FALSE
+) RETURNS TABLE (
+    company_id UUID,
+    company_name TEXT,
+    company_type TEXT,
+    services_provided TEXT[],
+    license_state VARCHAR(2),
+    license_expiration DATE,
+    client_since DATE,
+    service_rating INTEGER,
+    would_recommend BOOLEAN,
+    contact_info JSONB
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -977,73 +679,357 @@ BEGIN
         ac.id,
         ac.company_name,
         ac.company_type,
-        ac.specializations,
-        ac.is_preferred,
-        ac.rating,
-        ea.email_address,
-        pn.phone_number
+        ac.services_provided,
+        ac.license_state,
+        ac.license_expiration,
+        ac.client_since,
+        CASE WHEN p_include_ratings THEN ac.service_rating ELSE NULL END,
+        CASE WHEN p_include_ratings THEN ac.would_recommend ELSE NULL END,
+        jsonb_build_object(
+            'contact_name', ac.primary_contact_name,
+            'website', ac.website_url
+        )
     FROM advisor_companies ac
-    LEFT JOIN contact_info ci ON ac.contact_info_id = ci.id
-    LEFT JOIN email_address ea ON ci.primary_email_id = ea.id
-    LEFT JOIN phone_number pn ON ci.primary_phone_id = pn.id
-    WHERE ac.tenant_id = p_tenant_id
-    AND ac.is_active = TRUE
+    WHERE ac.tenant_id = current_tenant_id()
     AND (p_company_type IS NULL OR ac.company_type = p_company_type)
-    AND (p_specialization IS NULL OR p_specialization = ANY(ac.specializations))
-    AND (NOT p_preferred_only OR ac.is_preferred = TRUE)
-    ORDER BY ac.is_preferred DESC, ac.rating DESC NULLS LAST, ac.company_name;
+    AND (p_is_active IS NULL OR ac.is_active = p_is_active)
+    ORDER BY ac.company_name;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-## System Health & Monitoring
+## Builder.io Integration
 
-### sp_check_integration_health
-Performs health checks on all active integrations.
+### sp_configure_builder_integration
+Configures Builder.io CMS integration settings.
 
 ```sql
-CREATE OR REPLACE FUNCTION sp_check_integration_health(
-    p_tenant_id INTEGER
-)
+CREATE OR REPLACE FUNCTION sp_configure_builder_integration(
+    p_api_key TEXT,
+    p_space_id TEXT,
+    p_environment VARCHAR(50) DEFAULT 'production',
+    p_content_mappings JSONB DEFAULT '{}',
+    p_auto_sync BOOLEAN DEFAULT FALSE
+) RETURNS UUID AS $$
+DECLARE
+    v_tenant_id INTEGER;
+    v_integration_id UUID;
+BEGIN
+    v_tenant_id := current_tenant_id();
+    
+    -- Check for existing integration
+    SELECT id INTO v_integration_id
+    FROM builder_io_integrations
+    WHERE tenant_id = v_tenant_id;
+    
+    IF v_integration_id IS NULL THEN
+        -- Create new integration
+        INSERT INTO builder_io_integrations (
+            tenant_id,
+            api_key,
+            space_id,
+            environment,
+            content_model_mappings,
+            auto_sync_enabled,
+            created_at
+        ) VALUES (
+            v_tenant_id,
+            encrypt_text(p_api_key),
+            p_space_id,
+            p_environment,
+            p_content_mappings,
+            p_auto_sync,
+            (NOW() AT TIME ZONE 'UTC')
+        ) RETURNING id INTO v_integration_id;
+    ELSE
+        -- Update existing integration
+        UPDATE builder_io_integrations SET
+            api_key = encrypt_text(p_api_key),
+            space_id = p_space_id,
+            environment = p_environment,
+            content_model_mappings = p_content_mappings,
+            auto_sync_enabled = p_auto_sync,
+            updated_at = (NOW() AT TIME ZONE 'UTC')
+        WHERE id = v_integration_id;
+    END IF;
+    
+    -- Schedule next sync if auto-sync enabled
+    IF p_auto_sync THEN
+        UPDATE builder_io_integrations SET
+            next_sync_at = (NOW() + INTERVAL '24 hours')
+        WHERE id = v_integration_id;
+    END IF;
+    
+    RETURN v_integration_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+### sp_refresh_builder_content
+Refreshes content from Builder.io CMS.
+
+```sql
+CREATE OR REPLACE FUNCTION sp_refresh_builder_content(
+    p_content_type VARCHAR(100) DEFAULT NULL
+) RETURNS TABLE (
+    content_items_synced INTEGER,
+    sync_status VARCHAR(20),
+    error_message TEXT
+) AS $$
+DECLARE
+    v_tenant_id INTEGER;
+    v_integration_id UUID;
+    v_items_synced INTEGER := 0;
+    v_status VARCHAR(20);
+    v_error TEXT;
+BEGIN
+    v_tenant_id := current_tenant_id();
+    
+    -- Get active Builder.io integration
+    SELECT id INTO v_integration_id
+    FROM builder_io_integrations
+    WHERE tenant_id = v_tenant_id
+    AND is_active = TRUE;
+    
+    IF v_integration_id IS NULL THEN
+        RETURN QUERY
+        SELECT 0, 'failed'::VARCHAR(20), 'No active Builder.io integration'::TEXT;
+        RETURN;
+    END IF;
+    
+    BEGIN
+        -- Update sync status
+        UPDATE builder_io_integrations SET
+            connection_status = 'syncing',
+            last_sync_at = (NOW() AT TIME ZONE 'UTC')
+        WHERE id = v_integration_id;
+        
+        -- Simulate content sync (actual implementation would call Builder.io API)
+        v_items_synced := 25; -- Placeholder
+        v_status := 'completed';
+        
+        -- Update successful sync
+        UPDATE builder_io_integrations SET
+            connection_status = 'connected',
+            next_sync_at = (NOW() + INTERVAL '24 hours'),
+            last_error = NULL
+        WHERE id = v_integration_id;
+        
+    EXCEPTION WHEN OTHERS THEN
+        v_status := 'failed';
+        v_error := SQLERRM;
+        v_items_synced := 0;
+        
+        -- Update with error
+        UPDATE builder_io_integrations SET
+            connection_status = 'error',
+            last_error = v_error
+        WHERE id = v_integration_id;
+    END;
+    
+    RETURN QUERY
+    SELECT v_items_synced, v_status, v_error;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+### sp_get_builder_content_status
+Retrieves Builder.io content synchronization status.
+
+```sql
+CREATE OR REPLACE FUNCTION sp_get_builder_content_status()
+RETURNS TABLE (
+    integration_id UUID,
+    space_id TEXT,
+    environment VARCHAR(50),
+    connection_status VARCHAR(50),
+    auto_sync_enabled BOOLEAN,
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+    next_sync_at TIMESTAMP WITH TIME ZONE,
+    content_mappings JSONB,
+    last_error TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        bio.id,
+        bio.space_id,
+        bio.environment,
+        bio.connection_status::VARCHAR(50),
+        bio.auto_sync_enabled,
+        bio.last_sync_at,
+        bio.next_sync_at,
+        bio.content_model_mappings,
+        bio.last_error
+    FROM builder_io_integrations bio
+    WHERE bio.tenant_id = current_tenant_id()
+    AND bio.is_active = TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+## Translation Management
+
+### sp_manage_translation
+Manages translations for multi-language support.
+
+```sql
+CREATE OR REPLACE FUNCTION sp_manage_translation(
+    p_action VARCHAR(20), -- create, update, delete, verify
+    p_translation_id UUID DEFAULT NULL,
+    p_entity_type VARCHAR(50) DEFAULT NULL,
+    p_entity_id VARCHAR(255) DEFAULT NULL,
+    p_field_name VARCHAR(100) DEFAULT NULL,
+    p_language_code CHAR(2) DEFAULT NULL,
+    p_translated_value TEXT DEFAULT NULL,
+    p_is_verified BOOLEAN DEFAULT FALSE
+) RETURNS UUID AS $$
+DECLARE
+    v_tenant_id INTEGER;
+    v_user_id UUID;
+    v_translation_id UUID;
+BEGIN
+    v_tenant_id := current_tenant_id();
+    v_user_id := current_user_id();
+    
+    CASE p_action
+        WHEN 'create' THEN
+            INSERT INTO translations (
+                tenant_id,
+                entity_type,
+                entity_id,
+                field_name,
+                language_code,
+                original_value,
+                translated_value,
+                is_machine_translated,
+                is_verified,
+                verified_by,
+                verified_at
+            ) VALUES (
+                v_tenant_id,
+                p_entity_type,
+                p_entity_id,
+                p_field_name,
+                p_language_code,
+                '', -- Original value would be fetched from source
+                p_translated_value,
+                FALSE,
+                p_is_verified,
+                CASE WHEN p_is_verified THEN v_user_id ELSE NULL END,
+                CASE WHEN p_is_verified THEN (NOW() AT TIME ZONE 'UTC') ELSE NULL END
+            ) RETURNING id INTO v_translation_id;
+            
+        WHEN 'update' THEN
+            UPDATE translations SET
+                translated_value = COALESCE(p_translated_value, translated_value),
+                is_verified = p_is_verified,
+                verified_by = CASE WHEN p_is_verified THEN v_user_id ELSE verified_by END,
+                verified_at = CASE WHEN p_is_verified THEN (NOW() AT TIME ZONE 'UTC') ELSE verified_at END,
+                updated_at = (NOW() AT TIME ZONE 'UTC')
+            WHERE id = p_translation_id
+            RETURNING id INTO v_translation_id;
+            
+        WHEN 'delete' THEN
+            DELETE FROM translations 
+            WHERE id = p_translation_id
+            RETURNING id INTO v_translation_id;
+            
+        ELSE
+            RAISE EXCEPTION 'Invalid action: %', p_action;
+    END CASE;
+    
+    RETURN v_translation_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+### sp_get_translations
+Retrieves translations with filtering options.
+
+```sql
+CREATE OR REPLACE FUNCTION sp_get_translations(
+    p_entity_type VARCHAR(50) DEFAULT NULL,
+    p_entity_id VARCHAR(255) DEFAULT NULL,
+    p_language_code CHAR(2) DEFAULT NULL,
+    p_only_verified BOOLEAN DEFAULT FALSE
+) RETURNS TABLE (
+    translation_id UUID,
+    entity_type VARCHAR,
+    entity_id VARCHAR,
+    field_name VARCHAR,
+    language_code CHAR,
+    original_value TEXT,
+    translated_value TEXT,
+    is_verified BOOLEAN,
+    verified_by UUID,
+    verified_at TIMESTAMP
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        t.id,
+        t.entity_type,
+        t.entity_id,
+        t.field_name,
+        t.language_code,
+        t.original_value,
+        t.translated_value,
+        t.is_verified,
+        t.verified_by,
+        t.verified_at
+    FROM translations t
+    WHERE 
+        t.tenant_id = current_tenant_id()
+        AND (p_entity_type IS NULL OR t.entity_type = p_entity_type)
+        AND (p_entity_id IS NULL OR t.entity_id = p_entity_id)
+        AND (p_language_code IS NULL OR t.language_code = p_language_code)
+        AND (NOT p_only_verified OR t.is_verified = TRUE)
+    ORDER BY t.entity_type, t.entity_id, t.field_name, t.language_code;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+## Integration Health Monitoring
+
+### sp_check_integration_health
+Checks the health status of all active integrations.
+
+```sql
+CREATE OR REPLACE FUNCTION sp_check_integration_health()
 RETURNS TABLE (
     integration_type VARCHAR(50),
     integration_id UUID,
-    integration_name VARCHAR(200),
-    health_status VARCHAR(20),
-    last_successful_operation TIMESTAMP WITH TIME ZONE,
-    error_count_24h INTEGER,
-    performance_score DECIMAL(3,2)
+    is_healthy BOOLEAN,
+    last_check TIMESTAMP WITH TIME ZONE,
+    error_count INTEGER,
+    last_error TEXT,
+    recommendations TEXT[]
 ) AS $$
+DECLARE
+    v_tenant_id INTEGER;
 BEGIN
+    v_tenant_id := current_tenant_id();
+    
     RETURN QUERY
     -- Quillt integrations
     SELECT 
         'quillt'::VARCHAR(50),
         qi.id,
-        qi.integration_name,
+        qi.connection_status = 'connected' AND qi.sync_error IS NULL,
+        qi.updated_at,
+        0, -- Would calculate from error logs
+        qi.sync_error,
         CASE 
-            WHEN qi.integration_status = 'active' AND qi.last_successful_sync > NOW() - INTERVAL '48 hours' THEN 'healthy'
-            WHEN qi.integration_status = 'active' AND qi.last_successful_sync > NOW() - INTERVAL '7 days' THEN 'warning'
-            ELSE 'error'
-        END::VARCHAR(20),
-        qi.last_successful_sync,
-        COALESCE((
-            SELECT COUNT(*)::INTEGER
-            FROM quillt_sync_logs qsl
-            WHERE qsl.integration_id = qi.id
-            AND qsl.sync_status = 'failed'
-            AND qsl.started_at > NOW() - INTERVAL '24 hours'
-        ), 0),
-        COALESCE((
-            SELECT AVG(qsl.data_quality_score)
-            FROM quillt_sync_logs qsl
-            WHERE qsl.integration_id = qi.id
-            AND qsl.sync_status = 'completed'
-            AND qsl.started_at > NOW() - INTERVAL '7 days'
-        ), 0.0)::DECIMAL(3,2)
+            WHEN qi.connection_status != 'connected' THEN 
+                ARRAY['Reconnect to Quillt', 'Verify API credentials']
+            WHEN qi.last_successful_sync_at < (NOW() - INTERVAL '7 days') THEN
+                ARRAY['Sync data to get latest updates']
+            ELSE ARRAY[]::TEXT[]
+        END
     FROM quillt_integrations qi
-    WHERE qi.tenant_id = p_tenant_id
-    AND qi.integration_status = 'active'
+    WHERE qi.tenant_id = v_tenant_id
+    AND qi.is_active = TRUE
     
     UNION ALL
     
@@ -1051,187 +1037,220 @@ BEGIN
     SELECT 
         'builder_io'::VARCHAR(50),
         bio.id,
-        bio.page_name,
+        bio.connection_status = 'connected' AND bio.last_error IS NULL,
+        bio.updated_at,
+        0, -- Would calculate from error logs
+        bio.last_error,
         CASE 
-            WHEN bio.is_active AND bio.last_successful_fetch > NOW() - INTERVAL '1 day' THEN 'healthy'
-            WHEN bio.is_active AND bio.last_successful_fetch > NOW() - INTERVAL '7 days' THEN 'warning'
-            ELSE 'error'
-        END::VARCHAR(20),
-        bio.last_successful_fetch,
-        0::INTEGER, -- Builder.io doesn't have error logs in this schema
-        1.0::DECIMAL(3,2) -- Assume good performance for content delivery
+            WHEN bio.connection_status != 'connected' THEN 
+                ARRAY['Check Builder.io API key', 'Verify space configuration']
+            WHEN bio.last_sync_at < (NOW() - INTERVAL '48 hours') THEN
+                ARRAY['Refresh content from Builder.io']
+            ELSE ARRAY[]::TEXT[]
+        END
     FROM builder_io_integrations bio
-    WHERE bio.tenant_id = p_tenant_id
-    AND bio.is_active = TRUE
-    
-    ORDER BY health_status, last_successful_operation DESC;
+    WHERE bio.tenant_id = v_tenant_id
+    AND bio.is_active = TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-## Error Handling & Retry Logic
-
 ### sp_retry_failed_integration
-Implements retry logic for failed integration operations.
+Retries failed integration operations with exponential backoff.
 
 ```sql
 CREATE OR REPLACE FUNCTION sp_retry_failed_integration(
     p_integration_type VARCHAR(50),
     p_integration_id UUID,
     p_max_retries INTEGER DEFAULT 3
-)
-RETURNS TABLE (
-    success BOOLEAN,
-    retry_attempt INTEGER,
-    message TEXT
+) RETURNS TABLE (
+    retry_successful BOOLEAN,
+    retry_count INTEGER,
+    error_message TEXT
 ) AS $$
 DECLARE
+    v_tenant_id INTEGER;
     v_retry_count INTEGER := 0;
-    v_retry_successful BOOLEAN := FALSE;
-    v_error_message TEXT;
+    v_success BOOLEAN := FALSE;
+    v_error TEXT;
+    v_wait_seconds INTEGER;
 BEGIN
-    -- Determine retry count based on integration type
-    CASE p_integration_type
-        WHEN 'quillt' THEN
-            SELECT COALESCE(MAX(retry_count), 0) INTO v_retry_count
-            FROM quillt_sync_logs
-            WHERE integration_id = p_integration_id
-            AND sync_status = 'failed'
-            AND started_at > NOW() - INTERVAL '1 hour';
-            
-        WHEN 'real_estate' THEN
-            -- Real estate sync retry logic would go here
-            v_retry_count := 0;
-            
-        ELSE
-            RETURN QUERY SELECT FALSE, 0, 'Unknown integration type';
-            RETURN;
-    END CASE;
-
-    -- Check if max retries exceeded
-    IF v_retry_count >= p_max_retries THEN
-        RETURN QUERY SELECT FALSE, v_retry_count, 'Maximum retry attempts exceeded';
-        RETURN;
-    END IF;
-
-    -- Implement exponential backoff
-    PERFORM pg_sleep(POWER(2, v_retry_count));
-
-    BEGIN
-        -- Retry based on integration type
-        CASE p_integration_type
-            WHEN 'quillt' THEN
-                -- Retry Quillt sync
-                DECLARE
-                    v_sync_result RECORD;
-                BEGIN
-                    SELECT * INTO v_sync_result
-                    FROM sp_sync_quillt_data(p_integration_id, 'incremental', TRUE);
-                    
-                    v_retry_successful := v_sync_result.success;
-                    v_error_message := v_sync_result.message;
-                END;
-                
-            WHEN 'real_estate' THEN
-                -- Retry real estate sync
-                v_retry_successful := TRUE; -- Placeholder
-        END CASE;
-
-        IF v_retry_successful THEN
-            PERFORM sp_log_audit_event(
-                fn_get_current_tenant_id(), fn_get_current_user_id(), NULL,
-                'INTEGRATION_RETRY_SUCCESSFUL', p_integration_type, p_integration_id,
-                NULL, jsonb_build_object('retry_attempt', v_retry_count + 1)
-            );
-            
-            RETURN QUERY SELECT TRUE, v_retry_count + 1, 'Retry successful';
-        ELSE
-            PERFORM sp_log_audit_event(
-                fn_get_current_tenant_id(), fn_get_current_user_id(), NULL,
-                'INTEGRATION_RETRY_FAILED', p_integration_type, p_integration_id,
-                NULL, jsonb_build_object('retry_attempt', v_retry_count + 1, 'error', v_error_message)
-            );
-            
-            RETURN QUERY SELECT FALSE, v_retry_count + 1, 'Retry failed: ' || v_error_message;
+    v_tenant_id := current_tenant_id();
+    
+    -- Retry loop with exponential backoff
+    WHILE v_retry_count < p_max_retries AND NOT v_success LOOP
+        v_retry_count := v_retry_count + 1;
+        v_wait_seconds := POWER(2, v_retry_count - 1); -- 1, 2, 4 seconds
+        
+        -- Wait before retry (except first attempt)
+        IF v_retry_count > 1 THEN
+            PERFORM pg_sleep(v_wait_seconds);
         END IF;
-
-    EXCEPTION
-        WHEN OTHERS THEN
-            RETURN QUERY SELECT FALSE, v_retry_count + 1, 'Retry error: ' || SQLERRM;
-    END;
+        
+        BEGIN
+            CASE p_integration_type
+                WHEN 'quillt' THEN
+                    -- Retry Quillt sync
+                    PERFORM sp_sync_quillt_data(
+                        (SELECT user_id FROM quillt_integrations WHERE id = p_integration_id)
+                    );
+                    v_success := TRUE;
+                    
+                WHEN 'builder_io' THEN
+                    -- Retry Builder.io content refresh
+                    PERFORM sp_refresh_builder_content();
+                    v_success := TRUE;
+                    
+                WHEN 'real_estate' THEN
+                    -- Retry real estate sync
+                    -- Would need property_id from sync logs
+                    v_success := TRUE;
+                    
+                ELSE
+                    RAISE EXCEPTION 'Unknown integration type: %', p_integration_type;
+            END CASE;
+            
+        EXCEPTION WHEN OTHERS THEN
+            v_error := SQLERRM;
+            v_success := FALSE;
+        END;
+    END LOOP;
+    
+    -- Log retry attempt
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        entity_name,
+        metadata
+    ) VALUES (
+        v_tenant_id,
+        current_user_id(),
+        'retry',
+        'integration',
+        p_integration_id,
+        p_integration_type || ' Integration',
+        jsonb_build_object(
+            'retry_count', v_retry_count,
+            'success', v_success,
+            'error', v_error
+        )
+    );
+    
+    RETURN QUERY
+    SELECT v_success, v_retry_count, v_error;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-## Security & Authentication
+## System Configuration
 
-### Integration Security Features
-All integration procedures implement:
+### sp_update_system_configuration
+Updates system-wide configuration settings stored in tenant metadata.
 
-1. **Encrypted Credential Storage**: API keys and sensitive data encrypted at rest
-2. **Rate Limiting**: Built-in rate limiting to respect third-party API limits
-3. **Audit Logging**: Complete audit trail of all integration activities
-4. **Error Sanitization**: Generic error messages to prevent information leakage
-5. **Token Validation**: Proper validation of authentication tokens and credentials
-
-### Rate Limiting Implementation
 ```sql
--- Example rate limit check for Quillt API
-IF NOT fn_check_rate_limit(
-    p_integration_id::TEXT, 
-    'QUILLT_SYNC', 
-    100,  -- max 100 calls
-    INTERVAL '1 hour'  -- per hour
-) THEN
-    RETURN QUERY SELECT FALSE, NULL::UUID, 0, 0, 'Rate limit exceeded';
-    RETURN;
-END IF;
+CREATE OR REPLACE FUNCTION sp_update_system_configuration(
+    p_config_key VARCHAR(100),
+    p_config_value JSONB,
+    p_config_category VARCHAR(50) DEFAULT 'general',
+    p_description TEXT DEFAULT NULL,
+    p_user_id UUID DEFAULT NULL
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_tenant_id INTEGER;
+    v_user_id UUID;
+    v_old_value JSONB;
+BEGIN
+    v_tenant_id := current_tenant_id();
+    v_user_id := COALESCE(p_user_id, current_user_id());
+    
+    -- Get old value for audit
+    SELECT metadata->p_config_key INTO v_old_value
+    FROM tenants
+    WHERE id = v_tenant_id;
+    
+    -- Update configuration in tenant metadata
+    UPDATE tenants SET
+        metadata = 
+            CASE 
+                WHEN metadata ? 'system_config' THEN
+                    jsonb_set(
+                        metadata,
+                        ARRAY['system_config', p_config_category, p_config_key],
+                        p_config_value,
+                        true
+                    )
+                ELSE
+                    metadata || jsonb_build_object(
+                        'system_config', jsonb_build_object(
+                            p_config_category, jsonb_build_object(
+                                p_config_key, p_config_value
+                            )
+                        )
+                    )
+            END,
+        updated_at = (NOW() AT TIME ZONE 'UTC')
+    WHERE id = v_tenant_id;
+    
+    -- Log configuration change
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        entity_name,
+        old_values,
+        new_values,
+        metadata
+    ) VALUES (
+        v_tenant_id,
+        v_user_id,
+        'update_config',
+        'system_configuration',
+        gen_random_uuid(),
+        p_config_key,
+        jsonb_build_object(p_config_key, v_old_value),
+        jsonb_build_object(p_config_key, p_config_value),
+        jsonb_build_object(
+            'category', p_config_category,
+            'description', p_description
+        )
+    );
+    
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
+
+**Key Features:**
+- Stores configuration in tenant metadata JSONB field
+- Supports hierarchical configuration categories
+- Complete audit trail of configuration changes
+- Flexible JSONB storage for complex configurations
 
 ## Integration Best Practices
 
-### Data Quality Validation
-```sql
--- Validate data quality scores
-IF v_data_quality_score < 0.7 THEN
-    -- Log data quality warning
-    PERFORM sp_log_audit_event(
-        p_tenant_id, fn_get_current_user_id(), NULL,
-        'DATA_QUALITY_WARNING', 'integration', p_integration_id,
-        NULL, jsonb_build_object('quality_score', v_data_quality_score)
-    );
-END IF;
-```
+### Security
+- **Encrypted Credentials**: All API keys and tokens encrypted using helper functions
+- **Tenant Isolation**: All integrations scoped to tenant level
+- **Audit Logging**: Complete audit trail of all integration activities
+- **Error Handling**: Comprehensive error capture and logging
 
-### Error Recovery Patterns
-```sql
--- Standard error recovery pattern
-BEGIN
-    -- Main integration logic
-EXCEPTION
-    WHEN connection_failure THEN
-        -- Schedule retry
-        PERFORM sp_retry_failed_integration(integration_type, integration_id);
-    WHEN data_error THEN
-        -- Log and continue with partial data
-        PERFORM sp_log_audit_event(..., 'DATA_ERROR', ...);
-    WHEN OTHERS THEN
-        -- Log and fail gracefully
-        PERFORM sp_log_audit_event(..., 'INTEGRATION_ERROR', ...);
-        RETURN QUERY SELECT FALSE, error_message;
-END;
-```
+### Performance
+- **Async Processing**: Long-running syncs handled asynchronously
+- **Batch Operations**: Bulk data synchronization for efficiency
+- **Caching**: Integration status cached to reduce API calls
+- **Rate Limiting**: Built-in rate limiting for external APIs
 
-### Performance Monitoring
-```sql
--- Track integration performance
-INSERT INTO integration_metrics (
-    integration_id, metric_name, metric_value, recorded_at
-) VALUES (
-    p_integration_id, 'response_time_ms', v_response_time, NOW()
-);
-```
+### Reliability
+- **Retry Logic**: Automatic retry with exponential backoff
+- **Health Monitoring**: Regular health checks for all integrations
+- **Error Recovery**: Automatic error detection and recovery
+- **Status Tracking**: Detailed status tracking for troubleshooting
 
 ---
 
-*This comprehensive integration procedure documentation provides the Forward Inheritance Platform with robust, secure, and reliable connectivity to external systems while maintaining proper audit trails, error handling, and performance monitoring capabilities.*
+*This integration procedure documentation reflects the Forward Inheritance Platform's comprehensive external system integration capabilities, providing secure, reliable connections to financial data providers, real estate services, content management systems, and professional service providers.*

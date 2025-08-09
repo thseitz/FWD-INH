@@ -13,322 +13,284 @@
 
 ## Overview
 
-The authentication and user management procedures implement the platform's dual-channel verification system, secure session management, and role-based access control. These 13 procedures handle everything from user registration through session validation.
+The authentication and user management procedures work in conjunction with AWS Cognito, which handles password management, verification, and JWT-based authentication. The database procedures focus on user creation from Cognito data, profile management, and authorization checks.
 
-### Procedure Categories
-- **User Registration**: `sp_register_user`
-- **Authentication**: `sp_login_user` 
-- **Verification**: `sp_verify_email`, `sp_verify_phone`
-- **Password Management**: `sp_request_password_reset`, `sp_reset_password`
-- **Session Management**: `sp_create_session`, `sp_refresh_session`, `fn_validate_session`, `sp_revoke_session`
-- **Authorization**: `fn_check_user_permission`
-- **Utilities**: `fn_get_current_tenant_id`, `fn_get_current_user_id`
+### AWS Cognito Integration
+- **Authentication**: Handled entirely by AWS Cognito
+- **Password Management**: Managed by AWS Cognito
+- **Email/Phone Verification**: Managed by AWS Cognito
+- **Session Management**: JWT tokens issued by AWS Cognito
+- **MFA**: Configured in AWS Cognito
+
+### Database Procedure Categories
+- **User Creation**: `sp_create_user_from_cognito` - Creates database user after Cognito registration
+- **Profile Management**: `sp_update_user_profile` - Updates user profile information
+- **Authorization**: Permission checking within the application context
+- **Utilities**: `fn_get_current_tenant_id`, `fn_get_current_user_id` - Context helpers
 
 ## User Registration Flow
 
-### sp_register_user
-Creates a new user account with dual-channel verification requirements and automatic primary persona creation.
+### sp_create_user_from_cognito
+Creates a database user record after successful AWS Cognito registration, with automatic primary persona creation.
 
 ```sql
-CREATE OR REPLACE FUNCTION sp_register_user(
+CREATE OR REPLACE FUNCTION sp_create_user_from_cognito(
     p_tenant_id INTEGER,
-    p_email VARCHAR(255),
+    p_cognito_user_id TEXT,
+    p_cognito_username TEXT,
+    p_email TEXT,
     p_phone VARCHAR(20),
-    p_password_hash TEXT,
     p_first_name VARCHAR(100),
     p_last_name VARCHAR(100),
-    p_referral_code VARCHAR(50) DEFAULT NULL
+    p_email_verified BOOLEAN DEFAULT FALSE,
+    p_phone_verified BOOLEAN DEFAULT FALSE,
+    p_country_code VARCHAR(10) DEFAULT '+1'
 ) RETURNS TABLE (
     user_id UUID,
-    persona_id UUID,
-    verification_token UUID
+    persona_id UUID
 )
 ```
 
 **Process Flow:**
-1. **User Creation**: Creates user record with `pending_verification` status
-2. **Primary Persona**: Automatically creates primary persona for business identity
-3. **Email Verification**: Generates 24-hour verification token
-4. **Audit Logging**: Records registration event with referral tracking
-5. **Return Values**: Provides IDs for immediate use by calling application
+1. **Cognito Registration**: User registers through AWS Cognito (handled externally)
+2. **User Creation**: Creates database user record linked to Cognito ID
+3. **Status Setting**: Sets status based on verification status from Cognito
+4. **Primary Persona**: Automatically creates primary persona for business identity
+5. **Contact Records**: Creates normalized email and phone records
+6. **Audit Logging**: Records user creation event
 
 **Key Features:**
-- **Atomic Operation**: All steps succeed or fail together
+- **Cognito Integration**: Links database user to Cognito identity
 - **Dual Identity**: Creates both user (auth) and persona (business) records
-- **Verification Required**: Users cannot be active until both email and phone verified
-- **Referral Tracking**: Optional referral code for analytics
-- **Audit Trail**: Complete registration activity logging
+- **Normalized Contacts**: Email and phone stored in separate tables
+- **Verification Status**: Reflects Cognito verification state
+- **Audit Trail**: Complete user creation logging
 
 **Usage Example:**
 ```sql
--- Register new user
-SELECT * FROM sp_register_user(
+-- Create user after Cognito registration
+SELECT * FROM sp_create_user_from_cognito(
     1,                                       -- tenant_id (1=Forward)
-    'john@example.com',                       -- email
-    '+1-555-0123',                           -- phone
-    '$2b$12$hashed_password_here',           -- password_hash
-    'John',                                  -- first_name
-    'Smith',                                 -- last_name
-    'REF123'                                 -- referral_code
+    'cognito-sub-123456',                   -- cognito_user_id (from Cognito)
+    'john.smith',                           -- cognito_username
+    'john@example.com',                     -- email
+    '+15550123',                           -- phone
+    'John',                                 -- first_name
+    'Smith',                                -- last_name
+    true,                                   -- email_verified (from Cognito)
+    true,                                   -- phone_verified (from Cognito)
+    '+1'                                    -- country_code
 );
 ```
 
-**Error Conditions:**
-- Email already exists for tenant
-- Invalid tenant_id
-- Missing required fields
-- Database constraint violations
-
-**Security Notes:**
-- Password must be hashed by application before calling
-- Verification token is cryptographically secure UUID
-- All sensitive operations are logged for audit
+**Integration Notes:**
+- Called after successful Cognito registration
+- Cognito handles all password management
+- Verification status comes from Cognito
+- No password stored in database
 
 ## Authentication Procedures
 
-### sp_login_user
-Authenticates user credentials and manages session creation with security logging.
+### AWS Cognito Authentication Flow
 
-```sql
-CREATE OR REPLACE FUNCTION sp_login_user(
-    p_email VARCHAR(255),
-    p_password_hash TEXT,
-    p_ip_address INET,
-    p_user_agent TEXT,
-    p_device_info JSONB DEFAULT NULL
-) RETURNS TABLE (
-    user_id UUID,
-    tenant_id INTEGER,
-    mfa_required BOOLEAN,
-    session_token UUID
-)
-```
+Authentication is handled entirely by AWS Cognito, which provides:
 
-**Process Flow:**
-1. **Credential Validation**: Verifies email and password hash match
-2. **Login Logging**: Records both successful and failed attempts
-3. **MFA Check**: Determines if multi-factor authentication required
-4. **Session Creation**: Creates session token if no MFA needed
-5. **Security Tracking**: Logs IP address, user agent, device info
+**Cognito Features:**
+1. **User Authentication**: Username/password validation
+2. **MFA Support**: SMS and TOTP multi-factor authentication
+3. **Token Management**: JWT access and refresh tokens
+4. **Session Security**: Configurable token expiration
+5. **Security Features**: Account lockout, password policies, device tracking
 
-**Key Features:**
-- **Security Logging**: All login attempts recorded
-- **MFA Integration**: Supports multi-factor authentication flow
-- **Device Tracking**: Records device information for security analysis
-- **Conditional Sessions**: Only creates session if MFA not required
-- **Tenant Context**: Returns tenant information for application context
+**Authentication Flow:**
+1. **Client Login**: Application sends credentials to AWS Cognito
+2. **Cognito Validation**: AWS Cognito validates credentials
+3. **MFA Challenge**: If enabled, Cognito handles MFA flow
+4. **Token Issuance**: Cognito returns JWT tokens (access, ID, refresh)
+5. **Database Lookup**: Application uses Cognito ID to fetch user data from database
 
-**Return Values:**
-- **user_id**: Authenticated user identifier
-- **tenant_id**: User's tenant for multi-tenant context
-- **mfa_required**: Whether additional authentication needed
-- **session_token**: Session identifier (NULL if MFA required)
+**JWT Token Usage:**
+```javascript
+// Example: Validating Cognito JWT in application
+const cognitoUserId = decodedToken.sub;  // Cognito user ID
+const email = decodedToken.email;
+const emailVerified = decodedToken.email_verified;
 
-**Usage Example:**
-```sql
--- Authenticate user
-SELECT * FROM sp_login_user(
-    'john@example.com',                      -- email
-    '$2b$12$hashed_password_here',          -- password_hash
-    '192.168.1.100'::inet,                  -- ip_address
-    'Mozilla/5.0 (Chrome/91.0)',           -- user_agent
-    '{"device_type": "desktop"}'::jsonb     -- device_info
+// Fetch user data from database using Cognito ID
+const userData = await db.query(
+    'SELECT * FROM users WHERE cognito_user_id = $1',
+    [cognitoUserId]
 );
 ```
 
-**Security Features:**
-- Password comparison at database level
-- Comprehensive audit logging
-- Failed attempt tracking
-- Device fingerprinting support
+**Security Benefits:**
+- No password storage in database
+- AWS manages security patches and compliance
+- Built-in account recovery flows
+- Automatic token rotation
+- Device fingerprinting and tracking
 
 ## Verification Workflows
 
-### sp_verify_email
-Validates email verification tokens and updates user status accordingly.
+### AWS Cognito Verification
 
-```sql
-CREATE OR REPLACE FUNCTION sp_verify_email(
-    p_token UUID
-) RETURNS BOOLEAN
+Email and phone verification are handled entirely by AWS Cognito:
+
+**Cognito Verification Process:**
+1. **Registration**: User signs up through Cognito
+2. **Verification Email/SMS**: Cognito automatically sends verification codes
+3. **Code Validation**: User submits code to Cognito
+4. **Status Update**: Cognito marks email/phone as verified
+5. **Database Sync**: Verification status passed to `sp_create_user_from_cognito`
+
+**Cognito Configuration:**
+```javascript
+// Example: Cognito User Pool configuration
+{
+  "AutoVerifiedAttributes": ["email", "phone_number"],
+  "VerificationMessageTemplate": {
+    "EmailMessage": "Your verification code is {####}",
+    "EmailSubject": "Verify your Forward Inheritance account",
+    "SmsMessage": "Your Forward verification code is {####}"
+  },
+  "MfaConfiguration": "OPTIONAL",
+  "EnabledMfas": ["SMS_MFA", "SOFTWARE_TOKEN_MFA"]
+}
 ```
 
-**Process Flow:**
-1. **Token Validation**: Checks token exists, not expired, not already used
-2. **User Update**: Sets `email_verified = true`
-3. **Status Update**: Activates user if phone also verified
-4. **Token Marking**: Marks verification token as used
-5. **Success Return**: Returns true/false for verification result
+**Verification Status in Database:**
+- Verification status is stored when user is created via `sp_create_user_from_cognito`
+- The database reflects Cognito's verification state
+- No separate verification procedures needed in database
 
-**Key Features:**
-- **Token Security**: Single-use tokens with expiration
-- **Atomic Status Update**: User activation when both verifications complete
-- **Audit Trail**: Verification events logged automatically
-- **Graceful Failure**: Returns false for invalid/expired tokens
-
-### sp_verify_phone
-Validates SMS verification codes for phone number confirmation.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_verify_phone(
-    p_user_id UUID,
-    p_code VARCHAR(6)
-) RETURNS BOOLEAN
-```
-
-**Process Flow:**
-1. **Code Validation**: Verifies code exists, not expired, not used
-2. **User Update**: Sets `phone_verified = true`
-3. **Status Update**: Activates user if email also verified
-4. **Code Marking**: Marks verification code as used
-5. **Success Return**: Returns verification result
-
-**Key Features:**
-- **Time-Limited Codes**: SMS codes expire quickly for security
-- **Single Use**: Codes can only be used once
-- **Dual Verification**: User activated only when both email and phone verified
-- **Security Logging**: All verification attempts logged
-
-**Usage Example:**
-```sql
--- Verify phone with SMS code
-SELECT sp_verify_phone(
-    '550e8400-e29b-41d4-a716-446655440000',  -- user_id
-    '123456'                                  -- verification_code
-);
-```
+**Benefits:**
+- Automatic retry logic for failed deliveries
+- Built-in rate limiting
+- Configurable code expiration
+- Support for custom verification templates
+- No verification tokens stored in database
 
 ## Password Management
 
-### sp_request_password_reset
-Initiates password reset workflow with secure token generation.
+### AWS Cognito Password Management
 
-```sql
-CREATE OR REPLACE FUNCTION sp_request_password_reset(
-    p_email VARCHAR(255)
-) RETURNS UUID
+Password management is handled entirely by AWS Cognito:
+
+**Cognito Password Features:**
+1. **Password Policies**: Configurable complexity requirements
+2. **Forgot Password Flow**: Built-in password reset via email/SMS
+3. **Password History**: Prevents reuse of recent passwords
+4. **Temporary Passwords**: Admin-initiated password resets
+5. **Change Password**: Authenticated users can change passwords
+
+**Password Reset Flow:**
+```javascript
+// Example: Initiating password reset with Cognito
+await cognito.forgotPassword({
+    ClientId: 'your-client-id',
+    Username: 'john@example.com'
+});
+
+// Cognito sends verification code to user's email/phone
+
+// User submits new password with verification code
+await cognito.confirmForgotPassword({
+    ClientId: 'your-client-id',
+    Username: 'john@example.com',
+    ConfirmationCode: '123456',
+    Password: 'NewSecurePassword123!'
+});
 ```
 
-**Process Flow:**
-1. **User Lookup**: Finds user by email (excludes deleted users)
-2. **Token Generation**: Creates secure reset token
-3. **Token Storage**: Stores token with 1-hour expiration
-4. **Return Token**: Provides token for email/SMS delivery
-
-**Key Features:**
-- **Short Expiration**: Reset tokens expire in 1 hour
-- **Secure Generation**: Cryptographically secure random tokens
-- **User Validation**: Only active users can request resets
-- **Audit Logging**: Reset requests logged for security monitoring
-
-### sp_reset_password
-Completes password reset process with comprehensive security measures.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_reset_password(
-    p_token UUID,
-    p_new_password_hash TEXT
-) RETURNS BOOLEAN
+**Password Policy Configuration:**
+```javascript
+{
+  "PasswordPolicy": {
+    "MinimumLength": 12,
+    "RequireUppercase": true,
+    "RequireLowercase": true,
+    "RequireNumbers": true,
+    "RequireSymbols": true,
+    "TemporaryPasswordValidityDays": 7
+  }
+}
 ```
 
-**Process Flow:**
-1. **Token Validation**: Verifies token exists, not expired, not used
-2. **Password Update**: Sets new password hash
-3. **Token Invalidation**: Marks reset token as used
-4. **Session Cleanup**: Invalidates all existing user sessions
-5. **Success Return**: Returns operation result
-
-**Key Features:**
-- **Session Invalidation**: Forces re-authentication on all devices
-- **Token Single-Use**: Reset tokens can only be used once
-- **Immediate Effect**: Password change takes effect immediately
-- **Security Logging**: Password changes logged for audit
-
-**Security Considerations:**
-- All existing sessions invalidated to prevent unauthorized access
-- New password must be hashed by application
-- Reset tokens have short lifespan to minimize attack window
+**Security Benefits:**
+- No password hashes in database
+- AWS manages encryption and storage
+- Automatic session invalidation on password change
+- Built-in rate limiting for password attempts
+- Compliance with security standards (SOC 2, ISO 27001)
 
 ## Session Management
 
-### sp_create_session
-Creates new user session with security tracking.
+### AWS Cognito Session Management
 
-```sql
-CREATE OR REPLACE FUNCTION sp_create_session(
-    p_user_id UUID,
-    p_ip_address INET,
-    p_user_agent TEXT,
-    p_device_info JSONB DEFAULT NULL
-) RETURNS UUID
+Session management is handled through AWS Cognito JWT tokens:
+
+**Cognito Token Types:**
+1. **ID Token**: Contains user identity claims (email, name, etc.)
+2. **Access Token**: Used for API authorization
+3. **Refresh Token**: Used to obtain new ID/Access tokens
+
+**Token Configuration:**
+```javascript
+{
+  "AccessTokenValidity": 1,        // 1 hour
+  "IdTokenValidity": 1,            // 1 hour
+  "RefreshTokenValidity": 30,      // 30 days
+  "TokenValidityUnits": {
+    "AccessToken": "hours",
+    "IdToken": "hours",
+    "RefreshToken": "days"
+  }
+}
 ```
 
-**Key Features:**
-- **7-Day Expiration**: Sessions automatically expire after 7 days
-- **Device Tracking**: Records IP, user agent, device information
-- **Secure Tokens**: Cryptographically secure session identifiers
-- **Audit Ready**: All session creation logged
+**Session Validation in Application:**
+```javascript
+// Example: Validating Cognito JWT token
+const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
 
-### sp_refresh_session
-Extends session lifetime with new token generation.
+// Verify JWT signature using Cognito's public keys
+const client = jwksClient({
+    jwksUri: `https://cognito-idp.${region}.amazonaws.com/${userPoolId}/.well-known/jwks.json`
+});
 
-```sql
-CREATE OR REPLACE FUNCTION sp_refresh_session(
-    p_session_token UUID
-) RETURNS UUID
+function verifyToken(token) {
+    return new Promise((resolve, reject) => {
+        jwt.verify(token, getKey, {
+            audience: clientId,
+            issuer: `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`,
+            algorithms: ['RS256']
+        }, (err, decoded) => {
+            if (err) reject(err);
+            else resolve(decoded);
+        });
+    });
+}
 ```
 
-**Process Flow:**
-1. **Session Validation**: Verifies current session is valid and active
-2. **Old Session Invalidation**: Marks current session as inactive
-3. **New Session Creation**: Creates new session with fresh token
-4. **Context Preservation**: Maintains IP, user agent, device info
-5. **New Token Return**: Provides fresh session token
-
-**Key Features:**
-- **Token Rotation**: Each refresh generates new token
-- **Seamless Transition**: Preserves user context during refresh
-- **Security Enhancement**: Reduces token reuse risks
-- **Extended Lifetime**: Resets 7-day expiration timer
-
-### fn_validate_session
-Validates session tokens for authentication middleware.
-
-```sql
-CREATE OR REPLACE FUNCTION fn_validate_session(
-    p_session_token UUID
-) RETURNS TABLE (
-    user_id UUID,
-    tenant_id INTEGER,
-    is_valid BOOLEAN
-)
+**Token Refresh Flow:**
+```javascript
+// Refresh expired tokens using refresh token
+await cognito.initiateAuth({
+    AuthFlow: 'REFRESH_TOKEN_AUTH',
+    ClientId: 'your-client-id',
+    AuthParameters: {
+        REFRESH_TOKEN: refreshToken
+    }
+});
 ```
 
-**Validation Criteria:**
-- Session token exists in database
-- Session is marked as active
-- Session has not expired
-- Associated user account is active
-
-**Usage in Middleware:**
-```sql
--- Validate session for API request
-SELECT * FROM fn_validate_session('session-token-here');
-```
-
-### sp_revoke_session
-Immediately invalidates user session for logout or security purposes.
-
-```sql
-CREATE OR REPLACE FUNCTION sp_revoke_session(
-    p_session_token UUID
-) RETURNS VOID
-```
-
-**Process:**
-- Marks session as inactive
-- Records revocation timestamp
-- Effective immediately
+**Security Benefits:**
+- Stateless authentication (no server-side session storage)
+- Automatic token expiration
+- Secure token rotation
+- Device tracking through Cognito
+- Built-in revocation support
 
 ## Permission Checking
 
@@ -407,23 +369,23 @@ SELECT sp_create_asset(...);  -- Uses current tenant/user context
 
 ## Security Considerations
 
-### Password Security
-- **Never Store Plain Text**: All procedures expect pre-hashed passwords
-- **Secure Hashing**: Use bcrypt or similar with appropriate cost factor
-- **Hash Comparison**: Database-level password verification
-- **Immediate Invalidation**: Password changes invalidate all sessions
+### AWS Cognito Security
+- **Password Management**: AWS Cognito handles all password storage and validation
+- **Encryption**: Passwords encrypted at rest and in transit by AWS
+- **Compliance**: SOC 2, ISO 27001, HIPAA eligible service
+- **DDoS Protection**: Built-in AWS Shield protection
 
-### Session Security
-- **Secure Tokens**: Cryptographically secure random UUIDs
-- **Token Rotation**: Refresh generates new tokens
-- **Automatic Expiration**: 7-day default lifetime
-- **Device Tracking**: IP and user agent logging for analysis
+### JWT Token Security
+- **Signature Verification**: Tokens signed with RS256 algorithm
+- **Public Key Validation**: Keys fetched from Cognito JWKS endpoint
+- **Token Expiration**: Automatic expiration with configurable lifetimes
+- **Refresh Token Rotation**: Optional refresh token rotation for enhanced security
 
 ### Verification Security
-- **Time-Limited Tokens**: Email tokens expire in 24 hours
-- **Short SMS Codes**: Phone codes expire quickly
-- **Single Use**: All verification tokens/codes are one-time use
-- **Audit Logging**: All verification attempts logged
+- **Managed by Cognito**: Email and SMS verification handled by AWS
+- **Rate Limiting**: Built-in protection against verification abuse
+- **Code Expiration**: Configurable verification code lifetimes
+- **Delivery Tracking**: AWS tracks delivery success/failure
 
 ### Multi-Tenant Security
 - **Complete Isolation**: All operations scoped to tenant
