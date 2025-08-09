@@ -1,2 +1,11 @@
 # Memory directory (MCP)
 .memory/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database passwords and secrets
+*.env
+!.env.example
