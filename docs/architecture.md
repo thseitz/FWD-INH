@@ -20,15 +20,16 @@ Based on review of the PRD and existing documentation, this is a **Greenfield pr
 - PostgreSQL as the primary database (already designed with 56 tables)
 - AWS cloud infrastructure preferred
 - React frontend with TypeScript
-- Node.js/Express backend
+- Nest.js backend (enterprise-grade Node.js framework)
 - Multi-tenant SaaS architecture
 - AWS Amplify used specifically for React CI/CD and hosting
+- AWS Step Functions for document processing and PII workflows
 
 ## High Level Architecture
 
 ### Technical Summary
 
-The Forward Inheritance Platform employs a multi-tenant SaaS architecture with a React/TypeScript frontend deployed via AWS Amplify for streamlined CI/CD, communicating through RESTful APIs with a Node.js/Express backend running on containerized AWS infrastructure (Fargate/ECS). The backend contains all business logic and orchestration, while accessing a PostgreSQL database exclusively through stored procedures that provide secure, optimized CRUD operations. The platform leverages AWS services including S3 for document storage, Lambda for PII processing, CloudFront for global content delivery, and integrates with external services like Twilio for SMS verification, SendGrid for email, and Quillt for financial data aggregation. This architecture achieves the PRD goals of supporting millions of families with secure, scalable infrastructure while maintaining strict data isolation and comprehensive audit trails.
+The Forward Inheritance Platform employs a multi-tenant SaaS architecture with a React/TypeScript frontend deployed via AWS Amplify for streamlined CI/CD, communicating through RESTful APIs with a Nest.js backend running on containerized AWS infrastructure (Fargate/ECS). The backend leverages Nest.js's modular architecture with dependency injection, guards for multi-tenant isolation, and interceptors for cross-cutting concerns. Database access is exclusively through PostgreSQL stored procedures using Slonik for type-safe operations. For document processing, AWS Step Functions orchestrates a serverless pipeline using S3, Lambda, and Comprehend for PII detection and masking, while BullMQ handles application-level async tasks. The platform integrates with external services including Twilio for SMS, SendGrid for email, Quillt for financial aggregation, and Vanta for SOC 2 compliance. This architecture achieves enterprise-grade security, scalability for millions of families, and maintainable code through Nest.js's structured approach.
 
 ### Platform and Infrastructure Choice
 
@@ -64,20 +65,23 @@ graph TB
     end
     
     subgraph "API Layer"
-        AG[API Gateway]
-        WAF[AWS WAF]
+        AG[API Gateway<br/>Rate Limiting<br/>API Keys]
+        WAF[AWS WAF<br/>DDoS Protection]
+        USAGE[Usage Plans<br/>Quotas]
     end
     
     subgraph "Backend Services"
-        ECS[Fargate/ECS<br/>Node.js/Express]
+        ECS[Fargate/ECS<br/>Nest.js]
+        SF[Step Functions<br/>Document Pipeline]
         L1[Lambda<br/>PII Processing]
         L2[Lambda<br/>Report Generation]
+        BQ[BullMQ<br/>App Tasks]
     end
     
     subgraph "Data Layer"
         RDS[(RDS PostgreSQL<br/>56 Tables<br/>45+ Stored Procedures)]
         S3[S3 Storage<br/>Documents]
-        CACHE[["Redis Cache<br/>(Phase 2)"]]
+        MEM[In-Memory Cache<br/>NestJS Service]
     end
     
     subgraph "External Services"
@@ -90,11 +94,15 @@ graph TB
     U --> CF --> AMP
     M --> B --> CF
     AMP --> AG
+    AG --> USAGE
     AG --> WAF --> ECS
     ECS --> RDS
-    ECS -.-> CACHE
-    ECS --> L1
-    ECS --> L2
+    ECS --> MEM
+    MEM --> RDS
+    ECS --> SF
+    SF --> L1
+    SF --> S3
+    ECS --> BQ
     L1 --> S3
     L2 --> S3
     ECS --> TW
@@ -102,13 +110,14 @@ graph TB
     ECS --> Q
     ECS --> RE
     
-    style CACHE stroke-dasharray: 5 5
+    style MEM fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 ### Architectural Patterns
 
 - **Database-First CRUD Layer:** All data operations through stored procedures for security and performance optimization - _Rationale:_ Prevents SQL injection, provides operational flexibility for query optimization, enables database-level performance tuning
-- **Business Logic in Application Layer:** Node.js/Express handles all business rules, validations, and orchestration - _Rationale:_ Keeps business logic testable, maintainable, and independent of database implementation
+- **Modular Architecture with Nest.js:** Domain-driven modules with dependency injection, guards, and interceptors - _Rationale:_ Enterprise-grade structure, testability, and clear separation of concerns
+- **Business Logic in Application Layer:** Nest.js services handle all business rules, validations, and orchestration - _Rationale:_ Keeps business logic testable, maintainable, and independent of database implementation
 - **Multi-Tenant Isolation:** Tenant ID-based data segregation at database level - _Rationale:_ Complete data isolation for different families while maintaining single codebase
 - **Component-Based UI:** Reusable React components with TypeScript and shadcn/ui - _Rationale:_ Consistency across UI, type safety, and faster development
 - **Repository Pattern:** Abstract database access through typed stored procedure calls - _Rationale:_ Type-safe database operations with pgtyped, easier testing
@@ -130,10 +139,10 @@ This is the DEFINITIVE technology selection for the entire Forward Inheritance P
 | UI Component Library | shadcn/ui + Radix | Latest | Accessible components | Customizable, accessible by default, Tailwind integration |
 | State Management | Zustand | 4.4+ | Client state management | Simpler than Redux, TypeScript-first, small bundle size |
 | Backend Language | TypeScript | 5.3+ | Type-safe backend | Shared types with frontend, consistency across stack |
-| Backend Framework | Express.js | 4.18+ | HTTP server framework | Mature, simple, extensive middleware ecosystem |
+| Backend Framework | Nest.js | 10.0+ | Enterprise Node.js framework | Modular architecture, dependency injection, built-in testing support, TypeScript-first |
 | API Style | REST | - | API architecture | Simple, well-understood, sufficient for requirements |
 | Database | PostgreSQL | 14+ | Primary data store | Already designed with 56 tables, JSONB support, robust |
-| Cache | **In-Memory (Phase 1)** → Redis (Phase 2) | 7.0+ | Session & data cache | **MVP: Node.js memory for sessions. Phase 2: Redis for scale** |
+| Cache | **In-Memory (NestJS)** | - | Session & data cache | **Cost-optimized: In-memory caching with periodic refresh from DB. No Redis needed for MVP with 1-2 instances** |
 | File Storage | AWS S3 | - | Document storage | Integrated encryption, versioning, cost-effective |
 | Authentication | JWT + Custom | - | Auth system | Database-driven with stored procedures, dual-channel verification |
 | Frontend Testing | Vitest + React Testing Library | Latest | Unit/integration tests | Fast, Jest-compatible, good React integration |
@@ -147,7 +156,9 @@ This is the DEFINITIVE technology selection for the entire Forward Inheritance P
 | Logging | Winston + CloudWatch | - | Application logging | Structured logging, AWS integration |
 | CSS Framework | Tailwind CSS | 3.4+ | Styling system | Utility-first, small production builds, shadcn/ui compatible |
 | Container Platform | Docker + ECS/Fargate | - | Backend deployment | Serverless containers, no cluster management needed |
-| ORM/Query Builder | Slonik + pgtyped | Latest | Database interface | Type-safe stored procedure calls for CRUD operations, SQL injection prevention, performance optimization |
+| ORM/Query Builder | Slonik + pgtyped | Latest | Database interface | Type-safe stored procedure calls, SQL injection prevention, perfect for stored procedures |
+| Queue Management | BullMQ | 4.0+ | Application task queue | Redis-backed queue for notifications, reports, API sync tasks |
+| Workflow Orchestration | AWS Step Functions | - | Document processing | Serverless orchestration for PII detection pipeline |
 
 ## Data Models
 
@@ -477,12 +488,15 @@ Major logical components and services across the fullstack, with clear boundarie
 
 ### Backend Components
 
-- **Express API Server**: HTTP server, middleware orchestration, request routing
-- **Business Logic Service Layer**: All business rules, validations, and orchestration between external services and database
-- **Database Service Layer**: Execute stored procedures, manage connections, handle transactions
-- **Session Management Service (MVP - No Redis)**: JWT-based stateless sessions with optional in-memory store for active sessions
-- **PII Processing Service (Lambda)**: Detect and mask PII in uploaded documents
-- **External Integration Clients**: Manage connections to third-party services
+- **Nest.js Application**: Modular backend with dependency injection, guards, interceptors, and decorators
+- **Module Organization**: Domain-driven modules (AuthModule, FFCModule, AssetsModule, IntegrationsModule)
+- **Service Layer**: Business logic services with dependency injection and testability
+- **Repository Layer**: Type-safe stored procedure execution using Slonik
+- **Guard Layer**: TenantIsolationGuard, FfcMembershipGuard, AssetPermissionsGuard for authorization
+- **Interceptor Layer**: Caching, logging, performance monitoring, and tenant context management
+- **AWS Step Functions**: Orchestrate document processing pipeline for PII detection
+- **BullMQ Queue Processors**: Handle async application tasks (notifications, reports, API sync)
+- **External Integration Modules**: Dedicated modules for Quillt, Builder.io, Vanta integrations
 
 ### Shared Components
 
@@ -547,11 +561,14 @@ The platform integrates with several external services to provide comprehensive 
   - Automated SOC 2 reporting
 
 ### AWS Services (Native Integration)
-- **S3:** Document storage with presigned URLs for direct upload
-- **Lambda:** PII processing triggered by S3 events
-- **Comprehend:** PII detection within Lambda function
-- **CloudWatch:** Logging and monitoring
-- **EventBridge:** Scheduled tasks (future)
+- **S3:** Document storage with KMS encryption (SSE-KMS) for both original and masked documents
+- **Step Functions:** Orchestrate document processing workflow with automatic retries and error handling
+- **Lambda:** Execute PII detection and document processing tasks within Step Functions
+- **Comprehend:** Native PII detection and redaction in ONLY_REDACTION mode
+- **KMS:** Customer-managed keys for document encryption with automatic rotation
+- **CloudWatch:** Centralized logging and monitoring for all services
+- **EventBridge:** Event-driven triggers for Step Functions execution
+- **CloudTrail:** Audit logging for compliance and security monitoring
 
 ## Core Workflows
 
@@ -577,42 +594,2232 @@ Key stored procedures handle:
 
 ## Frontend Architecture
 
-### Component Architecture
-- Component organization by feature (auth, ffc, assets)
-- Standard component structure with TypeScript
-- shadcn/ui for UI components
+### Component Architecture Overview
+
+The frontend follows a feature-based architecture with clear separation of concerns, type safety, and reusable components.
+
+```typescript
+// Frontend structure
+apps/web/src/
+├── components/           // Shared UI components
+│   ├── ui/              // shadcn/ui base components
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── dialog.tsx
+│   │   └── form.tsx
+│   ├── layout/          // Layout components
+│   │   ├── AppShell.tsx
+│   │   ├── Navigation.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── Footer.tsx
+│   └── shared/          // Shared business components
+│       ├── AssetCard.tsx
+│       ├── PersonaAvatar.tsx
+│       ├── PermissionBadge.tsx
+│       └── LoadingStates.tsx
+├── features/            // Feature-based modules
+│   ├── auth/
+│   │   ├── components/
+│   │   │   ├── LoginForm.tsx
+│   │   │   ├── RegisterForm.tsx
+│   │   │   ├── DualChannelVerification.tsx
+│   │   │   └── PasswordReset.tsx
+│   │   ├── hooks/
+│   │   │   ├── useAuth.ts
+│   │   │   └── useVerification.ts
+│   │   ├── stores/
+│   │   │   └── authStore.ts
+│   │   └── services/
+│   │       └── authService.ts
+│   ├── ffcs/            // Family Circles
+│   │   ├── components/
+│   │   │   ├── FFCList.tsx
+│   │   │   ├── FFCCard.tsx
+│   │   │   ├── CreateFFCWizard.tsx
+│   │   │   ├── MemberInvitation.tsx
+│   │   │   └── MemberManagement.tsx
+│   │   ├── hooks/
+│   │   │   ├── useFFCs.ts
+│   │   │   └── useMembers.ts
+│   │   └── stores/
+│   │       └── ffcStore.ts
+│   ├── assets/          // Asset Management (13 types)
+│   │   ├── components/
+│   │   │   ├── AssetDashboard.tsx
+│   │   │   ├── AssetList.tsx
+│   │   │   ├── AssetDetail.tsx
+│   │   │   └── CreateAssetFlow.tsx
+│   │   ├── types/       // Asset type-specific components
+│   │   │   ├── RealEstate/
+│   │   │   │   ├── RealEstateForm.tsx
+│   │   │   │   ├── PropertyValuation.tsx
+│   │   │   │   └── MortgageDetails.tsx
+│   │   │   ├── FinancialAccounts/
+│   │   │   │   ├── AccountForm.tsx
+│   │   │   │   ├── QuilltConnection.tsx
+│   │   │   │   └── BalanceSync.tsx
+│   │   │   └── [11 other asset types]/
+│   │   ├── hooks/
+│   │   │   ├── useAssets.ts
+│   │   │   ├── useAssetPermissions.ts
+│   │   │   └── useAssetCategories.ts
+│   │   └── stores/
+│   │       └── assetStore.ts
+│   └── documents/       // Document Management
+│       ├── components/
+│       │   ├── DocumentUploader.tsx
+│       │   ├── DocumentViewer.tsx
+│       │   ├── PIIStatusIndicator.tsx
+│       │   └── DocumentList.tsx
+│       └── hooks/
+│           └── useDocuments.ts
+├── hooks/               // Global hooks
+│   ├── usePermissions.ts
+│   ├── useWebSocket.ts
+│   ├── useNotifications.ts
+│   └── useBreakpoints.ts
+├── stores/              // Global state stores
+│   ├── globalStore.ts
+│   ├── notificationStore.ts
+│   └── cacheStore.ts
+├── services/            // API service layer
+│   ├── apiClient.ts     // Axios instance
+│   ├── authService.ts
+│   ├── ffcService.ts
+│   ├── assetService.ts
+│   └── documentService.ts
+├── utils/               // Utility functions
+│   ├── formatters.ts
+│   ├── validators.ts
+│   ├── constants.ts
+│   └── errors.ts
+├── types/               // TypeScript types
+│   └── index.ts         // Re-exports from @fwd/shared
+└── pages/               // Route pages
+    ├── Dashboard.tsx
+    ├── Assets.tsx
+    ├── FFCs.tsx
+    └── Settings.tsx
+```
 
 ### State Management Architecture
-- Zustand for global state management
-- React Query for server state
-- Local component state for UI-only concerns
+
+#### Zustand Store Pattern
+```typescript
+// stores/assetStore.ts - Domain-specific store
+import { create } from 'zustand';
+import { devtools, persist } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+
+interface AssetState {
+  assets: Asset[];
+  selectedAsset: Asset | null;
+  filters: AssetFilters;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  setAssets: (assets: Asset[]) => void;
+  selectAsset: (id: string) => void;
+  updateAsset: (id: string, updates: Partial<Asset>) => void;
+  deleteAsset: (id: string) => void;
+  setFilters: (filters: AssetFilters) => void;
+  reset: () => void;
+}
+
+export const useAssetStore = create<AssetState>()(
+  devtools(
+    persist(
+      immer((set) => ({
+        assets: [],
+        selectedAsset: null,
+        filters: {},
+        isLoading: false,
+        error: null,
+        
+        setAssets: (assets) => set((state) => {
+          state.assets = assets;
+        }),
+        
+        selectAsset: (id) => set((state) => {
+          state.selectedAsset = state.assets.find(a => a.id === id) || null;
+        }),
+        
+        updateAsset: (id, updates) => set((state) => {
+          const index = state.assets.findIndex(a => a.id === id);
+          if (index !== -1) {
+            state.assets[index] = { ...state.assets[index], ...updates };
+          }
+        }),
+        
+        deleteAsset: (id) => set((state) => {
+          state.assets = state.assets.filter(a => a.id !== id);
+        }),
+        
+        setFilters: (filters) => set((state) => {
+          state.filters = filters;
+        }),
+        
+        reset: () => set(() => initialState),
+      })),
+      {
+        name: 'asset-store',
+        partialize: (state) => ({ filters: state.filters }), // Only persist filters
+      }
+    )
+  )
+);
+```
+
+#### React Query Integration
+```typescript
+// hooks/useAssets.ts - Server state management
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { assetService } from '@/services/assetService';
+import { useAssetStore } from '@/stores/assetStore';
+
+export function useAssets(ffcId: string) {
+  const setAssets = useAssetStore((state) => state.setAssets);
+  
+  return useQuery({
+    queryKey: ['assets', ffcId],
+    queryFn: () => assetService.getAssets(ffcId),
+    onSuccess: (data) => {
+      setAssets(data); // Sync with Zustand
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+export function useCreateAsset() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: assetService.createAsset,
+    onSuccess: (newAsset) => {
+      // Optimistic update
+      queryClient.setQueryData(
+        ['assets', newAsset.ffcId],
+        (old: Asset[] = []) => [...old, newAsset]
+      );
+    },
+    onError: (error, variables, context) => {
+      // Rollback optimistic update
+      queryClient.setQueryData(['assets', variables.ffcId], context.previousAssets);
+    },
+  });
+}
+```
+
+### Component Patterns
+
+#### Feature Component Pattern
+```typescript
+// features/assets/components/AssetDashboard.tsx
+import { Suspense, lazy } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
+import { useAssets } from '../hooks/useAssets';
+import { AssetFilters } from './AssetFilters';
+import { AssetList } from './AssetList';
+import { AssetSkeleton } from './AssetSkeleton';
+
+const AssetDetail = lazy(() => import('./AssetDetail'));
+
+export function AssetDashboard({ ffcId }: { ffcId: string }) {
+  const { data: assets, isLoading, error } = useAssets(ffcId);
+  const selectedAsset = useAssetStore((state) => state.selectedAsset);
+  
+  if (error) {
+    return <AssetErrorState error={error} />;
+  }
+  
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2">
+        <AssetFilters />
+        {isLoading ? (
+          <AssetSkeleton count={5} />
+        ) : (
+          <AssetList assets={assets} />
+        )}
+      </div>
+      
+      <div className="lg:col-span-1">
+        <ErrorBoundary fallback={<div>Error loading asset details</div>}>
+          <Suspense fallback={<AssetDetailSkeleton />}>
+            {selectedAsset && <AssetDetail asset={selectedAsset} />}
+          </Suspense>
+        </ErrorBoundary>
+      </div>
+    </div>
+  );
+}
+```
+
+#### Compound Component Pattern
+```typescript
+// components/shared/AssetCard.tsx
+import { createContext, useContext } from 'react';
+
+const AssetCardContext = createContext<Asset | null>(null);
+
+export function AssetCard({ asset, children }: { asset: Asset; children: React.ReactNode }) {
+  return (
+    <AssetCardContext.Provider value={asset}>
+      <Card className="p-4">
+        {children}
+      </Card>
+    </AssetCardContext.Provider>
+  );
+}
+
+AssetCard.Header = function Header() {
+  const asset = useContext(AssetCardContext);
+  return (
+    <div className="flex justify-between items-start">
+      <h3 className="text-lg font-semibold">{asset.name}</h3>
+      <AssetTypeBadge type={asset.type} />
+    </div>
+  );
+};
+
+AssetCard.Value = function Value() {
+  const asset = useContext(AssetCardContext);
+  return (
+    <div className="text-2xl font-bold">
+      {formatCurrency(asset.currentValue)}
+    </div>
+  );
+};
+
+AssetCard.Actions = function Actions({ onEdit, onDelete }: ActionProps) {
+  const asset = useContext(AssetCardContext);
+  return (
+    <div className="flex gap-2">
+      <Button size="sm" onClick={() => onEdit(asset.id)}>Edit</Button>
+      <Button size="sm" variant="destructive" onClick={() => onDelete(asset.id)}>Delete</Button>
+    </div>
+  );
+};
+
+// Usage
+<AssetCard asset={asset}>
+  <AssetCard.Header />
+  <AssetCard.Value />
+  <AssetCard.Actions onEdit={handleEdit} onDelete={handleDelete} />
+</AssetCard>
+```
 
 ### Routing Architecture
-- React Router v6 for client-side routing
-- Protected route pattern for authentication
-- File-based route organization
 
-### Frontend Services Layer
-- Axios instance with auth interceptors
-- Service classes for API communication
-- React Query hooks for data fetching
+```typescript
+// routes/index.tsx - Centralized routing
+import { createBrowserRouter } from 'react-router-dom';
+import { ProtectedRoute } from './ProtectedRoute';
+
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <Navigate to="/dashboard" />,
+      },
+      {
+        path: 'dashboard',
+        element: (
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'ffcs/:ffcId',
+        element: (
+          <ProtectedRoute requiredPermission="ffc.view">
+            <FFCLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          {
+            path: 'assets',
+            element: <AssetDashboard />,
+          },
+          {
+            path: 'members',
+            element: <MemberManagement />,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/auth',
+    element: <AuthLayout />,
+    children: [
+      {
+        path: 'login',
+        element: <LoginPage />,
+      },
+      {
+        path: 'register',
+        element: <RegisterPage />,
+      },
+    ],
+  },
+]);
+```
+
+### API Service Layer
+
+```typescript
+// services/apiClient.ts - Centralized API configuration
+import axios from 'axios';
+import { useAuthStore } from '@/stores/authStore';
+
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  timeout: 30000,
+});
+
+// Request interceptor for auth
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = useAuthStore.getState().token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => response.data,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Token refresh logic
+      const refreshed = await authService.refreshToken();
+      if (refreshed) {
+        return apiClient.request(error.config);
+      }
+      // Redirect to login
+      window.location.href = '/auth/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;
+```
 
 ## Backend Architecture
 
-### Service Architecture
-- Traditional Express.js server (not serverless)
-- Controller/Route/Service/Database layer separation
-- Deployed as Docker containers on ECS/Fargate
+### Nest.js Module Architecture
+```typescript
+// Module structure for Forward Inheritance Platform
+src/
+├── app.module.ts                 // Root module
+├── common/
+│   ├── guards/                   // Multi-tenant, FFC, asset guards
+│   ├── interceptors/             // Caching, logging, performance
+│   ├── pipes/                    // Validation, transformation
+│   └── decorators/               // Custom decorators
+├── modules/
+│   ├── auth/                     // AWS Cognito integration
+│   ├── tenants/                  // Multi-tenant management
+│   ├── ffcs/                     // Family circles
+│   ├── assets/                   // Asset management with 13 types
+│   ├── documents/                // Document processing
+│   ├── integrations/
+│   │   ├── quillt/              // Financial sync
+│   │   ├── builder-io/          // CMS integration
+│   │   └── vanta/               // Compliance
+│   └── queues/                   // BullMQ processors
+└── database/
+    ├── slonik.provider.ts        // Database connection
+    └── repositories/             // Stored procedure calls
+```
 
-### Database Architecture
-- PostgreSQL with stored procedures for all CRUD
-- Slonik for SQL execution
-- pgtyped for type generation
+### AWS Step Functions Document Processing
+```json
+{
+  "Comment": "PII Detection and Document Encryption Pipeline",
+  "StartAt": "ValidateDocument",
+  "States": {
+    "ValidateDocument": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:ACCOUNT:function:ValidateDocument",
+      "Next": "StartComprehendPiiDetection"
+    },
+    "StartComprehendPiiDetection": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:comprehend:startPiiEntitiesDetectionJob",
+      "Parameters": {
+        "DataAccessRoleArn": "${ComprehendRole}",
+        "InputDataConfig": {
+          "S3Uri": "s3://forward-documents-raw/${$.originalS3Key}"
+        },
+        "OutputDataConfig": {
+          "S3Uri": "s3://forward-documents-masked/",
+          "KmsKeyId": "${KmsKeyArn}"
+        },
+        "Mode": "ONLY_REDACTION",
+        "RedactionConfig": {
+          "PiiEntityTypes": ["SSN", "CREDIT_DEBIT_NUMBER", "BANK_ACCOUNT_NUMBER", "DRIVER_ID", "PASSPORT_NUMBER"]
+        },
+        "LanguageCode": "en"
+      },
+      "Next": "WaitForComprehendJob"
+    },
+    "WaitForComprehendJob": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "CheckComprehendJobStatus"
+    },
+    "CheckComprehendJobStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:comprehend:describePiiEntitiesDetectionJob",
+      "Next": "IsJobComplete"
+    },
+    "IsJobComplete": {
+      "Type": "Choice",
+      "Choices": [{
+        "Variable": "$.JobStatus",
+        "StringEquals": "COMPLETED",
+        "Next": "UpdateDocumentMetadata"
+      }],
+      "Default": "WaitForComprehendJob"
+    },
+    "UpdateDocumentMetadata": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:ACCOUNT:function:UpdateDocumentMetadata",
+      "End": true
+    }
+  }
+}
+```
 
-### Authentication and Authorization
-- JWT-based stateless authentication
-- Middleware pipeline for auth checks
-- Permission service for granular access control
+### Database Architecture with Nest.js
+```typescript
+// Slonik provider for stored procedure execution
+@Injectable()
+export class SlonikProvider {
+  private readonly pool: DatabasePool;
+
+  constructor(@Inject('DATABASE_CONFIG') private config: DatabaseConfig) {
+    this.pool = createPool(config.url, {
+      interceptors: [
+        ...createInterceptorPreset(),
+        {
+          beforePoolConnection: async (context, connection) => {
+            const tenantId = context.connectionContext?.tenantId;
+            const userId = context.connectionContext?.userId;
+            if (tenantId && userId) {
+              await connection.query(sql`
+                SELECT sp_set_session_context(${tenantId}::int, ${userId}::uuid)
+              `);
+            }
+          },
+        },
+      ],
+      maximumPoolSize: 30,
+    });
+  }
+
+  async executeStoredProcedure<T>(
+    procedureName: string,
+    params: any[],
+    context: RequestContext
+  ): Promise<T> {
+    return this.pool.connect(async (connection) => {
+      await connection.query(sql`
+        SELECT sp_set_session_context(${context.tenantId}::int, ${context.userId}::uuid)
+      `);
+      return connection.one(sql`SELECT * FROM ${sql.identifier([procedureName])}(${sql.join(params, sql`, `)})`);
+    });
+  }
+}
+```
+
+### Authentication and Authorization Guards
+```typescript
+// Multi-tenant isolation guard
+@Injectable()
+export class TenantIsolationGuard implements CanActivate {
+  constructor(
+    private readonly cognitoService: CognitoService,
+    private readonly tenantsService: TenantsService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = this.extractTokenFromHeader(request);
+    
+    const decoded = await this.cognitoService.verifyToken(token);
+    const tenant = await this.tenantsService.findByName(decoded['custom:tenant_name']);
+    
+    request.user = {
+      id: decoded.sub,
+      tenantId: tenant.id,
+      cognitoUserId: decoded.sub,
+    };
+    
+    return true;
+  }
+}
+```
+
+### In-Memory Caching Strategy (Cost-Optimized MVP)
+
+#### Rationale
+- **Cost Savings**: $0/month vs $200-500/month for Redis
+- **Performance**: Sub-millisecond access for cached data
+- **Simplicity**: No additional infrastructure to manage
+- **Sufficient for MVP**: 1-2 ECS instances handle thousands of families
+
+#### Implementation
+```typescript
+// cache/in-memory-cache.service.ts
+@Injectable()
+export class InMemoryCacheService implements OnModuleInit {
+  private permissionCache = new Map<string, PermissionSet>();
+  private ffcMembershipCache = new Map<string, Set<string>>();
+  private assetCache = new LRUCache<string, Asset>({
+    max: 10000, // Maximum entries
+    ttl: 1000 * 60 * 5, // 5 minute TTL
+    updateAgeOnGet: true,
+  });
+  
+  constructor(
+    @Inject('DATABASE_POOL') private pool: DatabasePool,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  async onModuleInit() {
+    // Warm cache at startup
+    await this.warmCache();
+    
+    // Refresh critical data every 5 minutes
+    setInterval(() => this.refreshPermissions(), 5 * 60 * 1000);
+    
+    // Listen for cache invalidation events
+    this.eventEmitter.on('cache.invalidate.*', (event) => {
+      this.handleInvalidation(event);
+    });
+  }
+
+  private async warmCache() {
+    const startTime = Date.now();
+    
+    // Load frequently accessed permissions
+    const permissions = await this.pool.query(sql`
+      SELECT * FROM sp_get_all_active_permissions()
+    `);
+    
+    // Build permission cache
+    permissions.rows.forEach(p => {
+      const key = `perm:${p.tenant_id}:${p.user_id}:${p.resource_id}`;
+      this.permissionCache.set(key, {
+        permissions: p.permissions,
+        expiresAt: Date.now() + 300000, // 5 minutes
+      });
+    });
+    
+    // Load FFC memberships
+    const memberships = await this.pool.query(sql`
+      SELECT ffc_id, user_id FROM sp_get_all_ffc_memberships()
+    `);
+    
+    // Build membership cache
+    memberships.rows.forEach(m => {
+      const key = `ffc:${m.ffc_id}`;
+      if (!this.ffcMembershipCache.has(key)) {
+        this.ffcMembershipCache.set(key, new Set());
+      }
+      this.ffcMembershipCache.get(key).add(m.user_id);
+    });
+    
+    this.logger.log(`Cache warmed in ${Date.now() - startTime}ms`);
+  }
+
+  async checkPermission(
+    tenantId: number,
+    userId: string,
+    resourceId: string,
+    permission: string
+  ): Promise<boolean> {
+    const key = `perm:${tenantId}:${userId}:${resourceId}`;
+    
+    // Check cache first
+    const cached = this.permissionCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.permissions.includes(permission);
+    }
+    
+    // Cache miss - fetch from DB with tenant context
+    const result = await this.pool.connect(async (connection) => {
+      await connection.query(sql`
+        SELECT sp_set_session_context(${tenantId}::int, ${userId}::uuid)
+      `);
+      
+      return connection.one(sql`
+        SELECT sp_check_permission(
+          ${userId}::uuid,
+          ${resourceId}::uuid,
+          ${permission}::text
+        ) as has_permission
+      `);
+    });
+    
+    // Update cache
+    this.permissionCache.set(key, {
+      permissions: result.has_permission ? [permission] : [],
+      expiresAt: Date.now() + 300000,
+    });
+    
+    return result.has_permission;
+  }
+
+  // Invalidation on write operations
+  invalidatePermissions(userId: string, resourceId?: string) {
+    const pattern = resourceId 
+      ? `perm:*:${userId}:${resourceId}`
+      : `perm:*:${userId}:*`;
+      
+    for (const key of this.permissionCache.keys()) {
+      if (this.matchesPattern(key, pattern)) {
+        this.permissionCache.delete(key);
+      }
+    }
+  }
+}
+```
+
+#### Memory Management
+```typescript
+// cache/memory-monitor.service.ts
+@Injectable()
+export class MemoryMonitorService {
+  private readonly maxHeapMB = 512; // Conservative limit for t3.medium
+  
+  @Cron('*/1 * * * *') // Every minute
+  checkMemoryUsage() {
+    const usage = process.memoryUsage();
+    const heapUsedMB = usage.heapUsed / 1024 / 1024;
+    
+    if (heapUsedMB > this.maxHeapMB) {
+      this.logger.warn(`Memory usage high: ${heapUsedMB}MB`);
+      
+      // Trigger LRU eviction
+      this.cacheService.evictLeastRecentlyUsed(0.2); // Remove 20%
+      
+      // Alert CloudWatch
+      this.metricsService.putMetric('HighMemoryUsage', heapUsedMB);
+    }
+  }
+}
+```
+
+#### Sticky Sessions Configuration
+```typescript
+// AWS ALB Target Group configuration for cache consistency
+export const targetGroupConfig = {
+  targetGroupAttributes: [
+    {
+      key: 'stickiness.enabled',
+      value: 'true'
+    },
+    {
+      key: 'stickiness.type',
+      value: 'app_cookie'
+    },
+    {
+      key: 'stickiness.app_cookie.duration_seconds',
+      value: '3600' // 1 hour sticky sessions
+    },
+    {
+      key: 'stickiness.app_cookie.cookie_name',
+      value: 'FWDSESSION'
+    }
+  ]
+};
+```
+
+#### Progressive Enhancement Path
+```typescript
+// cache/cache.module.ts - Easy migration to Redis when needed
+@Module({
+  providers: [
+    {
+      provide: 'CACHE_SERVICE',
+      useFactory: (configService: ConfigService) => {
+        const cacheType = configService.get('CACHE_TYPE', 'memory');
+        
+        switch (cacheType) {
+          case 'memory':
+            return new InMemoryCacheService(); // MVP
+          case 'redis':
+            return new RedisCacheService();    // Phase 2 (10K+ families)
+          case 'hybrid':
+            return new HybridCacheService();   // Memory + Redis fallback
+          default:
+            return new InMemoryCacheService();
+        }
+      },
+      inject: [ConfigService],
+    },
+  ],
+  exports: ['CACHE_SERVICE'],
+})
+export class CacheModule {}
+```
+
+### Real-Time WebSocket Layer with Socket.io
+
+#### Architecture Overview
+The platform uses Socket.io for real-time collaboration features, enabling families to work together on estate planning with live updates.
+
+```typescript
+// websocket/websocket.gateway.ts
+import { Server, Socket } from 'socket.io';
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  ConnectedSocket,
+  MessageBody,
+} from '@nestjs/websockets';
+import { UseGuards } from '@nestjs/common';
+import { WsJwtGuard } from '@/guards/ws-jwt.guard';
+
+@WebSocketGateway({
+  cors: {
+    origin: process.env.ALLOWED_ORIGINS?.split(','),
+    credentials: true,
+  },
+  namespace: '/realtime',
+  transports: ['websocket', 'polling'], // Fallback to polling if WebSocket fails
+})
+export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
+
+  private userSessions = new Map<string, Set<string>>(); // userId -> socketIds
+  private socketMetadata = new Map<string, SocketMetadata>();
+
+  async handleConnection(client: Socket) {
+    try {
+      // Validate JWT token from handshake
+      const token = client.handshake.auth.token;
+      const user = await this.authService.validateWebSocketToken(token);
+      
+      if (!user) {
+        client.disconnect();
+        return;
+      }
+
+      // Store socket metadata
+      this.socketMetadata.set(client.id, {
+        userId: user.id,
+        tenantId: user.tenantId,
+        ffcIds: [],
+        connectedAt: new Date(),
+      });
+
+      // Track user sessions
+      if (!this.userSessions.has(user.id)) {
+        this.userSessions.set(user.id, new Set());
+      }
+      this.userSessions.get(user.id).add(client.id);
+
+      // Join tenant room for tenant-wide broadcasts
+      client.join(`tenant:${user.tenantId}`);
+
+      // Join user's personal room
+      client.join(`user:${user.id}`);
+
+      // Load and join user's FFCs
+      const userFFCs = await this.ffcService.getUserFFCs(user.id);
+      for (const ffc of userFFCs) {
+        client.join(`ffc:${ffc.id}`);
+        this.socketMetadata.get(client.id).ffcIds.push(ffc.id);
+      }
+
+      // Notify others of user presence
+      this.broadcastPresence(user.id, 'online');
+
+      this.logger.log(`User ${user.id} connected via socket ${client.id}`);
+    } catch (error) {
+      this.logger.error('WebSocket connection error:', error);
+      client.disconnect();
+    }
+  }
+
+  async handleDisconnect(client: Socket) {
+    const metadata = this.socketMetadata.get(client.id);
+    if (metadata) {
+      // Remove socket from user sessions
+      const userSockets = this.userSessions.get(metadata.userId);
+      if (userSockets) {
+        userSockets.delete(client.id);
+        
+        // If user has no more sockets, they're offline
+        if (userSockets.size === 0) {
+          this.userSessions.delete(metadata.userId);
+          this.broadcastPresence(metadata.userId, 'offline');
+        }
+      }
+
+      this.socketMetadata.delete(client.id);
+    }
+  }
+
+  // Asset real-time updates
+  @SubscribeMessage('asset:subscribe')
+  @UseGuards(WsJwtGuard)
+  async handleAssetSubscription(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { assetId: string }
+  ) {
+    const metadata = this.socketMetadata.get(client.id);
+    
+    // Check permission to view asset
+    const hasAccess = await this.permissionService.checkAssetAccess(
+      metadata.userId,
+      data.assetId
+    );
+
+    if (hasAccess) {
+      client.join(`asset:${data.assetId}`);
+      
+      // Send current viewers
+      const viewers = this.getAssetViewers(data.assetId);
+      client.emit('asset:viewers', { assetId: data.assetId, viewers });
+    }
+  }
+
+  @SubscribeMessage('asset:unsubscribe')
+  async handleAssetUnsubscription(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { assetId: string }
+  ) {
+    client.leave(`asset:${data.assetId}`);
+  }
+
+  // Broadcast asset changes to all viewers
+  async broadcastAssetUpdate(assetId: string, update: AssetUpdate) {
+    this.server.to(`asset:${assetId}`).emit('asset:updated', {
+      assetId,
+      update,
+      updatedBy: update.userId,
+      timestamp: new Date(),
+    });
+  }
+
+  // Document collaboration
+  @SubscribeMessage('document:upload:progress')
+  async handleDocumentUploadProgress(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { documentId: string; progress: number }
+  ) {
+    const metadata = this.socketMetadata.get(client.id);
+    
+    // Broadcast to FFC members
+    for (const ffcId of metadata.ffcIds) {
+      client.to(`ffc:${ffcId}`).emit('document:upload:progress', {
+        documentId: data.documentId,
+        uploadedBy: metadata.userId,
+        progress: data.progress,
+      });
+    }
+  }
+
+  // FFC member presence
+  @SubscribeMessage('ffc:presence')
+  async handleFFCPresence(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { ffcId: string; status: 'viewing' | 'editing' | 'idle' }
+  ) {
+    const metadata = this.socketMetadata.get(client.id);
+    
+    // Broadcast presence to FFC members
+    client.to(`ffc:${ffcId}`).emit('member:presence', {
+      userId: metadata.userId,
+      status: data.status,
+      timestamp: new Date(),
+    });
+  }
+
+  // Invitation notifications
+  async notifyInvitation(userId: string, invitation: Invitation) {
+    this.server.to(`user:${userId}`).emit('invitation:received', {
+      invitation,
+      timestamp: new Date(),
+    });
+  }
+
+  // Asset permission changes
+  async notifyPermissionChange(assetId: string, change: PermissionChange) {
+    this.server.to(`asset:${assetId}`).emit('permission:changed', {
+      assetId,
+      change,
+      timestamp: new Date(),
+    });
+  }
+
+  private broadcastPresence(userId: string, status: 'online' | 'offline') {
+    // Get user's FFCs and broadcast to members
+    this.ffcService.getUserFFCs(userId).then(ffcs => {
+      for (const ffc of ffcs) {
+        this.server.to(`ffc:${ffc.id}`).emit('member:status', {
+          userId,
+          status,
+          timestamp: new Date(),
+        });
+      }
+    });
+  }
+
+  private getAssetViewers(assetId: string): string[] {
+    const viewers: string[] = [];
+    const room = this.server.sockets.adapter.rooms.get(`asset:${assetId}`);
+    
+    if (room) {
+      for (const socketId of room) {
+        const metadata = this.socketMetadata.get(socketId);
+        if (metadata) {
+          viewers.push(metadata.userId);
+        }
+      }
+    }
+    
+    return [...new Set(viewers)]; // Unique user IDs
+  }
+}
+```
+
+#### Frontend WebSocket Integration
+```typescript
+// hooks/useWebSocket.ts
+import { useEffect, useRef, useCallback } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { useAuthStore } from '@/stores/authStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+
+export function useWebSocket() {
+  const socketRef = useRef<Socket | null>(null);
+  const token = useAuthStore((state) => state.token);
+  const addNotification = useNotificationStore((state) => state.addNotification);
+
+  useEffect(() => {
+    if (!token) return;
+
+    // Initialize socket connection
+    socketRef.current = io(import.meta.env.VITE_WS_URL, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      path: '/realtime',
+    });
+
+    const socket = socketRef.current;
+
+    // Connection event handlers
+    socket.on('connect', () => {
+      console.log('WebSocket connected');
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('WebSocket disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect, try to reconnect
+        socket.connect();
+      }
+    });
+
+    // Real-time event handlers
+    socket.on('asset:updated', (data) => {
+      // Update local state via React Query
+      queryClient.invalidateQueries(['assets', data.assetId]);
+      
+      addNotification({
+        type: 'info',
+        message: `Asset ${data.assetId} was updated`,
+      });
+    });
+
+    socket.on('invitation:received', (data) => {
+      addNotification({
+        type: 'success',
+        message: 'You have a new FFC invitation!',
+        action: () => navigate('/invitations'),
+      });
+    });
+
+    socket.on('member:status', (data) => {
+      // Update member presence in UI
+      updateMemberPresence(data.userId, data.status);
+    });
+
+    socket.on('document:upload:progress', (data) => {
+      // Update document upload progress in UI
+      updateDocumentProgress(data.documentId, data.progress);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token]);
+
+  const subscribeToAsset = useCallback((assetId: string) => {
+    socketRef.current?.emit('asset:subscribe', { assetId });
+  }, []);
+
+  const unsubscribeFromAsset = useCallback((assetId: string) => {
+    socketRef.current?.emit('asset:unsubscribe', { assetId });
+  }, []);
+
+  const updatePresence = useCallback((ffcId: string, status: string) => {
+    socketRef.current?.emit('ffc:presence', { ffcId, status });
+  }, []);
+
+  return {
+    socket: socketRef.current,
+    subscribeToAsset,
+    unsubscribeFromAsset,
+    updatePresence,
+  };
+}
+
+// Usage in component
+export function AssetDetail({ assetId }: { assetId: string }) {
+  const { subscribeToAsset, unsubscribeFromAsset } = useWebSocket();
+  const [viewers, setViewers] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Subscribe to real-time updates for this asset
+    subscribeToAsset(assetId);
+
+    return () => {
+      unsubscribeFromAsset(assetId);
+    };
+  }, [assetId]);
+
+  return (
+    <div>
+      {viewers.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Currently viewing:</span>
+          {viewers.map(userId => (
+            <PersonaAvatar key={userId} userId={userId} />
+          ))}
+        </div>
+      )}
+      {/* Asset details */}
+    </div>
+  );
+}
+```
+
+#### Scaling Considerations
+```typescript
+// websocket/websocket-adapter.ts - Redis adapter for horizontal scaling
+import { IoAdapter } from '@nestjs/platform-socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
+
+export class RedisIoAdapter extends IoAdapter {
+  private adapterConstructor: ReturnType<typeof createAdapter>;
+
+  async connectToRedis(): Promise<void> {
+    const pubClient = createClient({
+      url: process.env.REDIS_URL,
+    });
+    
+    const subClient = pubClient.duplicate();
+
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+
+    this.adapterConstructor = createAdapter(pubClient, subClient);
+  }
+
+  createIOServer(port: number, options?: any): any {
+    const server = super.createIOServer(port, options);
+    
+    if (process.env.NODE_ENV === 'production' && process.env.USE_REDIS === 'true') {
+      server.adapter(this.adapterConstructor);
+    }
+    
+    return server;
+  }
+}
+
+// Usage in main.ts (only when scaling beyond 1 instance)
+if (process.env.USE_REDIS === 'true') {
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
+}
+```
+
+#### Real-Time Features Enabled
+1. **Live Asset Updates** - See changes as family members edit
+2. **Presence Indicators** - Know who's viewing/editing what
+3. **Upload Progress** - Real-time document upload status
+4. **Instant Notifications** - Invitations, approvals, changes
+5. **Collaborative Editing** - Multiple users working together
+6. **Activity Feed** - Live stream of FFC activities
+
+### API Gateway Pattern Implementation
+
+#### Overview
+AWS API Gateway provides centralized API management with rate limiting, authentication, caching, and usage plans for the Forward Inheritance Platform.
+
+#### API Gateway Configuration
+```typescript
+// infrastructure/api-gateway.ts - AWS CDK Definition
+import * as apigateway from '@aws-cdk/aws-apigatewayv2';
+import * as waf from '@aws-cdk/aws-wafv2';
+
+export class ApiGatewayStack extends Stack {
+  constructor(scope: Construct, id: string, props: ApiGatewayStackProps) {
+    super(scope, id, props);
+
+    // Create HTTP API Gateway
+    const httpApi = new apigateway.HttpApi(this, 'ForwardInheritanceAPI', {
+      apiName: 'forward-inheritance-api',
+      description: 'Forward Inheritance Platform API Gateway',
+      corsPreflight: {
+        allowOrigins: ['https://app.forward-inheritance.com'],
+        allowMethods: [apigateway.CorsHttpMethod.ANY],
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+        allowCredentials: true,
+      },
+      // Default throttling
+      defaultThrottleRateLimit: 2000,  // requests per second
+      defaultThrottleBurstLimit: 5000, // burst capacity
+    });
+
+    // JWT Authorizer for AWS Cognito
+    const authorizer = new apigateway.HttpJwtAuthorizer('JwtAuthorizer', {
+      jwtIssuer: `https://cognito-idp.${this.region}.amazonaws.com/${props.userPoolId}`,
+      jwtAudience: [props.userPoolClientId],
+    });
+
+    // Rate limiting per route
+    const routes = [
+      {
+        path: '/api/auth/login',
+        method: 'POST',
+        rateLimit: 5,      // 5 requests
+        burstLimit: 10,    // burst to 10
+        period: 900,       // per 15 minutes
+        requireAuth: false,
+      },
+      {
+        path: '/api/auth/register',
+        method: 'POST',
+        rateLimit: 3,
+        burstLimit: 5,
+        period: 3600,      // per hour
+        requireAuth: false,
+      },
+      {
+        path: '/api/assets/*',
+        method: 'ANY',
+        rateLimit: 100,
+        burstLimit: 200,
+        period: 60,        // per minute
+        requireAuth: true,
+      },
+      {
+        path: '/api/documents/upload',
+        method: 'POST',
+        rateLimit: 10,
+        burstLimit: 20,
+        period: 60,
+        requireAuth: true,
+        // Large payload support
+        payloadFormatVersion: '2.0',
+        maxPayloadSize: 10 * 1024 * 1024, // 10MB
+      },
+      {
+        path: '/api/integrations/quillt/sync',
+        method: 'POST',
+        rateLimit: 20,
+        burstLimit: 30,
+        period: 300,       // per 5 minutes
+        requireAuth: true,
+      },
+    ];
+
+    // Add routes with specific rate limits
+    routes.forEach(route => {
+      httpApi.addRoutes({
+        path: route.path,
+        methods: [route.method],
+        integration: new apigateway.HttpAlbIntegration({
+          listener: props.albListener,
+        }),
+        authorizer: route.requireAuth ? authorizer : undefined,
+        throttle: {
+          rateLimit: route.rateLimit,
+          burstLimit: route.burstLimit,
+        },
+      });
+    });
+
+    // Usage Plans for different tiers
+    const basicPlan = new apigateway.UsagePlan(this, 'BasicPlan', {
+      name: 'Basic',
+      description: 'Basic tier - Free plan',
+      throttle: {
+        rateLimit: 100,    // 100 requests per second
+        burstLimit: 200,
+      },
+      quota: {
+        limit: 10000,       // 10,000 requests
+        period: apigateway.Period.DAY,
+      },
+    });
+
+    const proPlan = new apigateway.UsagePlan(this, 'ProPlan', {
+      name: 'Pro',
+      description: 'Pro tier - Paid plan',
+      throttle: {
+        rateLimit: 500,
+        burstLimit: 1000,
+      },
+      quota: {
+        limit: 100000,      // 100,000 requests per day
+        period: apigateway.Period.DAY,
+      },
+    });
+
+    const enterprisePlan = new apigateway.UsagePlan(this, 'EnterprisePlan', {
+      name: 'Enterprise',
+      description: 'Enterprise tier - Custom limits',
+      throttle: {
+        rateLimit: 2000,
+        burstLimit: 5000,
+      },
+      // No quota limit for enterprise
+    });
+
+    // API Keys for B2B integrations
+    const partnerApiKey = new apigateway.ApiKey(this, 'PartnerApiKey', {
+      apiKeyName: 'partner-integration-key',
+      description: 'API key for partner integrations',
+    });
+
+    proPlan.addApiKey(partnerApiKey);
+
+    // WAF Web ACL for additional protection
+    const webAcl = new waf.CfnWebACL(this, 'ApiWafAcl', {
+      scope: 'REGIONAL',
+      defaultAction: { allow: {} },
+      rules: [
+        {
+          name: 'RateLimitRule',
+          priority: 1,
+          statement: {
+            rateBasedStatement: {
+              limit: 2000,
+              aggregateKeyType: 'IP',
+            },
+          },
+          action: { block: {} },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'RateLimitRule',
+          },
+        },
+        {
+          name: 'SQLiRule',
+          priority: 2,
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesSQLiRuleSet',
+            },
+          },
+          action: { block: {} },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'SQLiRule',
+          },
+        },
+        {
+          name: 'XSSRule',
+          priority: 3,
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesKnownBadInputsRuleSet',
+            },
+          },
+          action: { block: {} },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'XSSRule',
+          },
+        },
+      ],
+      visibilityConfig: {
+        sampledRequestsEnabled: true,
+        cloudWatchMetricsEnabled: true,
+        metricName: 'ApiWafAcl',
+      },
+    });
+
+    // Associate WAF with API Gateway
+    new waf.CfnWebACLAssociation(this, 'ApiWafAssociation', {
+      resourceArn: httpApi.arnForExecuteApi(),
+      webAclArn: webAcl.attrArn,
+    });
+
+    // CloudWatch Dashboard for monitoring
+    const dashboard = new cloudwatch.Dashboard(this, 'ApiDashboard', {
+      dashboardName: 'forward-api-gateway',
+    });
+
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'API Request Count',
+        left: [httpApi.metricCount()],
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'API Latency',
+        left: [
+          httpApi.metricLatency({ statistic: 'Average' }),
+          httpApi.metricLatency({ statistic: 'P99' }),
+        ],
+      }),
+      new cloudwatch.GraphWidget({
+        title: '4XX/5XX Errors',
+        left: [
+          httpApi.metric4XXError(),
+          httpApi.metric5XXError(),
+        ],
+      }),
+    );
+  }
+}
+```
+
+#### Nest.js Rate Limiting (Application Layer)
+```typescript
+// app.module.ts - Additional application-level rate limiting
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+
+@Module({
+  imports: [
+    // Global rate limiting as backup to API Gateway
+    ThrottlerModule.forRoot({
+      ttl: 60,        // Time window in seconds
+      limit: 100,     // Max requests per ttl window
+      skipIf: (context) => {
+        // Skip rate limiting for health checks
+        const request = context.switchToHttp().getRequest();
+        return request.url === '/health';
+      },
+    }),
+    // Other modules...
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
+})
+export class AppModule {}
+
+// Custom rate limits for specific endpoints
+@Controller('auth')
+export class AuthController {
+  @Post('login')
+  @Throttle(5, 900)  // 5 requests per 15 minutes
+  async login(@Body() dto: LoginDto) {
+    // Login logic
+  }
+
+  @Post('register')
+  @Throttle(3, 3600) // 3 requests per hour
+  async register(@Body() dto: RegisterDto) {
+    // Registration logic
+  }
+
+  @Post('password-reset')
+  @Throttle(3, 900)  // 3 requests per 15 minutes
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    // Password reset logic
+  }
+}
+
+// Per-user rate limiting for expensive operations
+@Injectable()
+export class UserRateLimitGuard implements CanActivate {
+  private userLimits = new Map<string, { count: number; resetTime: number }>();
+
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const userId = request.user?.id;
+    
+    if (!userId) return false;
+
+    const now = Date.now();
+    const userLimit = this.userLimits.get(userId);
+
+    if (!userLimit || now > userLimit.resetTime) {
+      // Reset limit
+      this.userLimits.set(userId, {
+        count: 1,
+        resetTime: now + 60000, // 1 minute window
+      });
+      return true;
+    }
+
+    if (userLimit.count >= 10) { // 10 requests per minute per user
+      throw new TooManyRequestsException(
+        'Rate limit exceeded. Please wait before trying again.'
+      );
+    }
+
+    userLimit.count++;
+    return true;
+  }
+}
+```
+
+#### API Key Management for B2B
+```typescript
+// services/api-key.service.ts
+@Injectable()
+export class ApiKeyService {
+  constructor(
+    @Inject('DATABASE_POOL') private pool: DatabasePool,
+    private readonly cryptoService: CryptoService,
+  ) {}
+
+  async createApiKey(tenantId: number, name: string): Promise<ApiKeyResponse> {
+    // Generate secure API key
+    const apiKey = this.cryptoService.generateApiKey();
+    const hashedKey = await this.cryptoService.hashApiKey(apiKey);
+    
+    // Store in database
+    const result = await this.pool.one(sql`
+      INSERT INTO api_keys (
+        tenant_id,
+        name,
+        key_hash,
+        key_prefix,
+        usage_plan,
+        rate_limit,
+        expires_at
+      ) VALUES (
+        ${tenantId},
+        ${name},
+        ${hashedKey},
+        ${apiKey.substring(0, 8)},
+        'pro',
+        100,
+        NOW() + INTERVAL '1 year'
+      )
+      RETURNING id, key_prefix, created_at
+    `);
+
+    return {
+      id: result.id,
+      apiKey,  // Only returned once
+      keyPrefix: result.key_prefix,
+      createdAt: result.created_at,
+    };
+  }
+
+  async validateApiKey(apiKey: string): Promise<ApiKeyValidation> {
+    const hashedKey = await this.cryptoService.hashApiKey(apiKey);
+    
+    const result = await this.pool.maybeOne(sql`
+      SELECT 
+        ak.*,
+        t.name as tenant_name
+      FROM api_keys ak
+      JOIN tenants t ON t.id = ak.tenant_id
+      WHERE ak.key_hash = ${hashedKey}
+        AND ak.is_active = true
+        AND (ak.expires_at IS NULL OR ak.expires_at > NOW())
+    `);
+
+    if (!result) {
+      return { valid: false };
+    }
+
+    // Update last used timestamp
+    await this.pool.query(sql`
+      UPDATE api_keys 
+      SET 
+        last_used_at = NOW(),
+        usage_count = usage_count + 1
+      WHERE id = ${result.id}
+    `);
+
+    return {
+      valid: true,
+      tenantId: result.tenant_id,
+      tenantName: result.tenant_name,
+      rateLimit: result.rate_limit,
+      usagePlan: result.usage_plan,
+    };
+  }
+}
+
+// Middleware for API key authentication
+@Injectable()
+export class ApiKeyAuthGuard implements CanActivate {
+  constructor(private readonly apiKeyService: ApiKeyService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const apiKey = request.headers['x-api-key'];
+    
+    if (!apiKey) {
+      throw new UnauthorizedException('API key required');
+    }
+
+    const validation = await this.apiKeyService.validateApiKey(apiKey);
+    
+    if (!validation.valid) {
+      throw new UnauthorizedException('Invalid API key');
+    }
+
+    // Attach tenant context to request
+    request.apiKeyContext = {
+      tenantId: validation.tenantId,
+      tenantName: validation.tenantName,
+      rateLimit: validation.rateLimit,
+    };
+
+    return true;
+  }
+}
+```
+
+#### Response Caching at Gateway
+```typescript
+// API Gateway caching configuration
+const cachedRoutes = [
+  {
+    path: '/api/assets/categories',
+    method: 'GET',
+    cacheTtl: 3600,        // 1 hour
+    cacheKeyParameters: [],
+  },
+  {
+    path: '/api/ffcs/{ffcId}/summary',
+    method: 'GET',
+    cacheTtl: 300,         // 5 minutes
+    cacheKeyParameters: ['ffcId'],
+  },
+  {
+    path: '/api/reports/wealth-summary',
+    method: 'GET',
+    cacheTtl: 600,         // 10 minutes
+    cacheKeyParameters: ['userId', 'date'],
+  },
+];
+
+cachedRoutes.forEach(route => {
+  httpApi.addRoutes({
+    path: route.path,
+    methods: [route.method],
+    integration: new apigateway.HttpAlbIntegration({
+      listener: props.albListener,
+      requestParameters: {
+        'header.Cache-Control': `public, max-age=${route.cacheTtl}`,
+      },
+    }),
+    // Enable caching
+    cachePolicy: new apigateway.CachePolicy({
+      cacheTtl: Duration.seconds(route.cacheTtl),
+      cacheKeyParameters: route.cacheKeyParameters,
+    }),
+  });
+});
+```
+
+#### Monitoring and Alerting
+```typescript
+// monitoring/api-gateway-alarms.ts
+const highErrorRateAlarm = new cloudwatch.Alarm(this, 'HighErrorRate', {
+  metric: httpApi.metric4XXError(),
+  threshold: 100,
+  evaluationPeriods: 2,
+  treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+});
+
+const highLatencyAlarm = new cloudwatch.Alarm(this, 'HighLatency', {
+  metric: httpApi.metricLatency({ statistic: 'P99' }),
+  threshold: 1000, // 1 second
+  evaluationPeriods: 3,
+});
+
+const throttlingAlarm = new cloudwatch.Alarm(this, 'ExcessiveThrottling', {
+  metric: new cloudwatch.Metric({
+    namespace: 'AWS/ApiGateway',
+    metricName: 'Throttle',
+    dimensions: {
+      ApiName: httpApi.apiId,
+    },
+  }),
+  threshold: 50,
+  evaluationPeriods: 1,
+});
+
+// SNS notifications
+const topic = new sns.Topic(this, 'ApiAlerts');
+topic.addSubscription(new subscriptions.EmailSubscription('ops@forward-inheritance.com'));
+
+highErrorRateAlarm.addAlarmAction(new actions.SnsAction(topic));
+highLatencyAlarm.addAlarmAction(new actions.SnsAction(topic));
+throttlingAlarm.addAlarmAction(new actions.SnsAction(topic));
+```
+
+### Event Sourcing Architecture (PostgreSQL-Based)
+
+#### Overview
+Event sourcing provides immutable audit trails by storing all state changes as events, enabling time-travel queries, complete audit history, and SOC 2 compliance for the Forward Inheritance Platform.
+
+#### Database Schema for Event Store
+```sql
+-- Core event store table
+CREATE TABLE event_store (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aggregate_id UUID NOT NULL,           -- ID of the entity (asset, FFC, user)
+  aggregate_type TEXT NOT NULL,         -- Type of entity
+  event_type TEXT NOT NULL,             -- Type of event
+  event_data JSONB NOT NULL,           -- Event payload
+  event_metadata JSONB,                 -- Context (user, IP, reason)
+  event_version INTEGER NOT NULL,       -- Order of events for an aggregate
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID NOT NULL,
+  tenant_id INTEGER NOT NULL,
+  
+  -- Indexes for performance
+  INDEX idx_aggregate_lookup (aggregate_id, event_version),
+  INDEX idx_event_type (event_type, created_at),
+  INDEX idx_tenant_events (tenant_id, created_at),
+  INDEX idx_created_by (created_by, created_at),
+  
+  -- Ensure events are immutable
+  CHECK (event_version > 0),
+  UNIQUE (aggregate_id, event_version)
+);
+
+-- Event snapshots for performance
+CREATE TABLE event_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aggregate_id UUID NOT NULL,
+  aggregate_type TEXT NOT NULL,
+  snapshot_data JSONB NOT NULL,
+  event_version INTEGER NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  INDEX idx_snapshot_lookup (aggregate_id, event_version DESC)
+);
+
+-- Materialized view for current asset state
+CREATE MATERIALIZED VIEW asset_current_state AS
+WITH latest_events AS (
+  SELECT DISTINCT ON (aggregate_id)
+    aggregate_id,
+    event_data,
+    event_type,
+    created_at,
+    event_version
+  FROM event_store
+  WHERE aggregate_type = 'Asset'
+  ORDER BY aggregate_id, event_version DESC
+)
+SELECT 
+  aggregate_id as asset_id,
+  event_data->>'name' as asset_name,
+  (event_data->>'currentValue')::DECIMAL as current_value,
+  event_data->>'status' as status,
+  created_at as last_updated
+FROM latest_events;
+
+-- Refresh materialized view function
+CREATE OR REPLACE FUNCTION refresh_asset_state()
+RETURNS void AS $$
+BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY asset_current_state;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### Event Store Service Implementation
+```typescript
+// event-store/event-store.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { sql, DatabasePool } from 'slonik';
+
+export interface DomainEvent {
+  id: string;
+  aggregateId: string;
+  aggregateType: string;
+  eventType: string;
+  eventData: Record<string, any>;
+  eventMetadata: {
+    userId: string;
+    tenantId: number;
+    correlationId?: string;
+    causationId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    reason?: string;
+  };
+  eventVersion: number;
+  createdAt: Date;
+}
+
+@Injectable()
+export class EventStoreService {
+  private readonly logger = new Logger(EventStoreService.name);
+
+  constructor(
+    @Inject('DATABASE_POOL') private pool: DatabasePool,
+    private eventEmitter: EventEmitter2,
+  ) {}
+
+  async append(event: DomainEvent): Promise<void> {
+    const startTime = Date.now();
+    
+    try {
+      // Get next version number
+      const version = await this.getNextVersion(event.aggregateId);
+      
+      // Store event
+      await this.pool.query(sql`
+        INSERT INTO event_store (
+          id,
+          aggregate_id,
+          aggregate_type,
+          event_type,
+          event_data,
+          event_metadata,
+          event_version,
+          created_at,
+          created_by,
+          tenant_id
+        ) VALUES (
+          ${event.id}::uuid,
+          ${event.aggregateId}::uuid,
+          ${event.aggregateType},
+          ${event.eventType},
+          ${sql.json(event.eventData)},
+          ${sql.json(event.eventMetadata)},
+          ${version},
+          ${event.createdAt},
+          ${event.eventMetadata.userId}::uuid,
+          ${event.eventMetadata.tenantId}
+        )
+      `);
+
+      // Emit for projections and real-time updates
+      this.eventEmitter.emit(`event.${event.eventType}`, event);
+      
+      // Emit to WebSocket for real-time updates
+      this.eventEmitter.emit('websocket.broadcast', {
+        channel: `aggregate:${event.aggregateId}`,
+        event: event.eventType,
+        data: event.eventData,
+      });
+
+      this.logger.debug(
+        `Event stored: ${event.eventType} for ${event.aggregateType}:${event.aggregateId} in ${Date.now() - startTime}ms`
+      );
+    } catch (error) {
+      this.logger.error('Failed to append event', error);
+      throw error;
+    }
+  }
+
+  async getEvents(
+    aggregateId: string,
+    fromVersion?: number,
+    toVersion?: number
+  ): Promise<DomainEvent[]> {
+    const query = sql`
+      SELECT * FROM event_store
+      WHERE aggregate_id = ${aggregateId}::uuid
+      ${fromVersion ? sql`AND event_version >= ${fromVersion}` : sql``}
+      ${toVersion ? sql`AND event_version <= ${toVersion}` : sql``}
+      ORDER BY event_version ASC
+    `;
+
+    const events = await this.pool.query(query);
+    return events.rows.map(this.mapToDomainEvent);
+  }
+
+  async getEventsByType(
+    eventType: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<DomainEvent[]> {
+    const query = sql`
+      SELECT * FROM event_store
+      WHERE event_type = ${eventType}
+      ${startDate ? sql`AND created_at >= ${startDate}` : sql``}
+      ${endDate ? sql`AND created_at <= ${endDate}` : sql``}
+      ORDER BY created_at DESC
+      LIMIT 1000
+    `;
+
+    const events = await this.pool.query(query);
+    return events.rows.map(this.mapToDomainEvent);
+  }
+
+  async replayAggregate(
+    aggregateId: string,
+    toDate?: Date
+  ): Promise<any> {
+    // Get latest snapshot if exists
+    const snapshot = await this.getLatestSnapshot(aggregateId, toDate);
+    
+    // Get events after snapshot
+    const events = await this.getEvents(
+      aggregateId,
+      snapshot?.eventVersion || 0
+    );
+
+    // Filter by date if specified
+    const relevantEvents = toDate
+      ? events.filter(e => e.createdAt <= toDate)
+      : events;
+
+    // Rebuild aggregate state
+    return this.rebuildAggregate(
+      snapshot?.snapshotData || {},
+      relevantEvents
+    );
+  }
+
+  private async getNextVersion(aggregateId: string): Promise<number> {
+    const result = await this.pool.maybeOne(sql`
+      SELECT MAX(event_version) as max_version
+      FROM event_store
+      WHERE aggregate_id = ${aggregateId}::uuid
+    `);
+
+    return (result?.max_version || 0) + 1;
+  }
+
+  private rebuildAggregate(
+    initialState: any,
+    events: DomainEvent[]
+  ): any {
+    return events.reduce((state, event) => {
+      return this.applyEvent(state, event);
+    }, initialState);
+  }
+
+  private applyEvent(state: any, event: DomainEvent): any {
+    // Event-specific state transitions
+    switch (event.eventType) {
+      case 'AssetCreated':
+        return {
+          ...state,
+          ...event.eventData,
+          created: true,
+        };
+      
+      case 'AssetValueUpdated':
+        return {
+          ...state,
+          currentValue: event.eventData.newValue,
+          previousValue: state.currentValue,
+          lastValuationDate: event.createdAt,
+        };
+      
+      case 'AssetOwnershipTransferred':
+        return {
+          ...state,
+          ownerId: event.eventData.newOwnerId,
+          previousOwnerId: event.eventData.previousOwnerId,
+          transferDate: event.createdAt,
+        };
+      
+      case 'AssetDeleted':
+        return {
+          ...state,
+          deleted: true,
+          deletedAt: event.createdAt,
+        };
+      
+      default:
+        return { ...state, ...event.eventData };
+    }
+  }
+
+  async createSnapshot(aggregateId: string): Promise<void> {
+    const currentState = await this.replayAggregate(aggregateId);
+    const version = await this.getNextVersion(aggregateId) - 1;
+
+    await this.pool.query(sql`
+      INSERT INTO event_snapshots (
+        aggregate_id,
+        aggregate_type,
+        snapshot_data,
+        event_version
+      ) VALUES (
+        ${aggregateId}::uuid,
+        ${currentState.aggregateType},
+        ${sql.json(currentState)},
+        ${version}
+      )
+    `);
+  }
+
+  private mapToDomainEvent(row: any): DomainEvent {
+    return {
+      id: row.id,
+      aggregateId: row.aggregate_id,
+      aggregateType: row.aggregate_type,
+      eventType: row.event_type,
+      eventData: row.event_data,
+      eventMetadata: row.event_metadata,
+      eventVersion: row.event_version,
+      createdAt: row.created_at,
+    };
+  }
+}
+```
+
+#### Asset Service with Event Sourcing
+```typescript
+// assets/assets.service.ts
+@Injectable()
+export class AssetsService {
+  constructor(
+    private eventStore: EventStoreService,
+    @Inject('DATABASE_POOL') private pool: DatabasePool,
+  ) {}
+
+  async createAsset(dto: CreateAssetDto, context: RequestContext): Promise<Asset> {
+    const assetId = uuid();
+    
+    // Create event
+    const event: DomainEvent = {
+      id: uuid(),
+      aggregateId: assetId,
+      aggregateType: 'Asset',
+      eventType: 'AssetCreated',
+      eventData: {
+        ...dto,
+        id: assetId,
+        createdBy: context.userId,
+      },
+      eventMetadata: {
+        userId: context.userId,
+        tenantId: context.tenantId,
+        ipAddress: context.ipAddress,
+        reason: 'User created new asset',
+      },
+      eventVersion: 1,
+      createdAt: new Date(),
+    };
+
+    // Store event
+    await this.eventStore.append(event);
+
+    // Update read model (traditional table for queries)
+    await this.pool.query(sql`
+      INSERT INTO assets (id, name, value, ...)
+      VALUES (${assetId}, ${dto.name}, ${dto.value}, ...)
+    `);
+
+    return this.getAsset(assetId);
+  }
+
+  async updateAssetValue(
+    assetId: string,
+    newValue: number,
+    reason: string,
+    context: RequestContext
+  ): Promise<void> {
+    // Get current value for event
+    const currentAsset = await this.getAsset(assetId);
+    
+    // Create event
+    const event: DomainEvent = {
+      id: uuid(),
+      aggregateId: assetId,
+      aggregateType: 'Asset',
+      eventType: 'AssetValueUpdated',
+      eventData: {
+        previousValue: currentAsset.value,
+        newValue,
+        changeAmount: newValue - currentAsset.value,
+        changePercentage: ((newValue - currentAsset.value) / currentAsset.value) * 100,
+      },
+      eventMetadata: {
+        userId: context.userId,
+        tenantId: context.tenantId,
+        reason,
+      },
+      eventVersion: await this.eventStore.getNextVersion(assetId),
+      createdAt: new Date(),
+    };
+
+    // Store event
+    await this.eventStore.append(event);
+
+    // Update read model
+    await this.pool.query(sql`
+      UPDATE assets 
+      SET 
+        current_value = ${newValue},
+        last_valued_date = NOW()
+      WHERE id = ${assetId}::uuid
+    `);
+  }
+
+  async getAssetHistory(assetId: string): Promise<AssetHistory> {
+    const events = await this.eventStore.getEvents(assetId);
+    
+    return {
+      assetId,
+      events: events.map(e => ({
+        type: e.eventType,
+        data: e.eventData,
+        user: e.eventMetadata.userId,
+        reason: e.eventMetadata.reason,
+        timestamp: e.createdAt,
+      })),
+      currentState: await this.eventStore.replayAggregate(assetId),
+    };
+  }
+
+  async getAssetValueAtDate(assetId: string, date: Date): Promise<number> {
+    const state = await this.eventStore.replayAggregate(assetId, date);
+    return state.currentValue || 0;
+  }
+
+  async getEstateValueAtDeath(personaId: string, deathDate: Date): Promise<EstateValue> {
+    // Get all assets owned by persona
+    const assets = await this.getPersonaAssets(personaId);
+    
+    // Get value of each asset at death date
+    const assetValues = await Promise.all(
+      assets.map(async (asset) => ({
+        assetId: asset.id,
+        name: asset.name,
+        valueAtDeath: await this.getAssetValueAtDate(asset.id, deathDate),
+      }))
+    );
+
+    return {
+      personaId,
+      deathDate,
+      assets: assetValues,
+      totalValue: assetValues.reduce((sum, a) => sum + a.valueAtDeath, 0),
+    };
+  }
+}
+```
+
+#### Projection Service for Read Models
+```typescript
+// event-store/projection.service.ts
+@Injectable()
+export class ProjectionService {
+  constructor(
+    @Inject('DATABASE_POOL') private pool: DatabasePool,
+  ) {}
+
+  @OnEvent('event.AssetCreated')
+  async handleAssetCreated(event: DomainEvent) {
+    // Update materialized view
+    await this.pool.query(sql`
+      REFRESH MATERIALIZED VIEW CONCURRENTLY asset_current_state
+    `);
+    
+    // Update statistics
+    await this.updateAssetStatistics(event.eventMetadata.tenantId);
+  }
+
+  @OnEvent('event.AssetValueUpdated')
+  async handleAssetValueUpdated(event: DomainEvent) {
+    // Update total wealth calculations
+    await this.updateWealthCalculations(event.aggregateId);
+    
+    // Check for significant changes
+    if (event.eventData.changePercentage > 10) {
+      await this.notifySignificantChange(event);
+    }
+  }
+
+  @Cron('0 */6 * * *') // Every 6 hours
+  async createSnapshots() {
+    // Create snapshots for frequently accessed aggregates
+    const activeAggregates = await this.pool.query(sql`
+      SELECT DISTINCT aggregate_id
+      FROM event_store
+      WHERE created_at > NOW() - INTERVAL '7 days'
+      GROUP BY aggregate_id
+      HAVING COUNT(*) > 50  -- More than 50 events
+    `);
+
+    for (const row of activeAggregates.rows) {
+      await this.eventStore.createSnapshot(row.aggregate_id);
+    }
+  }
+}
+```
+
+#### Benefits for Forward Inheritance
+1. **Complete Audit Trail** - Every change is recorded forever
+2. **Time Travel Queries** - Asset values at any point in time
+3. **Estate Settlement** - Exact values at time of death
+4. **Dispute Resolution** - Who changed what and when
+5. **SOC 2 Compliance** - Immutable audit logs
+6. **Tax Reporting** - Historical valuations for tax purposes
+
+### Queue Processing with BullMQ
+```typescript
+// Application-level async tasks (uses in-memory for job state in MVP)
+@Processor('notifications')
+export class NotificationProcessor {
+  constructor(
+    private readonly websocketGateway: CollaborationGateway,
+  ) {}
+
+  @Process('document-ready')
+  async sendDocumentReadyNotification(job: Job) {
+    const { userId, documentId } = job.data;
+    
+    // Send real-time notification via WebSocket
+    await this.websocketGateway.notifyUser(userId, {
+      type: 'document:ready',
+      documentId,
+    });
+    
+    // Also send email/SMS
+    await this.emailService.sendDocumentReadyEmail(userId, documentId);
+  }
+}
+```
 
 ## Unified Project Structure
 
@@ -3862,6 +6069,544 @@ SOC2_Controls:
     - Disaster recovery testing
     - Data backup procedures
     - Insurance coverage
+```
+
+## Microservices Architecture (Future Decomposition)
+
+### Overview
+While the Forward Inheritance Platform currently operates as a modular monolith using Nest.js, the architecture is designed to support future decomposition into microservices as the platform scales. This section outlines the service boundaries and migration strategy for when business requirements justify the additional operational complexity.
+
+### Service Boundaries
+
+#### Core Services
+
+**1. Identity & Access Service**
+```yaml
+Responsibilities:
+  - User authentication (AWS Cognito integration)
+  - User registration and profile management
+  - Session management
+  - MFA configuration
+  - Password reset flows
+
+Database Tables:
+  - users
+  - user_sessions
+  - user_mfa_settings
+  - password_reset_tokens
+  - user_login_history
+
+API Gateway Routes:
+  - /auth/*
+  - /users/profile
+  - /sessions/*
+
+Event Types:
+  - UserRegistered
+  - UserAuthenticated
+  - SessionCreated
+  - MFAEnabled
+  - PasswordReset
+```
+
+**2. Family Circle Service**
+```yaml
+Responsibilities:
+  - FFC creation and management
+  - Persona management
+  - Family member invitations
+  - Role assignments within FFCs
+
+Database Tables:
+  - fwd_family_circles
+  - personas
+  - ffc_personas
+  - ffc_invitations
+  - invitation_verification_attempts
+
+API Gateway Routes:
+  - /ffc/*
+  - /personas/*
+  - /invitations/*
+
+Event Types:
+  - FFCCreated
+  - PersonaAdded
+  - MemberInvited
+  - RoleChanged
+  - MemberRemoved
+```
+
+**3. Asset Management Service**
+```yaml
+Responsibilities:
+  - Asset CRUD operations
+  - Asset categorization
+  - Asset valuation tracking
+  - Asset-persona relationships
+  - Asset permissions
+
+Database Tables:
+  - assets
+  - asset_categories
+  - asset_persona
+  - asset_permissions
+  - asset_valuation_history
+
+API Gateway Routes:
+  - /assets/*
+  - /categories/*
+  - /valuations/*
+
+Event Types:
+  - AssetCreated
+  - AssetUpdated
+  - AssetDeleted
+  - OwnershipTransferred
+  - ValuationUpdated
+```
+
+**4. Document Processing Service**
+```yaml
+Responsibilities:
+  - Document upload and storage
+  - PII detection and masking
+  - Document metadata extraction
+  - OCR processing
+  - Document search
+
+Database Tables:
+  - media_storage
+  - document_metadata
+  - pii_detection_rules
+  - pii_processing_jobs
+  - pii_access_logs
+
+API Gateway Routes:
+  - /documents/*
+  - /upload/*
+  - /search/documents
+
+AWS Services:
+  - S3 for storage
+  - Step Functions for orchestration
+  - Comprehend for PII detection
+  - Textract for OCR
+
+Event Types:
+  - DocumentUploaded
+  - PIIDetected
+  - DocumentProcessed
+  - DocumentAccessed
+```
+
+#### Domain-Specific Services
+
+**5. Financial Assets Service**
+```yaml
+Responsibilities:
+  - Bank account management
+  - Investment portfolio tracking
+  - Retirement account management
+  - Financial account synchronization
+
+Database Tables:
+  - financial_accounts
+  - bank_accounts
+  - investment_accounts
+  - retirement_accounts
+
+API Gateway Routes:
+  - /financial/*
+  - /accounts/bank/*
+  - /accounts/investment/*
+
+External Integrations:
+  - Quillt for account aggregation
+  - Plaid as backup provider
+
+Event Types:
+  - AccountLinked
+  - BalanceUpdated
+  - TransactionImported
+```
+
+**6. Real Estate Service**
+```yaml
+Responsibilities:
+  - Property management
+  - Valuation tracking
+  - Tax assessment integration
+  - Market data synchronization
+
+Database Tables:
+  - real_estate
+  - property_valuations
+  - real_estate_sync_logs
+  - real_estate_provider_integrations
+
+API Gateway Routes:
+  - /real-estate/*
+  - /properties/*
+  - /valuations/real-estate/*
+
+External Integrations:
+  - Zillow API
+  - County assessor APIs
+  - MLS data feeds
+
+Event Types:
+  - PropertyAdded
+  - ValuationUpdated
+  - TaxAssessmentReceived
+```
+
+**7. Insurance Service**
+```yaml
+Responsibilities:
+  - Life insurance policy management
+  - Policy beneficiary tracking
+  - Premium payment reminders
+  - Policy document storage
+
+Database Tables:
+  - life_insurance
+  - insurance_beneficiaries
+  - premium_payments
+
+API Gateway Routes:
+  - /insurance/*
+  - /policies/*
+  - /beneficiaries/*
+
+Event Types:
+  - PolicyAdded
+  - BeneficiaryUpdated
+  - PremiumDue
+  - PolicyMatured
+```
+
+#### Supporting Services
+
+**8. Notification Service**
+```yaml
+Responsibilities:
+  - Email notifications
+  - SMS notifications
+  - In-app notifications
+  - Notification preferences
+  - Template management
+
+Database Tables:
+  - notification_templates
+  - notification_logs
+  - user_notification_preferences
+
+API Gateway Routes:
+  - /notifications/*
+  - /preferences/notifications
+
+AWS Services:
+  - SES for email
+  - SNS for SMS
+  - Pinpoint for campaigns
+
+Event Types:
+  - NotificationSent
+  - NotificationFailed
+  - PreferencesUpdated
+```
+
+**9. Audit & Compliance Service**
+```yaml
+Responsibilities:
+  - Audit log management
+  - Compliance reporting
+  - Event sourcing management
+  - Data retention policies
+
+Database Tables:
+  - audit_log
+  - audit_events
+  - event_store
+  - event_snapshots
+  - event_projections
+
+API Gateway Routes:
+  - /audit/*
+  - /compliance/*
+  - /reports/audit
+
+Event Types:
+  - AuditEventLogged
+  - ComplianceReportGenerated
+  - RetentionPolicyApplied
+```
+
+**10. Integration Hub Service**
+```yaml
+Responsibilities:
+  - Third-party API management
+  - Webhook processing
+  - Data synchronization
+  - API credential management
+
+Database Tables:
+  - integration_credentials
+  - quillt_integrations
+  - quillt_webhook_logs
+  - builder_io_integrations
+  - advisor_companies
+
+API Gateway Routes:
+  - /integrations/*
+  - /webhooks/*
+  - /sync/*
+
+Event Types:
+  - IntegrationConfigured
+  - WebhookReceived
+  - SyncCompleted
+  - IntegrationFailed
+```
+
+### Inter-Service Communication
+
+#### Synchronous Communication
+```typescript
+// API Gateway pattern for service-to-service calls
+interface ServiceClient {
+  baseUrl: string;
+  timeout: number;
+  retryPolicy: RetryPolicy;
+  circuitBreaker: CircuitBreakerConfig;
+}
+
+// Example: Asset Service calling Identity Service
+class AssetService {
+  async validateUserPermission(userId: string, assetId: string) {
+    return await this.identityClient.get(`/users/${userId}/permissions`, {
+      params: { resource: `asset:${assetId}` }
+    });
+  }
+}
+```
+
+#### Asynchronous Communication
+```typescript
+// Event-driven architecture using AWS EventBridge
+interface DomainEvent {
+  eventId: string;
+  eventType: string;
+  aggregateId: string;
+  aggregateType: string;
+  timestamp: Date;
+  payload: any;
+  metadata: EventMetadata;
+}
+
+// Example: Publishing asset creation event
+class AssetEventPublisher {
+  async publishAssetCreated(asset: Asset) {
+    await this.eventBridge.putEvents({
+      Entries: [{
+        Source: 'asset.service',
+        DetailType: 'AssetCreated',
+        Detail: JSON.stringify({
+          assetId: asset.id,
+          categoryId: asset.categoryId,
+          ownerId: asset.ownerId,
+          value: asset.currentValue
+        })
+      }]
+    });
+  }
+}
+```
+
+### Data Management Strategy
+
+#### Database per Service
+```yaml
+Asset Service DB:
+  - Primary: PostgreSQL (write model)
+  - Read replicas: 2 instances
+  - Cache: Service-specific Redis instance
+  
+Document Service DB:
+  - Primary: PostgreSQL (metadata)
+  - Object storage: S3 (documents)
+  - Search: OpenSearch (full-text)
+  
+Financial Service DB:
+  - Primary: PostgreSQL (accounts)
+  - Time-series: TimescaleDB (transactions)
+  - Cache: Redis (balances)
+```
+
+#### Data Consistency Patterns
+```typescript
+// Saga pattern for distributed transactions
+class AssetTransferSaga {
+  steps = [
+    { service: 'asset', action: 'lockAsset' },
+    { service: 'identity', action: 'validatePermission' },
+    { service: 'asset', action: 'transferOwnership' },
+    { service: 'audit', action: 'logTransfer' },
+    { service: 'notification', action: 'notifyParties' }
+  ];
+  
+  compensations = [
+    { service: 'asset', action: 'unlockAsset' },
+    { service: 'asset', action: 'revertOwnership' },
+    { service: 'audit', action: 'logReversal' }
+  ];
+}
+```
+
+### Migration Strategy
+
+#### Phase 1: Modular Monolith (Current)
+- All modules within single Nest.js application
+- Shared database with schema separation
+- In-memory caching for MVP
+- Single deployment unit
+
+#### Phase 2: Service Extraction Preparation
+```yaml
+Timeline: 6-12 months after launch
+Triggers:
+  - User base > 10,000 active families
+  - API calls > 1M per day
+  - Team size > 15 developers
+
+Actions:
+  - Implement event sourcing fully
+  - Add distributed tracing (OpenTelemetry)
+  - Create service interfaces
+  - Implement API Gateway
+  - Add message queue (SQS/EventBridge)
+```
+
+#### Phase 3: Gradual Service Extraction
+```yaml
+Timeline: 12-18 months
+Extraction Order:
+  1. Notification Service (low coupling)
+  2. Document Processing Service (CPU intensive)
+  3. Integration Hub Service (external dependencies)
+  4. Audit & Compliance Service (independent)
+  5. Financial Assets Service (domain boundary)
+  
+Per-Service Migration:
+  - Create service repository
+  - Extract database schema
+  - Implement service API
+  - Add event publishing
+  - Deploy alongside monolith
+  - Gradual traffic migration
+  - Decommission monolith module
+```
+
+#### Phase 4: Full Microservices
+```yaml
+Timeline: 18-24 months
+Infrastructure:
+  - Kubernetes orchestration (EKS)
+  - Service mesh (Istio/AppMesh)
+  - Distributed caching (Redis cluster)
+  - Message streaming (Kinesis)
+  - API Gateway (Kong/AWS API Gateway)
+  
+Operational Requirements:
+  - Centralized logging (ELK)
+  - Distributed tracing (Jaeger)
+  - Service monitoring (Prometheus/Grafana)
+  - Chaos engineering (Gremlin)
+  - CI/CD per service (GitHub Actions)
+```
+
+### Service Governance
+
+#### API Versioning Strategy
+```yaml
+Versioning Pattern: URL path versioning
+Example: /api/v1/assets, /api/v2/assets
+
+Deprecation Policy:
+  - Minimum 6 months notice
+  - Dual version support period
+  - Migration guides provided
+  - Automated migration tools
+
+Backward Compatibility:
+  - New fields optional
+  - Enum values append-only
+  - Response structure stable
+  - Error codes immutable
+```
+
+#### Service Level Objectives (SLOs)
+```yaml
+Tier 1 Services (Identity, Asset, FFC):
+  - Availability: 99.95%
+  - Latency P99: < 200ms
+  - Error rate: < 0.1%
+
+Tier 2 Services (Financial, Real Estate):
+  - Availability: 99.9%
+  - Latency P99: < 500ms
+  - Error rate: < 0.5%
+
+Tier 3 Services (Notification, Integration):
+  - Availability: 99.5%
+  - Latency P99: < 1000ms
+  - Error rate: < 1%
+```
+
+### Cost Optimization
+
+#### Resource Allocation
+```yaml
+Development Environment:
+  - Shared Kubernetes namespace
+  - Minimal replicas (1 per service)
+  - Spot instances for workers
+  - Shared RDS instance
+
+Staging Environment:
+  - Dedicated namespace
+  - Auto-scaling enabled
+  - Mixed instance types
+  - Read replicas enabled
+
+Production Environment:
+  - Multi-AZ deployment
+  - Reserved instances (70%)
+  - Spot instances (30% for batch)
+  - Auto-scaling with predictive
+```
+
+#### Cost Monitoring
+```typescript
+// Service cost attribution
+interface ServiceCost {
+  serviceId: string;
+  period: string;
+  compute: number;     // EC2/Fargate costs
+  storage: number;     // RDS/S3 costs
+  network: number;     // Data transfer costs
+  external: number;    // Third-party API costs
+  total: number;
+}
+
+// Cost allocation tags
+const costTags = {
+  'Service': 'asset-service',
+  'Environment': 'production',
+  'Team': 'platform',
+  'CostCenter': 'engineering'
+};
 ```
 
 ---

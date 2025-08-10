@@ -5,7 +5,7 @@
 -- 2. Added Row Level Security policies
 -- 3. Updated to work with normalized contact tables
 -- 
--- This file contains ALL 46 stored procedures including:
+-- This file contains ALL 50 stored procedures including:
 -- CORE PROCEDURES (28):
 -- - RLS helper functions (3): current_user_id, current_tenant_id, is_ffc_member
 -- - User management (2): sp_create_user_from_cognito, sp_update_user_profile
@@ -17,6 +17,9 @@
 -- - Reporting (1): sp_get_ffc_summary
 -- - Session context (2): sp_set_session_context, sp_clear_session_context
 -- - Utility functions (1): update_updated_at_column
+--
+-- EVENT SOURCING PROCEDURES (4):
+-- - Event Store Management: sp_append_event, sp_replay_events, sp_create_snapshot, sp_rebuild_projection
 --
 -- INTEGRATION PROCEDURES (18):
 -- - PII Management (2): sp_detect_pii, sp_update_pii_job_status
@@ -50,6 +53,9 @@ ALTER TABLE usage_email ENABLE ROW LEVEL SECURITY;
 ALTER TABLE usage_phone ENABLE ROW LEVEL SECURITY;
 ALTER TABLE usage_address ENABLE ROW LEVEL SECURITY;
 ALTER TABLE usage_social_media ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_store ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_projections ENABLE ROW LEVEL SECURITY;
 
 -- ================================================================
 -- HELPER FUNCTIONS FOR RLS
@@ -231,6 +237,21 @@ CREATE POLICY usage_address_entity_access ON usage_address
             ELSE FALSE
         END
     );
+
+-- Event Store RLS Policies (immutable audit trail)
+CREATE POLICY event_store_tenant_isolation ON event_store
+    FOR ALL USING (tenant_id = current_tenant_id());
+
+CREATE POLICY event_store_insert_only ON event_store
+    FOR INSERT WITH CHECK (created_by = current_user_id());
+
+-- Event Snapshots RLS Policies
+CREATE POLICY event_snapshots_tenant_isolation ON event_snapshots
+    FOR ALL USING (tenant_id = current_tenant_id());
+
+-- Event Projections RLS Policies  
+CREATE POLICY event_projections_tenant_isolation ON event_projections
+    FOR ALL USING (tenant_id = current_tenant_id());
 
 -- ================================================================
 -- USER MANAGEMENT STORED PROCEDURES (Cognito-compatible)
@@ -1815,6 +1836,207 @@ BEGIN
             'low', COUNT(*) FILTER (WHERE risk_level = 'low')
          ) FROM audit_events
          WHERE event_timestamp::DATE BETWEEN v_start AND v_end);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ================================================================
+-- EVENT SOURCING PROCEDURES
+-- ================================================================
+
+-- Append event to event store
+CREATE OR REPLACE FUNCTION sp_append_event(
+    p_tenant_id INTEGER,
+    p_aggregate_id UUID,
+    p_aggregate_type TEXT,
+    p_event_type TEXT,
+    p_event_data JSONB,
+    p_event_metadata JSONB DEFAULT NULL,
+    p_user_id UUID DEFAULT NULL
+) RETURNS UUID AS $$
+DECLARE
+    v_event_id UUID;
+    v_event_version INTEGER;
+    v_user_id UUID;
+BEGIN
+    -- Get user from context if not provided
+    v_user_id := COALESCE(p_user_id, current_user_id());
+    
+    -- Get the next event version for this aggregate
+    SELECT COALESCE(MAX(event_version), 0) + 1
+    INTO v_event_version
+    FROM event_store
+    WHERE aggregate_id = p_aggregate_id;
+    
+    -- Insert the event
+    INSERT INTO event_store (
+        tenant_id,
+        aggregate_id,
+        aggregate_type,
+        event_type,
+        event_data,
+        event_metadata,
+        event_version,
+        created_by
+    ) VALUES (
+        p_tenant_id,
+        p_aggregate_id,
+        p_aggregate_type,
+        p_event_type,
+        p_event_data,
+        p_event_metadata,
+        v_event_version,
+        v_user_id
+    ) RETURNING id INTO v_event_id;
+    
+    RETURN v_event_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Replay events for an aggregate
+CREATE OR REPLACE FUNCTION sp_replay_events(
+    p_aggregate_id UUID,
+    p_from_version INTEGER DEFAULT 1,
+    p_to_version INTEGER DEFAULT NULL
+) RETURNS TABLE (
+    event_version INTEGER,
+    event_type TEXT,
+    event_data JSONB,
+    event_metadata JSONB,
+    created_at TIMESTAMP,
+    created_by UUID
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        es.event_version,
+        es.event_type,
+        es.event_data,
+        es.event_metadata,
+        es.created_at,
+        es.created_by
+    FROM event_store es
+    WHERE es.aggregate_id = p_aggregate_id
+      AND es.event_version >= p_from_version
+      AND (p_to_version IS NULL OR es.event_version <= p_to_version)
+    ORDER BY es.event_version;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create snapshot of aggregate state
+CREATE OR REPLACE FUNCTION sp_create_snapshot(
+    p_tenant_id INTEGER,
+    p_aggregate_id UUID,
+    p_aggregate_type TEXT,
+    p_snapshot_data JSONB
+) RETURNS UUID AS $$
+DECLARE
+    v_snapshot_id UUID;
+    v_current_version INTEGER;
+BEGIN
+    -- Get the current event version for this aggregate
+    SELECT COALESCE(MAX(event_version), 0)
+    INTO v_current_version
+    FROM event_store
+    WHERE aggregate_id = p_aggregate_id;
+    
+    -- Insert the snapshot
+    INSERT INTO event_snapshots (
+        tenant_id,
+        aggregate_id,
+        aggregate_type,
+        snapshot_version,
+        snapshot_data
+    ) VALUES (
+        p_tenant_id,
+        p_aggregate_id,
+        p_aggregate_type,
+        v_current_version,
+        p_snapshot_data
+    ) RETURNING id INTO v_snapshot_id;
+    
+    -- Clean up old snapshots (keep only last 3)
+    DELETE FROM event_snapshots
+    WHERE aggregate_id = p_aggregate_id
+      AND snapshot_version < (
+          SELECT snapshot_version
+          FROM event_snapshots
+          WHERE aggregate_id = p_aggregate_id
+          ORDER BY snapshot_version DESC
+          LIMIT 1 OFFSET 2
+      );
+    
+    RETURN v_snapshot_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Rebuild projection from event stream
+CREATE OR REPLACE FUNCTION sp_rebuild_projection(
+    p_tenant_id INTEGER,
+    p_projection_name TEXT,
+    p_aggregate_id UUID DEFAULT NULL
+) RETURNS VOID AS $$
+DECLARE
+    v_last_version INTEGER;
+    v_projection_data JSONB;
+    v_event_record RECORD;
+BEGIN
+    -- Initialize projection data
+    v_projection_data := '{}'::JSONB;
+    v_last_version := 0;
+    
+    -- Process events based on projection type
+    IF p_projection_name = 'asset_current_state' AND p_aggregate_id IS NOT NULL THEN
+        -- Get latest snapshot if available
+        SELECT snapshot_data, snapshot_version
+        INTO v_projection_data, v_last_version
+        FROM event_snapshots
+        WHERE aggregate_id = p_aggregate_id
+        ORDER BY snapshot_version DESC
+        LIMIT 1;
+        
+        -- Apply events since snapshot
+        FOR v_event_record IN
+            SELECT event_type, event_data, event_version
+            FROM event_store
+            WHERE aggregate_id = p_aggregate_id
+              AND event_version > v_last_version
+            ORDER BY event_version
+        LOOP
+            -- Apply event to projection based on event type
+            CASE v_event_record.event_type
+                WHEN 'AssetCreated' THEN
+                    v_projection_data := v_event_record.event_data;
+                WHEN 'AssetUpdated' THEN
+                    v_projection_data := v_projection_data || v_event_record.event_data;
+                WHEN 'OwnershipTransferred' THEN
+                    v_projection_data := jsonb_set(v_projection_data, '{owner_id}', v_event_record.event_data->'new_owner_id');
+                WHEN 'AssetDeleted' THEN
+                    v_projection_data := jsonb_set(v_projection_data, '{deleted}', 'true'::jsonb);
+            END CASE;
+            
+            v_last_version := v_event_record.event_version;
+        END LOOP;
+    END IF;
+    
+    -- Upsert projection
+    INSERT INTO event_projections (
+        tenant_id,
+        projection_name,
+        aggregate_id,
+        projection_data,
+        last_event_version
+    ) VALUES (
+        p_tenant_id,
+        p_projection_name,
+        p_aggregate_id,
+        v_projection_data,
+        v_last_version
+    )
+    ON CONFLICT (tenant_id, projection_name, aggregate_id) 
+    DO UPDATE SET
+        projection_data = EXCLUDED.projection_data,
+        last_event_version = EXCLUDED.last_event_version,
+        updated_at = NOW();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

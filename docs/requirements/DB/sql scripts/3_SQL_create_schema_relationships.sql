@@ -826,6 +826,25 @@ CREATE INDEX idx_assets_category_id ON assets(category_id);
 CREATE INDEX idx_ffc_personas_role ON ffc_personas(ffc_role);
 
 -- ================================================================
+-- EVENT SOURCING RELATIONSHIPS
+-- ================================================================
+
+-- event_store relationships
+ALTER TABLE event_store ADD CONSTRAINT fk_event_store_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE event_store ADD CONSTRAINT fk_event_store_created_by 
+    FOREIGN KEY (created_by) REFERENCES users(id);
+
+-- event_snapshots relationships
+ALTER TABLE event_snapshots ADD CONSTRAINT fk_event_snapshots_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+-- event_projections relationships
+ALTER TABLE event_projections ADD CONSTRAINT fk_event_projections_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+-- ================================================================
 -- INITIAL DATA INSERTS
 -- ================================================================
 

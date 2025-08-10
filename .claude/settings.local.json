@@ -21,12 +21,14 @@
       "Bash(npm run build:*)",
       "Bash(psql:*)",
       "Bash(npm run:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(set PGPASSWORD=FGt!3reGTdt5BG!)",
+      "Bash(awk:*)"
     ],
     "deny": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "serena"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

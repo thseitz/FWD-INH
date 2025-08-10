@@ -215,6 +215,7 @@ Based on market research and industry studies:
   - Strict TypeScript configuration for type safety
   - React Router v6 for client-side routing
   - React Query for server state management
+  - Socket.io client for real-time updates
 - **Styling and UI Framework**
   - Tailwind CSS for utility-first styling
   - shadcn/ui component library for consistent design
@@ -263,28 +264,45 @@ Based on market research and industry studies:
 ### Backend Technology Stack
 
 #### Core Server Framework
-- **Node.js with Express and TypeScript**
-  - RESTful API architecture
-  - GraphQL for complex data queries (future consideration)
-  - Middleware for authentication, logging, and error handling
-  - Rate limiting and security headers
+- **Nest.js with TypeScript**
+  - Enterprise-grade Node.js framework with dependency injection
+  - Modular architecture supporting microservices evolution
+  - Built-in support for GraphQL, WebSockets, and microservices
+  - Decorator-based routing and validation
+  - Comprehensive middleware pipeline for authentication, logging, and error handling
+  - Built-in OpenAPI/Swagger documentation generation
+  - Guard patterns for multi-tenant isolation and authorization
+  - Interceptors for caching, logging, and performance monitoring
+  - Rate limiting with @nestjs/throttler
 - **Database and ORM**
   - PostgreSQL for primary data storage
-  - Slonik for safe PostgreSQL client operations
+  - Slonik for safe PostgreSQL client operations (recommended for stored procedures)
   - pgtyped for compile-time SQL type safety
-  - Database migrations and version control
+  - Database migrations with TypeORM or Prisma CLI
+  - Connection pooling with Nest.js database module
+  - Multi-tenant context management via interceptors
 - **Business Logic Architecture**
-  - Stored procedures and functions for complex operations
-  - Transaction management for data consistency
-  - Event-driven architecture for system integration
-  - Background job processing with Bull/Agenda
+  - Module-based organization by domain (assets, FFCs, personas)
+  - Repository pattern with stored procedure integration
+  - Service layer with dependency injection
+  - Transaction management via Nest.js database module
+  - Event-driven architecture with @nestjs/event-emitter
+  - Real-time collaboration with Socket.io WebSockets
+  - Hybrid processing approach:
+    - AWS Step Functions for document processing and PII workflows
+    - BullMQ for application-level tasks (notifications, API sync)
+    - WebSockets for live updates and presence
+  - CQRS pattern support for read/write separation (future)
 
 #### Integration Infrastructure
 - **Financial Data Integration**
-  - RESTful API clients for financial service providers
-  - Real-time webhook handling for account synchronization
-  - Data transformation and mapping services
-  - Conflict resolution and error handling
+  - Dedicated integration modules (QuilltModule, RealEstateModule)
+  - HttpModule with circuit breakers for external APIs
+  - WebSocket Gateway for real-time updates
+  - Webhook controllers with signature validation
+  - Queue processors for async data synchronization
+  - Data transformation with class-transformer
+  - Retry logic with exponential backoff
 - **Email Service Integration**
   - SendGrid for transactional emails
   - Template management for referral campaigns
@@ -298,24 +316,35 @@ Based on market research and industry studies:
 
 #### Security and Authentication
 - **Authentication and Authorization**
-  - JWT-based authentication
-  - Role-based access control (RBAC)
-  - Multi-factor authentication (2FA)
-  - Session management and security
+  - AWS Cognito integration via Nest.js guards
+  - JWT validation with @nestjs/jwt and @nestjs/passport
+  - Multi-tenant isolation via TenantIsolationGuard
+  - FFC membership validation via FfcMembershipGuard
+  - Asset-level permissions via AssetPermissionsGuard
+  - Role-based access control (RBAC) with custom decorators
+  - Multi-factor authentication (2FA) via Cognito
+  - Session management with Redis store
 - **Data Protection**
   - Encryption at rest and in transit
   - PII masking and data anonymization
   - GDPR and CCPA compliance
   - Audit logging for all data access
 - **API Security**
-  - Rate limiting and DDoS protection
-  - Input validation and sanitization
-  - CORS and security headers
+  - AWS API Gateway for centralized API management
+  - Multi-layer rate limiting (Gateway + Application)
+  - Usage plans and quotas for different tiers
+  - API key management for B2B integrations
+  - AWS WAF integration for DDoS protection
+  - SQL injection and XSS prevention
+  - Input validation with class-validator and DTOs
+  - Request sanitization with custom pipes
+  - CORS configuration at Gateway and application levels
+  - Helmet.js integration for security headers
   - API versioning and deprecation management
 
 ### AWS Cloud Migration Roadmap
 
-#### Phase 1: Basic Cloud Infrastructure
+#### Phase 1: Basic Cloud Infrastructure (Cost-Optimized MVP)
 - **Content Delivery**
   - CloudFront for global CDN
   - S3 for static asset storage
@@ -323,21 +352,48 @@ Based on market research and industry studies:
   - SSL/TLS certificate management
 - **Application Hosting**
   - Amplify for frontend CI/CD and hosting
-  - Alternative: S3 + CloudFront for static site hosting
   - API Gateway for secure, scalable API endpoints
+  - ECS Fargate (1-2 instances) with in-memory caching
   - Lambda functions for serverless operations
+- **Caching Strategy**
+  - In-memory caching within Nest.js instances (no Redis for MVP)
+  - Sticky sessions via ALB for cache consistency
+  - 5-minute TTL for permissions and FFC memberships
+  - Cost savings: $200-500/month vs Redis
 
-#### Phase 2: Containerized Services
+#### Phase 2: Scaling Infrastructure (10K+ Families)
 - **Container Orchestration**
   - EKS (Elastic Kubernetes Service) for container management
   - Fargate for serverless container execution
   - Docker containerization for all services
-  - Auto-scaling based on demand
+  - Auto-scaling based on demand (3+ instances)
 - **Database Services**
   - RDS PostgreSQL for development and testing
   - Aurora PostgreSQL for production scalability
-  - ElastiCache for Redis caching layer
-  - Database backup and disaster recovery
+  - Migration from in-memory to Redis when needed:
+    - ElastiCache Redis for shared cache across instances
+    - Gradual migration path built into cache module
+  - Database read replicas for reporting
+
+### API Management and Security
+
+#### API Gateway Features
+- **Rate Limiting and Throttling**
+  - Per-endpoint rate limits (e.g., 5 login attempts per 15 minutes)
+  - Burst capacity for traffic spikes
+  - Per-user and per-IP throttling
+- **Usage Plans and Tiers**
+  - Basic: 10K requests/day
+  - Pro: 100K requests/day
+  - Enterprise: Custom limits
+- **API Key Management**
+  - Secure key generation for partners
+  - Usage tracking and analytics
+  - Automatic key rotation
+- **Cost Protection**
+  - Request quotas prevent runaway costs
+  - Real-time monitoring and alerts
+  - Automatic blocking of abusive clients
 
 ### Security and Compliance
 
@@ -390,6 +446,17 @@ Based on market research and industry studies:
 - **Throughput**
   - 10,000 concurrent users
   - 100 financial sync operations/second
+  - 5,000 concurrent WebSocket connections per instance
+
+#### Real-Time Performance
+- **WebSocket Latency**
+  - Message delivery: < 100ms
+  - Presence updates: < 50ms
+  - Document progress: real-time streaming
+- **Collaboration Features**
+  - Live asset updates within 200ms
+  - Instant notification delivery
+  - Presence detection within 1 second
 
 #### Frontend Performance
 - **Page Load Times**
@@ -765,18 +832,20 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 3: Asset Man
 - Automatic PII detection and masking
 - Separate storage for PII-masked versions
 
-**PII Masking System Architecture**:
-**Database implementation details are documented in architecture.md**
+**PII Protection System Architecture**:
+**AWS-Native Document Processing Pipeline**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 3: PII Protection" for complete stored procedure specifications including `upload_asset_document` and `complete_pii_processing` functions.
+The platform uses AWS Step Functions orchestrating Comprehend for enterprise-grade PII detection and masking:
 
-**PII Detection Pipeline**:
-1. **Upload**: Original document encrypted and stored in S3
-2. **Text Extraction**: OCR/text parsing for searchable content  
-3. **PII Detection**: AWS Comprehend identifies SSNs, phone numbers, addresses, names
-4. **Masking**: Sensitive data replaced with tokens (XXX-XX-1234)
-5. **Dual Storage**: Original (encrypted) + masked version (encrypted)
-6. **Access Control**: Role-based access to original vs masked versions
+1. **Document Upload**: Files uploaded to S3 with KMS encryption (SSE-KMS)
+2. **Workflow Orchestration**: AWS Step Functions manages the entire pipeline
+3. **PII Detection & Masking**: AWS Comprehend performs automatic redaction
+4. **Dual Storage Strategy**: 
+   - Original documents in secured S3 bucket with strict IAM policies
+   - Masked versions in separate bucket for general access
+5. **Audit & Compliance**: CloudTrail logging of all document operations
+
+This serverless approach ensures scalability, security, and compliance without managing infrastructure.
 
 **Supported PII Types**:
 - Social Security Numbers

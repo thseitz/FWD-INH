@@ -31,6 +31,7 @@
    - [Asset Type-Specific Tables](#asset-type-specific-tables)
    - [Security and Session Management](#security-and-session-management)
    - [Audit and Compliance](#audit-and-compliance)
+   - [Event Sourcing Tables](#event-sourcing-tables)
    - [Integration Tables](#integration-tables)
 5. [Relationships (Foreign Keys)](#relationships-foreign-keys)
    - [Core Relationships](#core-relationships)
@@ -56,12 +57,13 @@
 
 ## Database Overview
 
-The Forward Inheritance Platform uses a PostgreSQL database with a sophisticated multi-tenant architecture designed for secure estate planning and asset management. The database implements Row-Level Security (RLS) policies for data isolation and comprehensive audit trails for compliance with SOC 2 requirements.
+The Forward Inheritance Platform uses a PostgreSQL database with a sophisticated multi-tenant architecture designed for secure estate planning and asset management. The database implements Row-Level Security (RLS) policies for data isolation, comprehensive audit trails for compliance with SOC 2 requirements, and event sourcing for complete system state reconstruction.
 
 **Key Features:**
 - Multi-tenant isolation with tenant-scoped data access
 - Row-Level Security (RLS) policies for fine-grained access control
 - AWS Cognito integration for authentication
+- Event sourcing architecture for complete audit trails and state reconstruction
 - Comprehensive audit logging and compliance tracking
 - PII detection and data masking capabilities
 - Integration support for third-party services (Quillt, Builder.io, Real Estate APIs)
@@ -868,6 +870,71 @@ Track user language preferences.
 - Accessibility (high_contrast_mode, large_text_mode)
 - System fields (created_at, updated_at)
 
+### Event Sourcing Tables
+
+#### event_store
+Immutable event log for complete audit trail and system state reconstruction.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY, DEFAULT gen_random_uuid())
+- `tenant_id` (INTEGER, NOT NULL) - Foreign key to tenants
+- `aggregate_id` (UUID, NOT NULL) - ID of the entity (asset, FFC, user, etc.)
+- `aggregate_type` (TEXT, NOT NULL) - Type of entity (e.g., 'asset', 'ffc', 'user')
+- `event_type` (TEXT, NOT NULL) - Type of event (e.g., 'AssetCreated', 'OwnershipTransferred')
+- `event_data` (JSONB, NOT NULL) - Event payload with all relevant data
+- `event_metadata` (JSONB) - Context information (user, IP, reason, etc.)
+- `event_version` (INTEGER, NOT NULL) - Order of events for an aggregate
+- `created_at` (TIMESTAMP, NOT NULL, DEFAULT NOW())
+- `created_by` (UUID, NOT NULL) - User who triggered the event
+
+**Indexes:**
+- `idx_event_store_aggregate_lookup` ON (aggregate_id, event_version)
+- `idx_event_store_type` ON (event_type, created_at)
+- `idx_event_store_tenant` ON (tenant_id, created_at)
+- `idx_event_store_created_by` ON (created_by, created_at)
+
+**Constraints:**
+- CHECK (event_version > 0)
+- UNIQUE (aggregate_id, event_version)
+
+#### event_snapshots
+Periodic snapshots of aggregate state for performance optimization.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY, DEFAULT gen_random_uuid())
+- `tenant_id` (INTEGER, NOT NULL) - Foreign key to tenants
+- `aggregate_id` (UUID, NOT NULL) - ID of the entity
+- `aggregate_type` (TEXT, NOT NULL) - Type of entity
+- `snapshot_version` (INTEGER, NOT NULL) - Event version this snapshot represents
+- `snapshot_data` (JSONB, NOT NULL) - Complete state at this version
+- `created_at` (TIMESTAMP, NOT NULL, DEFAULT NOW())
+
+**Indexes:**
+- `idx_event_snapshots_aggregate` ON (aggregate_id, snapshot_version DESC)
+- `idx_event_snapshots_tenant` ON (tenant_id)
+
+**Constraints:**
+- UNIQUE (aggregate_id, snapshot_version)
+
+#### event_projections
+Materialized views for query optimization.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY, DEFAULT gen_random_uuid())
+- `tenant_id` (INTEGER, NOT NULL) - Foreign key to tenants
+- `projection_name` (TEXT, NOT NULL) - Name of the projection
+- `aggregate_id` (UUID) - Optional aggregate this projection relates to
+- `projection_data` (JSONB, NOT NULL) - Denormalized query-optimized data
+- `last_event_version` (INTEGER, NOT NULL) - Last processed event version
+- `updated_at` (TIMESTAMP, NOT NULL, DEFAULT NOW())
+
+**Indexes:**
+- `idx_event_projections_name` ON (projection_name, tenant_id)
+- `idx_event_projections_aggregate` ON (aggregate_id) WHERE aggregate_id IS NOT NULL
+
+**Constraints:**
+- UNIQUE (tenant_id, projection_name, aggregate_id)
+
 ### Integration Tables
 
 #### advisor_companies
@@ -1016,6 +1083,12 @@ Each asset type table has:
 - `audit_log.persona_id` → `personas(id)`
 - `audit_log.session_id` → `user_sessions(id)`
 
+### Event Sourcing Relationships
+- `event_store.tenant_id` → `tenants(id)`
+- `event_store.created_by` → `users(id)`
+- `event_snapshots.tenant_id` → `tenants(id)`
+- `event_projections.tenant_id` → `tenants(id)`
+
 ### Integration Relationships
 - `quillt_integrations.user_id` → `users(id)`
 - `quillt_webhook_logs.user_id` → `users(id)`
@@ -1107,13 +1180,23 @@ These replace invalid UNIQUE constraints with WHERE clauses:
 - `idx_life_insurance_asset` ON `life_insurance(asset_id)`
 - `idx_personal_property_asset` ON `personal_property(asset_id)`
 
+### Event Sourcing Indexes
+- `idx_event_store_aggregate_lookup` ON `event_store(aggregate_id, event_version)`
+- `idx_event_store_type` ON `event_store(event_type, created_at)`
+- `idx_event_store_tenant` ON `event_store(tenant_id, created_at)`
+- `idx_event_store_created_by` ON `event_store(created_by, created_at)`
+- `idx_event_snapshots_aggregate` ON `event_snapshots(aggregate_id, snapshot_version DESC)`
+- `idx_event_snapshots_tenant` ON `event_snapshots(tenant_id)`
+- `idx_event_projections_name` ON `event_projections(projection_name, tenant_id)`
+- `idx_event_projections_aggregate` ON `event_projections(aggregate_id)` WHERE `aggregate_id IS NOT NULL`
+
 ### Integration Indexes
 - `idx_quillt_integrations_user` ON `quillt_integrations(user_id)`
 - `idx_quillt_webhook_logs_status` ON `quillt_webhook_logs(processing_status)` WHERE `processing_status = 'pending'`
 
 ## Stored Procedures
 
-The database includes 46+ comprehensive stored procedures organized into the following categories:
+The database includes 50+ comprehensive stored procedures organized into the following categories:
 
 ### Core Procedures (28)
 
@@ -1164,6 +1247,14 @@ The database includes 46+ comprehensive stored procedures organized into the fol
 
 #### Utility Functions (1)
 - `update_updated_at_column()` - Trigger function to update timestamps
+
+### Event Sourcing Procedures (4)
+
+#### Event Store Management
+- `sp_append_event()` - Append new event to event store
+- `sp_replay_events()` - Replay events for an aggregate from specific version
+- `sp_create_snapshot()` - Create snapshot of aggregate state
+- `sp_rebuild_projection()` - Rebuild projection from event stream
 
 ### Integration Procedures (18+)
 

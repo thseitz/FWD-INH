@@ -2650,6 +2650,77 @@ CREATE TABLE real_estate_sync_logs (
 );
 
 -- ================================================================
+-- EVENT SOURCING TABLES
+-- ================================================================
+
+-- Table 57: event_store
+-- Purpose: Immutable event log for complete audit trail and system state reconstruction
+CREATE TABLE event_store (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    
+    -- Aggregate identification
+    aggregate_id UUID NOT NULL,
+    aggregate_type TEXT NOT NULL,  -- e.g., 'asset', 'ffc', 'user'
+    
+    -- Event details
+    event_type TEXT NOT NULL,      -- e.g., 'AssetCreated', 'OwnershipTransferred'
+    event_data JSONB NOT NULL,     -- Event payload with all relevant data
+    event_metadata JSONB,           -- Context information (user, IP, reason, etc.)
+    event_version INTEGER NOT NULL, -- Order of events for an aggregate
+    
+    -- Audit
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by UUID NOT NULL,
+    
+    -- Constraints
+    CONSTRAINT event_version_positive CHECK (event_version > 0),
+    CONSTRAINT unique_aggregate_version UNIQUE (aggregate_id, event_version)
+);
+
+-- Table 58: event_snapshots
+-- Purpose: Periodic snapshots of aggregate state for performance optimization
+CREATE TABLE event_snapshots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    
+    -- Aggregate identification
+    aggregate_id UUID NOT NULL,
+    aggregate_type TEXT NOT NULL,
+    
+    -- Snapshot details
+    snapshot_version INTEGER NOT NULL,  -- Event version this snapshot represents
+    snapshot_data JSONB NOT NULL,       -- Complete state at this version
+    
+    -- Metadata
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    
+    -- Constraints
+    CONSTRAINT unique_aggregate_snapshot UNIQUE (aggregate_id, snapshot_version)
+);
+
+-- Table 59: event_projections
+-- Purpose: Materialized views for query optimization
+CREATE TABLE event_projections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    
+    -- Projection identification
+    projection_name TEXT NOT NULL,      -- Name of the projection
+    aggregate_id UUID,                  -- Optional aggregate this projection relates to
+    
+    -- Projection data
+    projection_data JSONB NOT NULL,     -- Denormalized query-optimized data
+    last_event_version INTEGER NOT NULL, -- Last processed event version
+    
+    -- Metadata
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    
+    -- Constraints
+    CONSTRAINT unique_projection UNIQUE (tenant_id, projection_name, aggregate_id)
+);
+
+-- ================================================================
 -- PARTIAL UNIQUE INDEXES (PostgreSQL 17 compatible)
 -- ================================================================
 
@@ -2733,6 +2804,16 @@ CREATE INDEX idx_personal_property_asset ON personal_property(asset_id);
 -- Integration indexes
 CREATE INDEX idx_quillt_integrations_user ON quillt_integrations(user_id);
 CREATE INDEX idx_quillt_webhook_logs_status ON quillt_webhook_logs(processing_status) WHERE processing_status = 'pending';
+
+-- Event sourcing indexes
+CREATE INDEX idx_event_store_aggregate_lookup ON event_store(aggregate_id, event_version);
+CREATE INDEX idx_event_store_type ON event_store(event_type, created_at);
+CREATE INDEX idx_event_store_tenant ON event_store(tenant_id, created_at);
+CREATE INDEX idx_event_store_created_by ON event_store(created_by, created_at);
+CREATE INDEX idx_event_snapshots_aggregate ON event_snapshots(aggregate_id, snapshot_version DESC);
+CREATE INDEX idx_event_snapshots_tenant ON event_snapshots(tenant_id);
+CREATE INDEX idx_event_projections_name ON event_projections(projection_name, tenant_id);
+CREATE INDEX idx_event_projections_aggregate ON event_projections(aggregate_id) WHERE aggregate_id IS NOT NULL;
 
 -- ================================================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
