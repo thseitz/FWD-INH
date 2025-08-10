@@ -12,7 +12,11 @@
     "forward-scenario": "npm run build && node dist/forward-scenario.js",
     "forward-generate": "npm run build && node dist/forward-scenario.js generate",
     "forward-clean": "npm run build && node dist/forward-scenario.js clean --confirm",
-    "forward-info": "npm run build && node dist/forward-scenario.js info"
+    "forward-info": "npm run build && node dist/forward-scenario.js info",
+    "test-procedures": "npm run build && node dist/test-stored-procedures.js",
+    "test-procs": "tsx src/test-stored-procedures.ts",
+    "test-with-output": "npm run build && node dist/test-stored-procedures-with-output.js",
+    "test-output": "tsx src/test-stored-procedures-with-output.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",

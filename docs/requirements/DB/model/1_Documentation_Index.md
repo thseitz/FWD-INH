@@ -6,7 +6,7 @@ This comprehensive database documentation suite provides complete coverage of th
 
 ### Documentation Statistics
 - **Total Database Tables**: 56
-- **Stored Procedures & Functions**: 46
+- **Stored Procedures & Functions**: 50
 - **Enum Types**: 59
 - **Integration Points**: 6 external systems
 - **Security Features**: Multi-factor authentication (AWS Cognito), RBAC, audit logging
@@ -28,45 +28,60 @@ This comprehensive database documentation suite provides complete coverage of th
 - Security & Compliance: 19 tables
 - Integration Systems: 6 external systems
 
-### 3. 💾 [Core Infrastructure Tables](./3_Tables_Core.md)
+### 3. 🔐 [Authentication & User Management Procedures](./3_Procs_Authentication.md)
+**Purpose**: User authentication, profile management, and invitation workflows  
+**Key Procedures**: User creation from Cognito, profile updates, invitation management  
+**Key Features**: AWS Cognito integration, secure token generation, multi-tenant support
+
+### 4. 💾 [Core Infrastructure Tables](./4_Tables_Core.md)
 **Purpose**: Foundation tables for multi-tenant architecture and user management  
 **Key Tables**: `tenants`, `users`, `personas`, `fwd_family_circles`, `ffc_personas`  
 **Key Features**: Multi-tenant isolation, dual-identity system, family organization
 
-### 4. 👥 [User Management Procedures](./4_Procs_Users.md)
-**Purpose**: User lifecycle, family circle management, and invitation workflows  
-**Key Procedures**: User registration, family circle operations, invitation management  
-**Key Features**: Email/SMS verification, family member invitation, role-based access
+### 5. 👨‍👩‍👧‍👦 [FFC Management Procedures](./4_Procs_FFC_Management.md)
+**Purpose**: Forward Family Circle creation and member management  
+**Key Procedures**: FFC creation, member management, role updates, summary reporting  
+**Key Features**: Multi-member support, role-based permissions, membership validation
 
-### 5. 🏦 [Asset Management Tables](./5_Tables_Assets.md)
+### 6. 📧 [Contact Management Procedures](./5_Procs_Contact_Management.md)
+**Purpose**: Email and phone number association with personas  
+**Key Procedures**: Add email to persona, add phone to persona  
+**Key Features**: Normalized contact storage, multiple usage contexts, verification support
+
+### 7. 🏦 [Asset Management Tables](./5_Tables_Assets.md)
 **Purpose**: Comprehensive asset tracking across 13 specialized categories  
 **Key Tables**: `assets` (base), 13 specialized asset tables, `asset_persona` (ownership)  
 **Asset Categories**: Real estate, financial accounts, vehicles, insurance, legal documents, business interests, digital assets
 
-### 6. 📊 [Asset Management Procedures](./6_Procs_Assets.md)
+### 8. 📊 [Asset Management Procedures](./6_Procs_Assets.md)
 **Purpose**: Asset CRUD operations, ownership management, and valuation tracking  
 **Key Procedures**: Asset creation, ownership transfers, valuation updates, inheritance planning  
 **Key Features**: Multi-owner support, inheritance tracking, automated valuations
 
-### 7. 📞 [Contact & Address Management](./7_Tables_Contacts.md)
+### 9. 📞 [Contact & Address Management Tables](./7_Tables_Contacts.md)
 **Purpose**: Normalized contact system eliminating data duplication  
 **Key Tables**: `email_address`, `phone_number`, `address`, `social_media` + usage junction tables  
 **Key Features**: One contact record, multiple usage contexts, privacy controls, international support
 
-### 8. 🔐 [Security & Compliance Tables](./8_Tables_Security.md)
+### 10. 🔐 [Security & Compliance Tables](./8_Tables_Security.md)
 **Purpose**: Authentication, RBAC, audit logging, and compliance management  
 **Key Tables**: 19 security tables including sessions, permissions, audit logs, PII processing  
 **Key Features**: Multi-factor authentication, comprehensive audit trails, PII detection, regulatory compliance
 
-### 9. 🛡️ [Security & Compliance Procedures](./9_Procs_Security.md)
-**Purpose**: Authentication workflows, permission management, and compliance reporting  
-**Key Procedures**: User authentication, MFA management, audit logging, compliance reports  
-**Key Features**: Rate limiting, session management, automated PII detection, SOC 2 reporting
+### 11. 🛡️ [Security & Compliance Procedures](./9_Procs_Security.md)
+**Purpose**: Session management, audit logging, and compliance reporting  
+**Key Procedures**: Session context, audit logging, PII detection, compliance reports, helper functions  
+**Key Features**: RLS helpers, automatic timestamps, automated PII detection, SOC 2 reporting
 
-### 10. 🔌 [Integration & External Systems](./10_Procs_Integration.md)
+### 12. 🔌 [Integration & External Systems](./10_Procs_Integration.md)
 **Purpose**: External system connectivity and data synchronization  
 **Key Integrations**: Quillt (financial data), Builder.io (content), real estate APIs, translation services  
 **Key Features**: Encrypted credentials, retry logic, data quality validation, health monitoring
+
+### 13. 📊 [Event Sourcing Procedures](./11_Procs_Event_Sourcing.md)
+**Purpose**: Event-driven architecture with complete audit trails  
+**Key Procedures**: Event append, event replay, snapshot creation, projection rebuilding  
+**Key Features**: Immutable event log, state reconstruction, CQRS support, time travel debugging
 
 ## Architecture Highlights
 

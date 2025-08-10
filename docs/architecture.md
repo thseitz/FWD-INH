@@ -372,25 +372,25 @@ paths:
     post:
       tags: [Authentication]
       summary: Register new user
-      description: Business logic validates input, checks email uniqueness, then calls sp_register_user
+      description: Business logic validates input, registers with AWS Cognito, then calls sp_create_user_from_cognito
       
   /auth/verify-email:
     post:
       tags: [Authentication]
       summary: Verify email address
-      description: Express validates token format, then calls sp_verify_email
+      description: Express validates token format, then verifies via AWS Cognito (no database procedure)
       
   /auth/verify-phone:
     post:
       tags: [Authentication]
       summary: Verify phone number
-      description: Express validates code format and rate limits, then calls sp_verify_phone
+      description: Express validates code format and rate limits, then verifies via AWS Cognito (no database procedure)
       
   /auth/login:
     post:
       tags: [Authentication]
       summary: User login
-      description: Express handles password validation and JWT generation after sp_login_user
+      description: Express authenticates via AWS Cognito which handles password validation and JWT generation
       
   # FFC Management Endpoints
   /ffcs:
@@ -404,7 +404,7 @@ paths:
     get:
       tags: [FFC]
       summary: List user's FFCs
-      description: Express applies filters and pagination, calls sp_get_user_ffcs
+      description: Express applies filters and pagination, calls sp_get_ffc_summary for each FFC
       security:
         - bearerAuth: []
         
@@ -412,7 +412,7 @@ paths:
     post:
       tags: [FFC]
       summary: Invite member to FFC
-      description: Complex business logic for dual-channel verification, then sp_invite_ffc_member
+      description: Complex business logic for dual-channel verification, then sp_create_invitation
       security:
         - bearerAuth: []
         
@@ -429,7 +429,7 @@ paths:
     get:
       tags: [Assets]
       summary: Get asset details
-      description: Express checks permissions via sp_check_asset_permission, then sp_get_asset
+      description: Express checks permissions via RLS policies, then sp_get_asset_details
       security:
         - bearerAuth: []
         
@@ -444,7 +444,7 @@ paths:
     post:
       tags: [Assets]
       summary: Upload document for asset
-      description: Express handles file upload to S3, triggers Lambda for PII processing, then sp_add_asset_document
+      description: Express handles file upload to S3, triggers Lambda for PII processing (document storage handled in application layer)
       security:
         - bearerAuth: []
         
@@ -453,7 +453,7 @@ paths:
     post:
       tags: [Integrations]
       summary: Connect Quillt account
-      description: Express orchestrates OAuth flow with Quillt, then sp_create_quillt_connection
+      description: Express orchestrates OAuth flow with Quillt, then sp_configure_quillt_integration
       security:
         - bearerAuth: []
         
@@ -461,7 +461,7 @@ paths:
     post:
       tags: [Integrations]
       summary: Sync Quillt accounts
-      description: Express fetches from Quillt API, processes data, then calls sp_update_financial_accounts
+      description: Express fetches from Quillt API, processes data, then calls sp_sync_quillt_data
       security:
         - bearerAuth: []
         
@@ -1216,8 +1216,10 @@ export class InMemoryCacheService implements OnModuleInit {
     const startTime = Date.now();
     
     // Load frequently accessed permissions
+    // Note: Permission system not implemented as stored procedures
+    // Use RLS policies or implement custom permission queries
     const permissions = await this.pool.query(sql`
-      SELECT * FROM sp_get_all_active_permissions()
+      SELECT * FROM permissions WHERE active = true
     `);
     
     // Build permission cache
@@ -1231,7 +1233,9 @@ export class InMemoryCacheService implements OnModuleInit {
     
     // Load FFC memberships
     const memberships = await this.pool.query(sql`
-      SELECT ffc_id, user_id FROM sp_get_all_ffc_memberships()
+      SELECT fp.ffc_id, p.user_id 
+      FROM ffc_personas fp
+      JOIN personas p ON fp.persona_id = p.id
     `);
     
     // Build membership cache
@@ -1266,11 +1270,14 @@ export class InMemoryCacheService implements OnModuleInit {
         SELECT sp_set_session_context(${tenantId}::int, ${userId}::uuid)
       `);
       
+      // Note: Permission checking not implemented as stored procedure
+      // Use RLS policies or implement custom logic
       return connection.one(sql`
-        SELECT sp_check_permission(
-          ${userId}::uuid,
-          ${resourceId}::uuid,
-          ${permission}::text
+        SELECT EXISTS(
+          SELECT 1 FROM permissions 
+          WHERE user_id = ${userId}::uuid
+          AND resource_id = ${resourceId}::uuid
+          AND permission_type = ${permission}::text
         ) as has_permission
       `);
     });
@@ -3674,8 +3681,8 @@ These are MANDATORY rules that prevent common mistakes and ensure consistency ac
 // ❌ WRONG - Direct table access
 const user = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
 
-// ✅ CORRECT - Using stored procedure
-const user = await db.func('sp_get_user_by_id', [userId]);
+// ✅ CORRECT - Using proper database query (no sp_get_user_by_id procedure exists)
+const user = await db.query('SELECT * FROM users WHERE id = $1 AND tenant_id = current_tenant_id()', [userId]);
 ```
 
 #### Type Safety Rules
@@ -5508,12 +5515,13 @@ function AssetCard() {
 // Using the translations table already in schema
 interface TranslationService {
   async getTranslation(key: string, language: string): Promise<string> {
-    const result = await db.func('sp_get_translation', [key, language]);
+    const result = await db.func('sp_get_translations', ['text', key, language]);
     return result[0]?.translated_text || key;
   }
   
   async bulkTranslate(keys: string[], language: string): Promise<Record<string, string>> {
-    const results = await db.func('sp_get_translations_bulk', [keys, language]);
+    // sp_get_translations can handle multiple lookups
+    const results = await db.func('sp_get_translations', ['text', null, language]);
     return results.reduce((acc, row) => {
       acc[row.translation_key] = row.translated_text;
       return acc;
@@ -5824,12 +5832,17 @@ class DataRetentionService {
 class PrivacyService {
   // Right to Access (GDPR Article 15, CCPA)
   async exportUserData(userId: string): Promise<UserDataExport> {
-    const data = await db.func('sp_export_user_data', [userId]);
+    // Note: Data export not implemented as stored procedure
+    // Implement using direct queries with proper joins
+    const personalInfo = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+    const assets = await db.query('SELECT * FROM assets WHERE owner_user_id = $1', [userId]);
+    const auditLogs = await db.func('sp_get_audit_trail', [null, 'user', userId, null, null]);
+    
     return {
-      personal_info: data.personal,
-      assets: data.assets,
-      documents: data.documents,
-      audit_logs: data.logs,
+      personal_info: personalInfo.rows,
+      assets: assets.rows,
+      documents: [], // Fetch from document storage
+      audit_logs: auditLogs,
       format: 'json',
       generated_at: new Date(),
     };
@@ -5841,8 +5854,9 @@ class PrivacyService {
       throw new Error('Invalid confirmation');
     }
     
-    // Soft delete first
-    await db.func('sp_soft_delete_user', [userId]);
+    // Soft delete not implemented as stored procedure
+    // Implement soft delete in application layer
+    await db.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [userId]);
     
     // Schedule hard delete after retention period
     await scheduleJob('hard_delete', { userId }, '30 days');
@@ -5857,7 +5871,7 @@ class PrivacyService {
   
   // Right to Rectification (GDPR Article 16)
   async updateUserData(userId: string, updates: Partial<UserData>): Promise<void> {
-    await db.func('sp_update_user_data', [userId, updates]);
+    await db.func('sp_update_user_profile', [userId, updates.first_name, updates.last_name, updates.display_name, updates.profile_picture_url, updates.preferred_language, updates.timezone]);
     await auditLog.record({
       action: 'USER_DATA_UPDATED',
       userId,
@@ -5873,7 +5887,12 @@ class PrivacyService {
   
   // Consent Management
   async updateConsent(userId: string, consents: ConsentUpdate): Promise<void> {
-    await db.func('sp_update_user_consent', [userId, consents]);
+    // Note: Consent management not implemented as stored procedure
+    // Store consent in application layer or add to user preferences
+    await db.query(
+      'UPDATE users SET consent_preferences = $2 WHERE id = $1',
+      [userId, JSON.stringify(consents)]
+    );
   }
 }
 ```

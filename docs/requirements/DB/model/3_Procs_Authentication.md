@@ -89,6 +89,136 @@ SELECT * FROM sp_create_user_from_cognito(
 - Verification status comes from Cognito
 - No password stored in database
 
+### sp_update_user_profile
+Updates user profile information after initial registration.
+
+```sql
+CREATE OR REPLACE PROCEDURE sp_update_user_profile(
+    p_user_id UUID,
+    p_first_name TEXT,
+    p_last_name TEXT,
+    p_display_name TEXT,
+    p_profile_picture_url TEXT,
+    p_preferred_language CHAR(2),
+    p_timezone VARCHAR(50)
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE users SET
+        first_name = COALESCE(p_first_name, first_name),
+        last_name = COALESCE(p_last_name, last_name),
+        display_name = COALESCE(p_display_name, display_name),
+        profile_picture_url = COALESCE(p_profile_picture_url, profile_picture_url),
+        preferred_language = COALESCE(p_preferred_language, preferred_language),
+        timezone = COALESCE(p_timezone, timezone),
+        updated_at = NOW()
+    WHERE id = p_user_id;
+END;
+$$;
+```
+
+**Parameters:**
+- `p_user_id`: UUID of the user to update
+- `p_first_name`: Updated first name (optional)
+- `p_last_name`: Updated last name (optional)
+- `p_display_name`: Display name for UI (optional)
+- `p_profile_picture_url`: URL to profile picture (optional)
+- `p_preferred_language`: Two-letter language code (optional)
+- `p_timezone`: User's timezone (optional)
+
+**Features:**
+- Uses COALESCE to only update provided fields
+- Preserves existing values for null parameters
+- Updates timestamp automatically
+
+## User Invitation Flow
+
+### sp_create_invitation
+Creates an invitation for a new user to join an FFC.
+
+```sql
+CREATE OR REPLACE PROCEDURE sp_create_invitation(
+    p_tenant_id INTEGER,
+    p_ffc_id UUID,
+    p_invited_by_user_id UUID,
+    p_invitee_email TEXT,
+    p_invitee_phone TEXT,
+    p_invitee_first_name TEXT,
+    p_invitee_last_name TEXT,
+    p_role ffc_role_enum,
+    OUT p_invitation_id UUID,
+    OUT p_email_token TEXT,
+    OUT p_phone_token TEXT
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_email_token TEXT;
+    v_phone_token TEXT;
+BEGIN
+    -- Generate invitation ID
+    p_invitation_id := gen_random_uuid();
+    
+    -- Generate secure tokens
+    v_email_token := encode(gen_random_bytes(32), 'hex');
+    v_phone_token := substr(encode(gen_random_bytes(4), 'hex'), 1, 6);
+    
+    -- Insert invitation record
+    INSERT INTO invitations (
+        id,
+        tenant_id,
+        ffc_id,
+        invited_by_user_id,
+        invitee_email,
+        invitee_phone,
+        invitee_first_name,
+        invitee_last_name,
+        role,
+        email_verification_code,
+        phone_verification_code,
+        expires_at,
+        created_at
+    ) VALUES (
+        p_invitation_id,
+        p_tenant_id,
+        p_ffc_id,
+        p_invited_by_user_id,
+        LOWER(TRIM(p_invitee_email)),
+        p_invitee_phone,
+        p_invitee_first_name,
+        p_invitee_last_name,
+        p_role,
+        v_email_token,
+        v_phone_token,
+        NOW() + INTERVAL '7 days',
+        NOW()
+    );
+    
+    -- Return tokens for sending
+    p_email_token := v_email_token;
+    p_phone_token := v_phone_token;
+END;
+$$;
+```
+
+**Parameters:**
+- `p_tenant_id`: Tenant identifier
+- `p_ffc_id`: FFC the invitee will join
+- `p_invited_by_user_id`: User sending the invitation
+- `p_invitee_email`: Email address of invitee
+- `p_invitee_phone`: Phone number of invitee
+- `p_invitee_first_name`: First name of invitee
+- `p_invitee_last_name`: Last name of invitee
+- `p_role`: Role in the FFC (member, admin, etc.)
+- `p_invitation_id`: (OUT) Generated invitation ID
+- `p_email_token`: (OUT) Email verification token
+- `p_phone_token`: (OUT) SMS verification code
+
+**Features:**
+- Generates secure verification tokens
+- Sets 7-day expiration
+- Returns tokens for email/SMS sending
+- Normalizes email address
+
 ## Authentication Procedures
 
 ### AWS Cognito Authentication Flow

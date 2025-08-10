@@ -1203,46 +1203,46 @@ The database includes 50+ comprehensive stored procedures organized into the fol
 #### RLS Helper Functions (3)
 - `current_user_id()` - Get current user's ID from session context
 - `current_tenant_id()` - Get current tenant ID from session context
-- `is_ffc_member(p_ffc_id, p_user_id)` - Check if user is member of an FFC
+- `is_ffc_member(p_ffc_id UUID, p_user_id UUID DEFAULT current_user_id())` - Check if user is member of an FFC
 
 #### User Management (2)
-- `sp_create_user_from_cognito()` - Create user from Cognito registration with email/phone
-- `sp_update_user_profile()` - Update user profile information
+- `sp_create_user_from_cognito(p_tenant_id INTEGER, p_cognito_user_id TEXT, p_cognito_username TEXT, p_email TEXT, p_phone TEXT, p_first_name TEXT, p_last_name TEXT)` - Create user from Cognito registration
+- `sp_update_user_profile(p_user_id UUID, p_first_name TEXT, p_last_name TEXT, p_display_name TEXT, p_profile_picture_url TEXT, p_preferred_language CHAR(2), p_timezone VARCHAR(50))` - Update user profile information
 
 #### FFC Management (4)
-- `sp_create_ffc()` - Create a new FFC and add owner as member
-- `sp_add_persona_to_ffc()` - Add persona to FFC with specified role
-- `sp_update_ffc_member_role()` - Update member's role within FFC
-- `sp_remove_ffc_member()` - Remove member from FFC (cannot remove owner)
+- `sp_create_ffc(p_tenant_id INTEGER, p_owner_user_id UUID, p_name TEXT, p_description TEXT)` - Create a new FFC and add owner as member
+- `sp_add_persona_to_ffc(p_ffc_id UUID, p_persona_id UUID, p_role ffc_role_enum)` - Add persona to FFC with specified role
+- `sp_update_ffc_member_role(p_ffc_id UUID, p_persona_id UUID, p_new_role ffc_role_enum)` - Update member's role within FFC
+- `sp_remove_ffc_member(p_ffc_id UUID, p_persona_id UUID)` - Remove member from FFC
 
 #### Asset Management (8)
-- `sp_create_asset()` - Create new asset and assign ownership to persona
-- `sp_update_asset()` - Update existing asset properties
-- `sp_delete_asset()` - Soft or hard delete asset with audit trail
-- `sp_transfer_asset_ownership()` - Transfer ownership between personas
-- `sp_update_asset_value()` - Update asset valuation with history tracking
-- `sp_get_asset_details()` - Retrieve comprehensive asset information
-- `sp_search_assets()` - Search assets with filtering and pagination
-- `sp_assign_asset_to_persona()` - Link assets to personas with ownership details
+- `sp_create_asset(p_tenant_id INTEGER, p_category_id UUID, p_name TEXT, p_description TEXT, p_value DECIMAL, p_owner_persona_id UUID, p_metadata JSONB)` - Create new asset
+- `sp_update_asset(p_asset_id UUID, p_name TEXT, p_description TEXT, p_value DECIMAL, p_metadata JSONB)` - Update existing asset properties
+- `sp_delete_asset(p_asset_id UUID)` - Delete asset
+- `sp_transfer_asset_ownership(p_asset_id UUID, p_from_persona_id UUID, p_to_persona_id UUID, p_ownership_percentage DECIMAL)` - Transfer ownership between personas
+- `sp_update_asset_value(p_asset_id UUID, p_new_value DECIMAL, p_valuation_date DATE, p_notes TEXT)` - Update asset valuation
+- `sp_get_asset_details(p_asset_id UUID)` - Retrieve comprehensive asset information
+- `sp_search_assets(p_tenant_id INTEGER, p_search_term TEXT, p_category_id UUID, p_min_value DECIMAL, p_max_value DECIMAL, p_owner_persona_id UUID)` - Search assets with filters
+- `sp_assign_asset_to_persona(p_asset_id UUID, p_persona_id UUID, p_ownership_type ownership_type_enum, p_ownership_percentage DECIMAL)` - Link assets to personas
 
 #### Contact Management (2)
-- `sp_add_email_to_persona()` - Add email address to persona with usage type
-- `sp_add_phone_to_persona()` - Add phone number to persona with usage type
+- `sp_add_email_to_persona(p_persona_id UUID, p_email TEXT, p_email_type email_type_enum, p_usage_type email_usage_type_enum, p_is_primary BOOLEAN)` - Add email to persona
+- `sp_add_phone_to_persona(p_persona_id UUID, p_phone TEXT, p_phone_type phone_type_enum, p_usage_type phone_usage_type_enum, p_is_primary BOOLEAN)` - Add phone to persona
 
 #### Invitation Management (1)
-- `sp_create_invitation()` - Create FFC invitation with verification codes
+- `sp_create_invitation(p_tenant_id INTEGER, p_ffc_id UUID, p_invited_by_user_id UUID, p_invitee_email TEXT, p_invitee_phone TEXT, p_invitee_first_name TEXT, p_invitee_last_name TEXT, p_role ffc_role_enum)` - Create FFC invitation
 
 #### Audit & Compliance (4)
-- `sp_log_audit_event()` - Log detailed audit events for compliance
-- `sp_create_audit_event()` - Create compliance-specific audit events
-- `sp_get_audit_trail()` - Retrieve audit history with filtering
-- `sp_generate_compliance_report()` - Generate SOC 2 compliance reports
+- `sp_log_audit_event(p_tenant_id INTEGER, p_user_id UUID, p_action audit_action_enum, p_entity_type audit_entity_type_enum, p_entity_id UUID, p_details JSONB, p_ip_address TEXT)` - Log audit events
+- `sp_create_audit_event(p_tenant_id INTEGER, p_event_type TEXT, p_event_data JSONB, p_user_id UUID, p_metadata JSONB)` - Create audit events
+- `sp_get_audit_trail(p_tenant_id INTEGER, p_entity_type audit_entity_type_enum, p_entity_id UUID, p_start_date TIMESTAMP WITH TIME ZONE, p_end_date TIMESTAMP WITH TIME ZONE)` - Retrieve audit history
+- `sp_generate_compliance_report(p_tenant_id INTEGER, p_report_type TEXT, p_start_date TIMESTAMP WITH TIME ZONE, p_end_date TIMESTAMP WITH TIME ZONE)` - Generate compliance reports
 
 #### Reporting (1)
-- `sp_get_ffc_summary()` - Get comprehensive FFC summary with statistics
+- `sp_get_ffc_summary(p_ffc_id UUID)` - Get comprehensive FFC summary with statistics
 
 #### Session Context (2)
-- `sp_set_session_context()` - Set user and tenant context for session
+- `sp_set_session_context(p_user_id UUID, p_tenant_id INTEGER)` - Set user and tenant context for session
 - `sp_clear_session_context()` - Clear session context
 
 #### Utility Functions (1)
@@ -1251,46 +1251,46 @@ The database includes 50+ comprehensive stored procedures organized into the fol
 ### Event Sourcing Procedures (4)
 
 #### Event Store Management
-- `sp_append_event()` - Append new event to event store
-- `sp_replay_events()` - Replay events for an aggregate from specific version
-- `sp_create_snapshot()` - Create snapshot of aggregate state
-- `sp_rebuild_projection()` - Rebuild projection from event stream
+- `sp_append_event(p_tenant_id INTEGER, p_aggregate_id UUID, p_aggregate_type TEXT, p_event_type TEXT, p_event_data JSONB, p_user_id UUID, p_metadata JSONB)` - Append event to store
+- `sp_replay_events(p_aggregate_id UUID, p_from_version INTEGER, p_to_version INTEGER)` - Replay events for an aggregate
+- `sp_create_snapshot(p_aggregate_id UUID, p_aggregate_type TEXT, p_version INTEGER, p_state JSONB)` - Create snapshot of aggregate state
+- `sp_rebuild_projection(p_projection_name TEXT, p_aggregate_type TEXT, p_aggregate_id UUID)` - Rebuild projection from event stream
 
 ### Integration Procedures (18+)
 
 #### PII Management (2)
-- `sp_detect_pii()` - Detect PII in text using configurable rules with masking
-- `sp_update_pii_job_status()` - Update status of PII processing jobs
+- `sp_detect_pii(p_tenant_id INTEGER, p_text_content TEXT, p_entity_type TEXT, p_entity_id UUID)` - Detect PII in text with masking
+- `sp_update_pii_job_status(p_job_id UUID, p_status TEXT, p_results JSONB)` - Update PII processing job status
 
 #### Quillt Integration (4)
-- `sp_configure_quillt_integration()` - Configure financial data sync with Quillt
-- `sp_sync_quillt_data()` - Synchronize financial account data
-- `sp_validate_quillt_credentials()` - Validate API credentials and token expiry
-- `sp_get_quillt_sync_status()` - Get sync history and statistics
+- `sp_configure_quillt_integration(p_tenant_id INTEGER, p_user_id UUID, p_connection_id UUID, p_configuration JSONB)` - Configure Quillt integration
+- `sp_sync_quillt_data(p_integration_id UUID, p_sync_type TEXT)` - Synchronize financial account data
+- `sp_validate_quillt_credentials(p_user_id UUID, p_connection_id UUID)` - Validate API credentials
+- `sp_get_quillt_sync_status(p_user_id UUID)` - Get sync status
 
 #### Real Estate Integration (2)
-- `sp_sync_real_estate_data()` - Sync property valuations and market data
-- `sp_get_real_estate_sync_history()` - Retrieve sync history and performance
+- `sp_sync_real_estate_data(p_integration_id UUID, p_property_address TEXT)` - Sync property valuations
+- `sp_get_real_estate_sync_history(p_tenant_id INTEGER, p_days_back INTEGER)` - Retrieve sync history
 
 #### Advisor Companies (2)
-- `sp_manage_advisor_company()` - Create, update, or delete advisor companies
-- `sp_get_advisor_companies()` - Search and filter advisor companies
+- `sp_manage_advisor_company(p_operation TEXT, p_tenant_id INTEGER, p_company_name TEXT, p_company_type TEXT, p_contact_info JSONB, p_company_id UUID)` - Manage advisor companies
+- `sp_get_advisor_companies(p_tenant_id INTEGER, p_company_type TEXT, p_is_active BOOLEAN)` - Search advisor companies
 
 #### Integration Health (2)
-- `sp_check_integration_health()` - Monitor health of all integrations
-- `sp_retry_failed_integration()` - Retry failed integration processes
+- `sp_check_integration_health(p_tenant_id INTEGER, p_integration_type TEXT)` - Monitor integration health
+- `sp_retry_failed_integration(p_integration_type TEXT, p_integration_id UUID, p_retry_count INTEGER)` - Retry failed integrations
 
 #### Builder.io Integration (3)
-- `sp_configure_builder_integration()` - Configure CMS integration
-- `sp_refresh_builder_content()` - Refresh content from Builder.io
-- `sp_get_builder_content_status()` - Get content sync status
+- `sp_configure_builder_io(p_tenant_id INTEGER, p_api_key TEXT, p_space_id TEXT, p_environment TEXT)` - Configure Builder.io integration
+- `sp_refresh_builder_content(p_integration_id UUID, p_content_type TEXT)` - Refresh content from Builder.io
+- `sp_get_builder_content_status(p_tenant_id INTEGER)` - Get content sync status
 
 #### Translation Management (2)
-- `sp_manage_translation()` - Create, update, or delete translations
-- `sp_get_translations()` - Retrieve translations with filtering
+- `sp_manage_translation(p_operation TEXT, p_entity_type TEXT, p_entity_id UUID, p_language_code TEXT, p_field_name TEXT, p_original_text TEXT, p_translated_text TEXT, p_translation_id UUID)` - Manage translations
+- `sp_get_translations(p_entity_type TEXT, p_entity_id UUID, p_language_code TEXT)` - Retrieve translations
 
 #### System Configuration (1)
-- `sp_update_system_configuration()` - Update system-wide settings
+- `sp_update_system_configuration(p_tenant_id INTEGER, p_config_key TEXT, p_config_value JSONB, p_updated_by UUID)` - Update system settings
 
 ## Helper Functions
 
@@ -1337,3 +1337,49 @@ All major tables have tenant isolation policies using `current_tenant_id()`:
 - `documents_tenant_isolation` - Document metadata scoped to tenant
 
 This comprehensive RLS implementation ensures data security, privacy, and proper multi-tenant isolation while maintaining performance through strategic indexing.
+
+## Testing Framework
+
+### Automated Stored Procedure Testing
+
+The database includes a comprehensive Node.js/TypeScript testing framework for all 50 stored procedures:
+
+#### Test Implementation
+- **Location**: `/docs/requirements/DB/Node JS scripts/test-data-generator/`
+- **Main Test Classes**:
+  - `StoredProcedureTester.ts` - Core test implementation with all test cases
+  - `test-stored-procedures-with-output.ts` - Enhanced runner with file output capabilities
+
+#### Test Coverage
+All 50 procedures are tested across three categories:
+1. **Core Procedures (28)** - User management, FFC operations, assets, audit, etc.
+2. **Event Sourcing Procedures (4)** - Event store management and projections
+3. **Integration Procedures (18)** - External system integrations (Quillt, Builder.io, etc.)
+
+#### Test Features
+- **Automatic Test Data Generation** - Creates required test data (tenants, users, personas, FFCs)
+- **Comprehensive Coverage** - Tests all procedures with valid parameters
+- **Multiple Output Formats**:
+  - JSON for programmatic analysis
+  - Markdown for human-readable reports
+  - CSV for spreadsheet analysis
+- **Performance Tracking** - Measures execution time for each procedure
+- **Error Handling** - Captures and reports failures with detailed error messages
+
+#### Running Tests
+```bash
+# Setup and run tests
+cd docs/requirements/DB/Node JS scripts/test-data-generator
+npm install
+npm run build
+npm run test:procedures  # Run with console output
+npm run test:procedures:output  # Run with file output to test-results/
+```
+
+#### Test Results
+Test results are saved to `test-results/` directory with timestamps:
+- `test-results-YYYY-MM-DDTHH-MM-SS.json` - Complete test data
+- `test-results-YYYY-MM-DDTHH-MM-SS.md` - Formatted markdown report
+- `test-results-YYYY-MM-DDTHH-MM-SS.csv` - CSV summary
+
+The testing framework ensures all procedures work correctly with the actual database schema and helps identify issues during development.

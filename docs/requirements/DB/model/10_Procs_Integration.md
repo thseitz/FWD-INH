@@ -700,11 +700,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ## Builder.io Integration
 
-### sp_configure_builder_integration
+### sp_configure_builder_io
 Configures Builder.io CMS integration settings.
 
 ```sql
-CREATE OR REPLACE FUNCTION sp_configure_builder_integration(
+CREATE OR REPLACE FUNCTION sp_configure_builder_io(
     p_api_key TEXT,
     p_space_id TEXT,
     p_environment VARCHAR(50) DEFAULT 'production',

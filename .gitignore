@@ -9,3 +9,7 @@
 # Database passwords and secrets
 *.env
 !.env.example
+
+# Test results
+docs/requirements/DB/Node JS scripts/test-data-generator/test-results/
+test-results/

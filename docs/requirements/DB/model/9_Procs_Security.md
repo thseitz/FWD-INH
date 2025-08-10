@@ -712,6 +712,72 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 ```
 
+### is_ffc_member
+Checks if a user is a member of an FFC through any of their personas.
+
+```sql
+CREATE OR REPLACE FUNCTION is_ffc_member(
+    p_ffc_id UUID, 
+    p_user_id UUID DEFAULT current_user_id()
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 
+        FROM ffc_personas fp
+        JOIN personas p ON fp.persona_id = p.id
+        WHERE fp.ffc_id = p_ffc_id 
+        AND p.user_id = p_user_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+**Parameters:**
+- `p_ffc_id`: UUID of the FFC to check
+- `p_user_id`: UUID of the user (defaults to current user)
+
+**Returns:** Boolean indicating membership status
+
+**Usage:**
+- Used in Row-Level Security policies for FFC access control
+- Called by other procedures to validate permissions
+- Integrated with multi-tenant security model
+
+### update_updated_at_column
+Trigger function to automatically update the updated_at timestamp.
+
+```sql
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Usage:**
+Applied as a trigger on tables to maintain updated_at timestamps:
+
+```sql
+CREATE TRIGGER update_users_updated_at 
+    BEFORE UPDATE ON users
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_assets_updated_at 
+    BEFORE UPDATE ON assets
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+```
+
+**Features:**
+- Automatically maintains audit trail
+- Consistent timestamp handling across all tables
+- No manual timestamp updates needed
+- Ensures data integrity for temporal queries
+
 ---
 
 *This security and compliance procedure documentation reflects the Forward Inheritance Platform's integration with AWS Cognito for authentication while maintaining comprehensive audit logging, PII protection, and regulatory compliance capabilities within the database layer.*
