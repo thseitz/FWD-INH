@@ -153,17 +153,18 @@ Instead of complex normalized asset structures:
 ## Database Statistics
 
 ### Current Schema Size
-- **Total Tables**: 56 tables across all functional areas
-- **Stored Procedures**: 45+ procedures and functions
-- **Enum Types**: 25+ custom enum types for data integrity
+- **Total Tables**: 70+ tables across all functional areas (including subscription platform)
+- **Stored Procedures**: 64+ procedures and functions (including subscription management)
+- **Enum Types**: 71 custom enum types for data integrity
 - **Indexes**: Comprehensive indexing strategy for performance
 
 ### Functional Areas
 - **Core Infrastructure**: 11 tables (tenants, users, personas, etc.)
 - **Asset Management**: 14 tables (base assets + 13 category tables)
+- **Subscription & Payment**: 14 tables (plans, subscriptions, payments, ledger)
 - **Security & Auth**: 8 tables (sessions, verifications, permissions)
 - **Audit & Compliance**: 6 tables (logs, events, PII processing)
-- **Integration**: 6 tables (external system integrations)
+- **Integration**: 7 tables (external systems including Stripe)
 - **Supporting**: 11 tables (contacts, addresses, documents, etc.)
 
 ## Next Steps

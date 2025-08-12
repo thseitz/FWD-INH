@@ -20,6 +20,7 @@
    - [Digital Assets Enums](#digital-assets-enums)
    - [Business Enums](#business-enums)
    - [Loan Enums](#loan-enums)
+   - [Subscription and Payment Enums](#subscription-and-payment-enums)
    - [Security and Audit Enums](#security-and-audit-enums)
    - [Language and Localization Enums](#language-and-localization-enums)
    - [Integration Enums](#integration-enums)
@@ -29,6 +30,7 @@
    - [Contact Information Tables](#contact-information-tables)
    - [Asset Management Tables](#asset-management-tables)
    - [Asset Type-Specific Tables](#asset-type-specific-tables)
+   - [Subscription and Payment Management Tables](#subscription-and-payment-management-tables)
    - [Security and Session Management](#security-and-session-management)
    - [Audit and Compliance](#audit-and-compliance)
    - [Event Sourcing Tables](#event-sourcing-tables)
@@ -43,10 +45,14 @@
 6. [Indexes](#indexes)
    - [Performance Indexes](#performance-indexes)
    - [Search Indexes](#search-indexes)
+   - [Subscription and Payment Indexes](#subscription-and-payment-indexes)
    - [Unique Constraint Indexes](#unique-constraint-indexes)
-7. [Stored Procedures](#stored-procedures)
+7. [Views](#views)
+   - [Payment Management Views](#payment-management-views)
+8. [Stored Procedures](#stored-procedures)
    - [Authentication Procedures](#authentication-procedures)
    - [Asset Management Procedures](#asset-management-procedures)
+   - [Subscription Management Procedures](#subscription-management-procedures)
    - [Security and Compliance Procedures](#security-and-compliance-procedures)
    - [Integration Procedures](#integration-procedures)
 8. [Helper Functions](#helper-functions)
@@ -57,7 +63,7 @@
 
 ## Database Overview
 
-The Forward Inheritance Platform uses a PostgreSQL database with a sophisticated multi-tenant architecture designed for secure estate planning and asset management. The database implements Row-Level Security (RLS) policies for data isolation, comprehensive audit trails for compliance with SOC 2 requirements, and event sourcing for complete system state reconstruction.
+The Forward Inheritance Platform uses a PostgreSQL database with a sophisticated multi-tenant architecture designed for secure estate planning, asset management, and subscription billing. The database now includes 70+ tables (up from 56) with the addition of comprehensive subscription and payment management capabilities. It implements Row-Level Security (RLS) policies for data isolation, comprehensive audit trails for compliance with SOC 2 requirements, and event sourcing for complete system state reconstruction.
 
 **Key Features:**
 - Multi-tenant isolation with tenant-scoped data access
@@ -67,6 +73,10 @@ The Forward Inheritance Platform uses a PostgreSQL database with a sophisticated
 - Comprehensive audit logging and compliance tracking
 - PII detection and data masking capabilities
 - Integration support for third-party services (Quillt, Builder.io, Real Estate APIs)
+- **Subscription and payment management with Stripe integration**
+- **Single-entry general ledger for financial tracking**
+- **Flexible seat-based subscription plans with dynamic UI configuration**
+- **Asynchronous webhook processing for payment events**
 
 ## Database Extensions
 
@@ -152,6 +162,20 @@ The database uses the following PostgreSQL extensions:
 - `loan_type_enum`: 'mortgage', 'heloc', 'personal', 'business', 'auto', 'student', 'family_loan', 'hard_money', 'other'
 - `loan_status_enum`: 'active', 'paid_off', 'defaulted', 'in_forbearance', 'refinanced'
 - `interest_type_enum`: 'fixed', 'variable', 'hybrid'
+
+### Subscription and Payment Enums
+- `plan_type_enum`: 'free', 'paid', 'sponsored'
+- `billing_frequency_enum`: 'monthly', 'annual', 'one_time', 'lifetime'
+- `subscription_status_enum`: 'active', 'trialing', 'past_due', 'canceled', 'pending', 'paused'
+- `payment_status_enum`: 'pending', 'succeeded', 'failed', 'refunded', 'partially_refunded'
+- `payment_type_enum`: 'subscription', 'service', 'seat_upgrade', 'add_on'
+- `transaction_type_enum`: 'charge', 'refund', 'credit', 'adjustment'
+- `ledger_account_type_enum`: 'revenue', 'refund', 'credit', 'accounts_receivable'
+- `seat_type_enum`: 'basic', 'pro', 'enterprise'
+- `payer_type_enum`: 'owner', 'advisor', 'third_party', 'individual', 'none'
+- `refund_reason_enum`: 'duplicate', 'fraudulent', 'requested_by_customer', 'other'
+- `service_type_enum`: 'one_time', 'recurring'
+- `card_brand_enum`: 'visa', 'mastercard', 'amex', 'discover', 'diners', 'jcb', 'unionpay', 'other'
 
 ### Security and Audit Enums
 - `permission_category_enum`: 'asset', 'user', 'admin', 'report', 'document', 'ffc', 'system'
@@ -683,7 +707,7 @@ Assign roles to users with optional FFC scope.
 ### Invitation System Tables
 
 #### ffc_invitations
-Manage invitations to join FFCs.
+Manage invitations to join FFCs (extended for subscription seat management).
 
 **Columns:**
 - `id` (UUID, PRIMARY KEY)
@@ -693,6 +717,7 @@ Manage invitations to join FFCs.
 - Verification (email_verification_code, email_verification_attempts, email_verified_at, phone_verification_code, phone_verification_attempts, phone_verified_at)
 - Status tracking (status, sent_at, accepted_at, approved_at, approved_by_user_id, declined_at, declined_reason)
 - Expiration (expires_at)
+- **Subscription fields** (seat_type, subscription_id) - Added for seat assignment tracking
 - Standard audit fields
 
 #### invitation_verification_attempts
@@ -706,6 +731,165 @@ Track verification attempts for security.
 - Tracking (attempted_at)
 - Phone specific (phone_id)
 - Multi-tenancy (tenant_id)
+
+### Subscription and Payment Management Tables
+
+#### plans
+Plan templates and catalog for subscription offerings.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Plan identification (plan_code UNIQUE, plan_name, plan_description)
+- Plan configuration (plan_type, base_price, billing_frequency, trial_days)
+- Feature configuration (features JSONB, ui_config JSONB)
+- Stripe integration (stripe_product_id, stripe_price_id)
+- Status and visibility (status, is_public, sort_order)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at, updated_at, created_by, updated_by)
+
+#### plan_seats
+Seat configuration per plan defining included and additional seats.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `plan_id` (UUID, NOT NULL) - Foreign key to plans
+- Seat configuration (seat_type, included_quantity, max_quantity, additional_seat_price)
+- Features per seat type (features JSONB)
+- Standard audit fields (created_at, updated_at)
+
+#### subscriptions
+Active subscriptions for each Forward Family Circle (one active subscription per FFC).
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Subscription ownership (ffc_id UNIQUE WHERE status='active', plan_id)
+- Payment responsibility (owner_user_id, payer_id, payer_type)
+- Advisor tracking (advisor_id UUID) - References users table for advisor-sponsored plans
+- Stripe integration (stripe_subscription_id, stripe_customer_id)
+- Subscription status (status, trial_end_date, current_period_start, current_period_end)
+- Cancellation tracking (canceled_at, cancel_reason)
+- Billing details (next_billing_date, billing_amount)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at, updated_at)
+
+#### seat_assignments
+Individual seat assignments within a subscription (one active assignment per persona per subscription).
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `subscription_id` (UUID, NOT NULL) - Foreign key to subscriptions
+- Assignment details (persona_id, seat_type) - UNIQUE(subscription_id, persona_id) WHERE status='active'
+- Individual payer for self-upgrades (payer_id, is_self_paid)
+- Status tracking (status, invited_at, activated_at, suspended_at)
+- Invitation link (invitation_id references ffc_invitations)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at, updated_at)
+
+#### payment_methods
+Stored payment methods for users (protected from deletion when in use via view).
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- `user_id` (UUID, NOT NULL) - Foreign key to users
+- Stripe details (stripe_payment_method_id, stripe_customer_id)
+- Card details for display (payment_type, last_four, brand, exp_month, exp_year, card_holder_name)
+- Status (is_default, status)
+- Standard audit fields (created_at, updated_at)
+
+**Note:** Usage tracking is provided via the `payment_methods_with_usage` view
+
+#### services
+One-time service catalog (e.g., Estate Capture Service).
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Service identification (service_code UNIQUE, service_name, service_description)
+- Pricing (price, service_type)
+- Stripe integration (stripe_product_id, stripe_price_id)
+- Configuration (features JSONB, delivery_timeline)
+- Status and visibility (status, is_public, sort_order)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at, updated_at)
+
+#### service_purchases
+Records of one-time service purchases.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Purchase details (service_id, ffc_id, purchaser_user_id)
+- Payment details (amount, stripe_payment_intent_id, payment_method_id)
+- Status tracking (status, purchased_at, delivered_at)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at, updated_at)
+
+#### payments
+Unified payment tracking for all payment types.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Payment details (payer_id, amount, currency)
+- Payment type and reference (payment_type, reference_id)
+- Payment method (payment_method_id)
+- Stripe details (stripe_charge_id, stripe_payment_intent_id, stripe_invoice_id)
+- Status tracking (status, failure_reason, processed_at)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at, updated_at)
+
+#### general_ledger
+Single-entry bookkeeping for financial tracking.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Transaction details (transaction_type, transaction_date, account_type)
+- Financial details (amount, currency)
+- Reference tracking (reference_type, reference_id)
+- Stripe reference (stripe_reference)
+- Transaction categorization (category CHECK IN ('recurring_monthly', 'recurring_annual', 'one_time', 'refund'))
+- Description and notes (description, internal_notes)
+- Reconciliation (reconciled, reconciled_at, reconciled_by)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at)
+
+#### refunds
+Refund tracking and processing.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `tenant_id` (INTEGER, NOT NULL)
+- Refund details (payment_id, amount, reason, reason_details)
+- Stripe details (stripe_refund_id)
+- Status tracking (status, initiated_by, processed_at)
+- Metadata (metadata JSONB)
+- Standard audit fields (created_at)
+
+#### stripe_events
+Webhook event processing for asynchronous Stripe integration.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- Event identification (stripe_event_id UNIQUE, event_type)
+- Processing status (status CHECK IN ('pending', 'processing', 'processed', 'failed', 'ignored'))
+- Processing tracking (attempts, last_attempt_at, processed_at)
+- Event data (payload JSONB, error_message)
+- Standard audit fields (created_at)
+
+#### subscription_transitions
+History of subscription plan changes.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `subscription_id` (UUID, NOT NULL) - Foreign key to subscriptions
+- Transition details (from_plan_id, to_plan_id, transition_type)
+- Financial impact (prorated_amount, effective_date)
+- User tracking (initiated_by, reason)
+- Standard audit fields (created_at)
 
 ### Security and Session Management Tables
 
@@ -1111,6 +1295,8 @@ These replace invalid UNIQUE constraints with WHERE clauses:
 - `unique_primary_social_per_entity` ON `usage_social_media(entity_type, entity_id, is_primary)` WHERE `is_primary = TRUE`
 - `unique_active_role_assignment` ON `user_role_assignments(user_id, role_id, ffc_id, is_active)` WHERE `is_active = TRUE`
 - `unique_primary_owner_per_asset` ON `asset_persona(asset_id, is_primary)` WHERE `is_primary = TRUE`
+- `unique_active_subscription_per_ffc` ON `subscriptions(ffc_id)` WHERE `status = 'active'`
+- `unique_active_seat_per_persona` ON `seat_assignments(subscription_id, persona_id)` WHERE `status = 'active'`
 
 ### Tenant Isolation Indexes (Critical for Multi-tenancy)
 - `idx_media_storage_tenant` ON `media_storage(tenant_id)`
@@ -1157,6 +1343,31 @@ These replace invalid UNIQUE constraints with WHERE clauses:
 - `idx_document_metadata_type` ON `document_metadata(document_type, document_category)`
 - `idx_document_metadata_search` ON `document_metadata` USING GIN(`searchable_content`)
 
+### Subscription and Payment Indexes
+- `idx_plans_tenant_status` ON `plans(tenant_id, status)`
+- `idx_plans_code` ON `plans(plan_code)`
+- `idx_plans_public` ON `plans(is_public, status)` WHERE `is_public = TRUE`
+- `unique_active_subscription_per_ffc` ON `subscriptions(ffc_id)` WHERE `status = 'active'` UNIQUE
+- `idx_subscriptions_ffc` ON `subscriptions(ffc_id)`
+- `idx_subscriptions_status` ON `subscriptions(status, tenant_id)`
+- `idx_subscriptions_payer` ON `subscriptions(payer_id)` WHERE `payer_id IS NOT NULL`
+- `idx_subscriptions_advisor` ON `subscriptions(advisor_id)` WHERE `advisor_id IS NOT NULL`
+- `idx_subscriptions_stripe` ON `subscriptions(stripe_subscription_id)` WHERE `stripe_subscription_id IS NOT NULL`
+- `unique_active_seat_per_persona` ON `seat_assignments(subscription_id, persona_id)` WHERE `status = 'active'` UNIQUE
+- `idx_seat_assignments_subscription` ON `seat_assignments(subscription_id, status)`
+- `idx_seat_assignments_persona` ON `seat_assignments(persona_id)`
+- `idx_seat_assignments_invitation` ON `seat_assignments(invitation_id)` WHERE `invitation_id IS NOT NULL`
+- `idx_payments_payer` ON `payments(payer_id, status)`
+- `idx_payments_reference` ON `payments(reference_id, payment_type)`
+- `idx_payments_stripe` ON `payments(stripe_payment_intent_id)` WHERE `stripe_payment_intent_id IS NOT NULL`
+- `idx_payments_date` ON `payments(created_at DESC)`
+- `idx_ledger_date` ON `general_ledger(transaction_date DESC)`
+- `idx_ledger_reconciliation` ON `general_ledger(reconciled, transaction_date)`
+- `idx_ledger_category` ON `general_ledger(category, transaction_date)`
+- `idx_ledger_reference` ON `general_ledger(reference_id)` WHERE `reference_id IS NOT NULL`
+- `unique_stripe_event_id` ON `stripe_events(stripe_event_id)` UNIQUE
+- `idx_stripe_events_status` ON `stripe_events(status, created_at)` WHERE `status IN ('pending', 'failed')`
+
 ### Audit and Compliance Indexes
 - `idx_audit_log_user` ON `audit_log(user_id)`
 - `idx_audit_log_entity` ON `audit_log(entity_type, entity_id)`
@@ -1194,11 +1405,53 @@ These replace invalid UNIQUE constraints with WHERE clauses:
 - `idx_quillt_integrations_user` ON `quillt_integrations(user_id)`
 - `idx_quillt_webhook_logs_status` ON `quillt_webhook_logs(processing_status)` WHERE `processing_status = 'pending'`
 
+## Views
+
+### Payment Management Views
+
+#### payment_methods_with_usage
+Provides payment methods with computed usage status to prevent deletion of in-use payment methods.
+
+**Columns:**
+- All columns from `payment_methods` table
+- `is_in_use` (BOOLEAN) - Computed field indicating if the payment method is currently in use
+
+**Usage Logic:**
+The `is_in_use` field is `TRUE` when:
+1. The payment method is associated with an active, trialing, or past_due subscription
+2. The payment method has been used for a successful payment in the last 30 days
+
+**Query Definition:**
+```sql
+CREATE OR REPLACE VIEW payment_methods_with_usage AS
+SELECT 
+    pm.*,
+    CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM subscriptions 
+            WHERE payer_id = pm.user_id 
+            AND status IN ('active', 'trialing', 'past_due')
+        ) THEN true
+        WHEN EXISTS (
+            SELECT 1 FROM payments 
+            WHERE payment_method_id = pm.id 
+            AND status = 'succeeded' 
+            AND created_at > NOW() - INTERVAL '30 days'
+        ) THEN true
+        ELSE false
+    END AS is_in_use
+FROM payment_methods pm;
+```
+
+**Used By:**
+- `sp_check_payment_method_usage()` - Function to verify if payment method can be deleted
+- `sp_delete_payment_method()` - Procedure that safely deletes unused payment methods
+
 ## Stored Procedures
 
-The database includes 50+ comprehensive stored procedures organized into the following categories:
+The database includes 60+ comprehensive stored procedures organized into the following categories:
 
-### Core Procedures (28)
+### Core Procedures (42)
 
 #### RLS Helper Functions (3)
 - `current_user_id()` - Get current user's ID from session context
@@ -1231,6 +1484,22 @@ The database includes 50+ comprehensive stored procedures organized into the fol
 
 #### Invitation Management (1)
 - `sp_create_invitation(p_tenant_id INTEGER, p_ffc_id UUID, p_invited_by_user_id UUID, p_invitee_email TEXT, p_invitee_phone TEXT, p_invitee_first_name TEXT, p_invitee_last_name TEXT, p_role ffc_role_enum)` - Create FFC invitation
+
+#### Subscription Management (14)
+- `sp_create_ffc_with_subscription(p_tenant_id INTEGER, p_owner_user_id UUID, p_owner_persona_id UUID, p_ffc_name TEXT, p_description TEXT)` - Create FFC with automatic free plan assignment (prevents duplicate active subscriptions)
+- `sp_process_seat_invitation(p_invitation_id UUID, p_persona_id UUID, p_user_id UUID)` - Process seat invitation after approval (checks for existing assignments)
+- `sp_purchase_service(p_tenant_id INTEGER, p_service_code VARCHAR, p_ffc_id UUID, p_user_id UUID, p_payment_method_id UUID, p_stripe_payment_intent_id VARCHAR)` - Purchase one-time service
+- `sp_process_stripe_webhook(p_stripe_event_id VARCHAR, p_event_type VARCHAR, p_payload JSONB)` - Process Stripe webhook events asynchronously
+- `sp_record_ledger_entry(p_tenant_id INTEGER, p_transaction_type transaction_type_enum, p_amount DECIMAL, p_category VARCHAR, p_reference_id UUID, p_stripe_reference VARCHAR, p_description TEXT)` - Record transaction in general ledger
+- `sp_handle_payment_success(p_payload JSONB)` - Handle successful payment from Stripe
+- `sp_handle_payment_failure(p_payload JSONB)` - Handle failed payment from Stripe
+- `sp_handle_subscription_payment(p_payload JSONB)` - Handle subscription payment from Stripe
+- `sp_transition_subscription_plan(p_subscription_id UUID, p_new_plan_id UUID, p_user_id UUID, p_reason TEXT)` - Change subscription plan
+- `sp_cancel_subscription(p_subscription_id UUID, p_user_id UUID, p_reason TEXT)` - Cancel subscription
+- `sp_get_subscription_status(p_ffc_id UUID)` - Get current subscription status and details
+- `sp_calculate_seat_availability(p_subscription_id UUID)` - Calculate available seats for limited plans
+- `sp_check_payment_method_usage(p_payment_method_id UUID)` - Check if payment method is in use before deletion
+- `sp_delete_payment_method(p_payment_method_id UUID, p_user_id UUID)` - Safely delete payment method (fails if in use)
 
 #### Audit & Compliance (4)
 - `sp_log_audit_event(p_tenant_id INTEGER, p_user_id UUID, p_action audit_action_enum, p_entity_type audit_entity_type_enum, p_entity_id UUID, p_details JSONB, p_ip_address TEXT)` - Log audit events

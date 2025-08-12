@@ -29,13 +29,13 @@ Based on review of the PRD and existing documentation, this is a **Greenfield pr
 
 ### Technical Summary
 
-The Forward Inheritance Platform employs a multi-tenant SaaS architecture with a React/TypeScript frontend deployed via AWS Amplify for streamlined CI/CD, communicating through RESTful APIs with a Nest.js backend running on containerized AWS infrastructure (Fargate/ECS). The backend leverages Nest.js's modular architecture with dependency injection, guards for multi-tenant isolation, and interceptors for cross-cutting concerns. Database access is exclusively through PostgreSQL stored procedures using Slonik for type-safe operations. For document processing, AWS Step Functions orchestrates a serverless pipeline using S3, Lambda, and Comprehend for PII detection and masking, while BullMQ handles application-level async tasks. The platform integrates with external services including Twilio for SMS, SendGrid for email, Quillt for financial aggregation, and Vanta for SOC 2 compliance. This architecture achieves enterprise-grade security, scalability for millions of families, and maintainable code through Nest.js's structured approach.
+The Forward Inheritance Platform employs a multi-tenant SaaS architecture with a React/TypeScript frontend deployed via AWS Amplify for streamlined CI/CD, communicating through RESTful APIs with a Nest.js backend running on containerized AWS infrastructure (Fargate/ECS). The backend leverages Nest.js's modular architecture with dependency injection, guards for multi-tenant isolation, and interceptors for cross-cutting concerns. Database access is exclusively through PostgreSQL stored procedures using Slonik for type-safe operations. The platform includes a comprehensive subscription and payment system with Stripe integration, supporting free plans with automatic assignment, paid subscriptions with seat management, and one-time service purchases. For document processing, AWS Step Functions orchestrates a serverless pipeline using S3, Lambda, and Comprehend for PII detection and masking, while AWS SQS handles application-level async tasks including Stripe webhook processing. The platform integrates with external services including Stripe for payments, Twilio for SMS, SendGrid for email, Quillt for financial aggregation, and Vanta for SOC 2 compliance. This architecture achieves enterprise-grade security, scalability for millions of families, and maintainable code through Nest.js's structured approach.
 
 ### Platform and Infrastructure Choice
 
 **Platform:** AWS Cloud Services  
 **Key Services:** Amplify (React hosting/CI/CD), API Gateway, Fargate/ECS, RDS PostgreSQL, S3, Lambda, CloudFront, KMS  
-**Deployment Host and Regions:** Primary: US-East-1 (Virginia), with CloudFront edge locations globally
+**Deployment Host and Regions:** Primary: US-West-1 , with CloudFront edge locations US wide
 
 ### Repository Structure
 
@@ -75,7 +75,7 @@ graph TB
         SF[Step Functions<br/>Document Pipeline]
         L1[Lambda<br/>PII Processing]
         L2[Lambda<br/>Report Generation]
-        BQ[BullMQ<br/>App Tasks]
+        SQS[AWS SQS<br/>App Tasks]
     end
     
     subgraph "Data Layer"
@@ -85,6 +85,7 @@ graph TB
     end
     
     subgraph "External Services"
+        ST[Stripe Payments]
         TW[Twilio SMS]
         SG[SendGrid Email]
         Q[Quillt API]
@@ -102,13 +103,15 @@ graph TB
     ECS --> SF
     SF --> L1
     SF --> S3
-    ECS --> BQ
+    ECS --> SQS
     L1 --> S3
     L2 --> S3
+    ECS --> ST
     ECS --> TW
     ECS --> SG
     ECS --> Q
     ECS --> RE
+    ST -.->|webhooks| SQS
     
     style MEM fill:#f9f,stroke:#333,stroke-width:2px
 ```
@@ -118,12 +121,15 @@ graph TB
 - **Database-First CRUD Layer:** All data operations through stored procedures for security and performance optimization - _Rationale:_ Prevents SQL injection, provides operational flexibility for query optimization, enables database-level performance tuning
 - **Modular Architecture with Nest.js:** Domain-driven modules with dependency injection, guards, and interceptors - _Rationale:_ Enterprise-grade structure, testability, and clear separation of concerns
 - **Business Logic in Application Layer:** Nest.js services handle all business rules, validations, and orchestration - _Rationale:_ Keeps business logic testable, maintainable, and independent of database implementation
-- **Multi-Tenant Isolation:** Tenant ID-based data segregation at database level - _Rationale:_ Complete data isolation for different families while maintaining single codebase
+- **Multi-Tenant Isolation:** Tenant ID-based data segregation at database level - _Rationale:_ Complete data isolation for different white lable B2B partners, while maintaining single codebase
 - **Component-Based UI:** Reusable React components with TypeScript and shadcn/ui - _Rationale:_ Consistency across UI, type safety, and faster development
 - **Repository Pattern:** Abstract database access through typed stored procedure calls - _Rationale:_ Type-safe database operations with pgtyped, easier testing
 - **API Gateway Pattern:** Centralized entry point for all backend services - _Rationale:_ Unified authentication, rate limiting, and monitoring
 - **Event-Driven Processing:** Lambda functions for async operations like PII masking - _Rationale:_ Scalable processing without blocking main application flow
 - **Dual-Identity System:** Separate users (authentication) from personas (business entities) - _Rationale:_ Enables complex family relationships and proxy management
+- **Subscription-First Architecture:** Automatic free plan assignment on FFC creation - _Rationale:_ Zero payment barrier for users, seamless upgrade path
+- **Asynchronous Payment Processing:** Webhook-based Stripe integration via queues - _Rationale:_ Reliability, idempotency, and system resilience
+- **Dynamic UI Configuration:** Plan-based UI visibility stored in database - _Rationale:_ Flexibility without code changes, A/B testing capability
 
 ## Tech Stack
 
@@ -142,9 +148,9 @@ This is the DEFINITIVE technology selection for the entire Forward Inheritance P
 | Backend Framework | Nest.js | 10.0+ | Enterprise Node.js framework | Modular architecture, dependency injection, built-in testing support, TypeScript-first |
 | API Style | REST | - | API architecture | Simple, well-understood, sufficient for requirements |
 | Database | PostgreSQL | 14+ | Primary data store | Already designed with 56 tables, JSONB support, robust |
-| Cache | **In-Memory (NestJS)** | - | Session & data cache | **Cost-optimized: In-memory caching with periodic refresh from DB. No Redis needed for MVP with 1-2 instances** |
+| Cache | **In-Memory (NestJS)** | - | Session & data cache | **Cost-optimized: In-memory caching as primary strategy. DynamoDB for distributed sessions, Upstash Redis for pay-per-use caching when needed** |
 | File Storage | AWS S3 | - | Document storage | Integrated encryption, versioning, cost-effective |
-| Authentication | JWT + Custom | - | Auth system | Database-driven with stored procedures, dual-channel verification |
+| Authentication | AWS Cognito | - | Auth system | JWT-based with Cognito User Pools, MFA support, SRP protocol |
 | Frontend Testing | Vitest + React Testing Library | Latest | Unit/integration tests | Fast, Jest-compatible, good React integration |
 | Backend Testing | Jest | 29+ | API testing | Mature, extensive mocking, good TypeScript support |
 | E2E Testing | Playwright | 1.40+ | End-to-end testing | Cross-browser, reliable, good debugging |
@@ -157,7 +163,7 @@ This is the DEFINITIVE technology selection for the entire Forward Inheritance P
 | CSS Framework | Tailwind CSS | 3.4+ | Styling system | Utility-first, small production builds, shadcn/ui compatible |
 | Container Platform | Docker + ECS/Fargate | - | Backend deployment | Serverless containers, no cluster management needed |
 | ORM/Query Builder | Slonik + pgtyped | Latest | Database interface | Type-safe stored procedure calls, SQL injection prevention, perfect for stored procedures |
-| Queue Management | BullMQ | 4.0+ | Application task queue | Redis-backed queue for notifications, reports, API sync tasks |
+| Queue Management | AWS SQS | - | Application task queue | Serverless message queue for notifications, reports, Stripe webhooks, API sync tasks. Cost-effective pay-per-message pricing |
 | Workflow Orchestration | AWS Step Functions | - | Document processing | Serverless orchestration for PII detection pipeline |
 
 ## Data Models
@@ -211,6 +217,72 @@ interface ForwardFamilyCircle {
   privacySettings: Record<string, any>;
   isActive: boolean;
   status: 'active' | 'inactive' | 'pending' | 'suspended' | 'deleted';
+  subscription?: Subscription; // Active subscription details
+}
+
+### Subscription & Payment Entities
+
+interface Plan {
+  id: string;
+  planCode: string;
+  planName: string;
+  planType: 'free' | 'paid' | 'sponsored';
+  basePrice: number;
+  billingFrequency: 'monthly' | 'annual' | 'one_time' | 'lifetime';
+  features: Record<string, any>;
+  uiConfig: {
+    hideSeatManagement?: boolean;
+    hideBillingSection?: boolean;
+    showUnlimitedBadge?: boolean;
+    badgeText?: string;
+  };
+}
+
+interface Subscription {
+  id: string;
+  ffcId: string;
+  planId: string;
+  plan?: Plan;
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'pending' | 'paused';
+  payerType: 'owner' | 'advisor' | 'third_party' | 'individual' | 'none';
+  advisorId?: string;
+  billingAmount: number;
+  currentPeriodStart?: Date;
+  currentPeriodEnd?: Date;
+  nextBillingDate?: Date;
+  seats?: SeatAssignment[];
+}
+
+interface SeatAssignment {
+  id: string;
+  subscriptionId: string;
+  personaId: string;
+  seatType: 'basic' | 'pro' | 'enterprise';
+  status: 'active' | 'inactive' | 'pending' | 'suspended' | 'deleted';
+  isSelfPaid: boolean;
+  invitationId?: string;
+}
+
+interface PaymentMethod {
+  id: string;
+  userId: string;
+  paymentType: string;
+  lastFour?: string;
+  brand?: 'visa' | 'mastercard' | 'amex' | 'discover' | 'diners' | 'jcb' | 'unionpay' | 'other';
+  expMonth?: number;
+  expYear?: number;
+  isDefault: boolean;
+  status: 'active' | 'inactive' | 'pending' | 'suspended' | 'deleted';
+}
+
+interface Service {
+  id: string;
+  serviceCode: string;
+  serviceName: string;
+  price: number;
+  serviceType: 'one_time' | 'recurring';
+  deliveryTimeline?: string;
+  features: Record<string, any>;
 }
 
 interface Asset {
@@ -320,7 +392,7 @@ interface FinancialAccount extends Asset {
 
 ## API Specification
 
-Based on REST architecture, this OpenAPI 3.0 specification defines all endpoints. The Node.js/Express layer handles business logic, while stored procedures manage CRUD operations.
+Based on REST architecture, this OpenAPI 3.0 specification defines all endpoints. The NestJS backend handles business logic, while stored procedures manage CRUD operations.
 
 ### REST API Specification
 
@@ -378,19 +450,19 @@ paths:
     post:
       tags: [Authentication]
       summary: Verify email address
-      description: Express validates token format, then verifies via AWS Cognito (no database procedure)
+      description: NestJS service validates token format, then verifies via AWS Cognito (no database procedure)
       
   /auth/verify-phone:
     post:
       tags: [Authentication]
       summary: Verify phone number
-      description: Express validates code format and rate limits, then verifies via AWS Cognito (no database procedure)
+      description: NestJS service validates code format and rate limits, then verifies via AWS Cognito (no database procedure)
       
   /auth/login:
     post:
       tags: [Authentication]
       summary: User login
-      description: Express authenticates via AWS Cognito which handles password validation and JWT generation
+      description: NestJS service authenticates via AWS Cognito which handles password validation and JWT generation
       
   # FFC Management Endpoints
   /ffcs:
@@ -404,7 +476,7 @@ paths:
     get:
       tags: [FFC]
       summary: List user's FFCs
-      description: Express applies filters and pagination, calls sp_get_ffc_summary for each FFC
+      description: NestJS service applies filters and pagination, calls sp_get_ffc_summary for each FFC
       security:
         - bearerAuth: []
         
@@ -416,12 +488,78 @@ paths:
       security:
         - bearerAuth: []
         
+  # Subscription & Payment Endpoints
+  /subscriptions:
+    get:
+      tags: [Subscriptions]
+      summary: Get FFC subscription details
+      description: Retrieves active subscription with plan details and seat assignments
+      security:
+        - bearerAuth: []
+        
+  /subscriptions/plans:
+    get:
+      tags: [Subscriptions]
+      summary: List available plans
+      description: Returns public plans with UI configuration for dynamic rendering
+        
+  /subscriptions/upgrade:
+    post:
+      tags: [Subscriptions]
+      summary: Upgrade subscription plan
+      description: Handles plan transitions with proration via sp_transition_subscription_plan
+      security:
+        - bearerAuth: []
+        
+  /subscriptions/seats:
+    post:
+      tags: [Subscriptions]
+      summary: Assign seat to member
+      description: Process seat invitation via sp_process_seat_invitation
+      security:
+        - bearerAuth: []
+        
+  /payments/methods:
+    post:
+      tags: [Payments]
+      summary: Add payment method
+      description: Store payment method via Stripe, cache details locally
+      security:
+        - bearerAuth: []
+        
+    delete:
+      tags: [Payments]
+      summary: Remove payment method
+      description: Calls sp_delete_payment_method, fails if in use
+      security:
+        - bearerAuth: []
+        
+  /services:
+    get:
+      tags: [Services]
+      summary: List available services
+      description: Returns one-time services like Estate Capture Service
+        
+  /services/purchase:
+    post:
+      tags: [Services]
+      summary: Purchase one-time service
+      description: Process service purchase via sp_purchase_service
+      security:
+        - bearerAuth: []
+        
+  /webhooks/stripe:
+    post:
+      tags: [Webhooks]
+      summary: Stripe webhook endpoint
+      description: Asynchronous processing via sp_process_stripe_webhook
+        
   # Asset Management Endpoints
   /assets:
     post:
       tags: [Assets]
       summary: Create new asset
-      description: Express validates asset data based on category, then calls category-specific stored procedure
+      description: NestJS service validates asset data based on category, then calls category-specific stored procedure
       security:
         - bearerAuth: []
         
@@ -429,7 +567,7 @@ paths:
     get:
       tags: [Assets]
       summary: Get asset details
-      description: Express checks permissions via RLS policies, then sp_get_asset_details
+      description: NestJS service checks permissions via RLS policies, then sp_get_asset_details
       security:
         - bearerAuth: []
         
@@ -444,7 +582,7 @@ paths:
     post:
       tags: [Assets]
       summary: Upload document for asset
-      description: Express handles file upload to S3, triggers Lambda for PII processing (document storage handled in application layer)
+      description: NestJS service handles file upload to S3, triggers Lambda for PII processing (document storage handled in application layer)
       security:
         - bearerAuth: []
         
@@ -453,7 +591,7 @@ paths:
     post:
       tags: [Integrations]
       summary: Connect Quillt account
-      description: Express orchestrates OAuth flow with Quillt, then sp_configure_quillt_integration
+      description: NestJS service orchestrates OAuth flow with Quillt, then sp_configure_quillt_integration
       security:
         - bearerAuth: []
         
@@ -461,7 +599,7 @@ paths:
     post:
       tags: [Integrations]
       summary: Sync Quillt accounts
-      description: Express fetches from Quillt API, processes data, then calls sp_sync_quillt_data
+      description: NestJS service fetches from Quillt API, processes data, then calls sp_sync_quillt_data
       security:
         - bearerAuth: []
         
@@ -470,7 +608,7 @@ paths:
     get:
       tags: [Reports]
       summary: Generate wealth summary report
-      description: Express aggregates data from multiple stored procedures, applies business calculations
+      description: NestJS service aggregates data from multiple stored procedures, applies business calculations
       security:
         - bearerAuth: []
 ```
@@ -495,7 +633,7 @@ Major logical components and services across the fullstack, with clear boundarie
 - **Guard Layer**: TenantIsolationGuard, FfcMembershipGuard, AssetPermissionsGuard for authorization
 - **Interceptor Layer**: Caching, logging, performance monitoring, and tenant context management
 - **AWS Step Functions**: Orchestrate document processing pipeline for PII detection
-- **BullMQ Queue Processors**: Handle async application tasks (notifications, reports, API sync)
+- **SQS Queue Processors**: Handle async application tasks (notifications, reports, API sync)
 - **External Integration Modules**: Dedicated modules for Quillt, Builder.io, Vanta integrations
 
 ### Shared Components
@@ -582,7 +720,7 @@ The database schema is already fully designed with 56 tables and 45+ stored proc
 - Family circles (fwd_family_circles, ffc_personas)
 - Asset management (assets, asset_persona, asset_permissions)
 - Contact normalization (email_address, phone_number, usage tables)
-- Security and audit (audit_log, user_sessions)
+- Security and audit (audit_log, audit_events)
 
 Key stored procedures handle:
 - User registration with normalized contacts
@@ -1038,10 +1176,220 @@ src/
 │   │   ├── quillt/              // Financial sync
 │   │   ├── builder-io/          // CMS integration
 │   │   └── vanta/               // Compliance
-│   └── queues/                   // BullMQ processors
+│   └── queues/                   // SQS message processors
 └── database/
     ├── slonik.provider.ts        // Database connection
     └── repositories/             // Stored procedure calls
+```
+
+### NestJS Controller Implementation
+
+```typescript
+// ffcs.controller.ts - Proper NestJS controller with decorators
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  UsePipes,
+  ValidationPipe,
+  ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantIsolationGuard } from '../common/guards/tenant-isolation.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
+import { LoggingInterceptor } from '../common/interceptors/logging.interceptor';
+import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { FFCService } from './ffc.service';
+import { CreateFFCDto } from './dto/create-ffc.dto';
+import { UpdateFFCDto } from './dto/update-ffc.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { User } from '../users/entities/user.entity';
+import { FFC } from './entities/ffc.entity';
+
+@ApiTags('FFCs')
+@ApiBearerAuth()
+@Controller('ffcs')
+@UseGuards(JwtAuthGuard, TenantIsolationGuard, RolesGuard)
+@UseInterceptors(LoggingInterceptor)
+export class FFCController {
+  private readonly logger = new Logger(FFCController.name);
+
+  constructor(private readonly ffcService: FFCService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new FFC' })
+  @ApiResponse({ status: 201, description: 'FFC created successfully', type: FFC })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async create(
+    @Body() createFFCDto: CreateFFCDto,
+    @CurrentUser() user: User,
+  ): Promise<FFC> {
+    this.logger.log(`Creating FFC for user ${user.id}`);
+    return this.ffcService.create(createFFCDto, user);
+  }
+
+  @Get()
+  @UseInterceptors(CacheInterceptor)
+  @ApiOperation({ summary: 'List all FFCs for current user' })
+  @ApiResponse({ status: 200, description: 'List of FFCs', type: [FFC] })
+  async findAll(
+    @CurrentUser() user: User,
+    @Query('page', { transform: (val) => parseInt(val, 10) || 1 }) page: number,
+    @Query('limit', { transform: (val) => parseInt(val, 10) || 10 }) limit: number,
+  ) {
+    return this.ffcService.findAllForUser(user.id, { page, limit });
+  }
+
+  @Get(':id')
+  @UseInterceptors(CacheInterceptor)
+  @ApiOperation({ summary: 'Get FFC by ID' })
+  @ApiResponse({ status: 200, description: 'FFC details', type: FFC })
+  @ApiResponse({ status: 404, description: 'FFC not found' })
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<FFC> {
+    return this.ffcService.findOne(id, user.id);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update FFC' })
+  @ApiResponse({ status: 200, description: 'FFC updated successfully', type: FFC })
+  @ApiResponse({ status: 404, description: 'FFC not found' })
+  @Roles('admin', 'owner')
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateFFCDto: UpdateFFCDto,
+    @CurrentUser() user: User,
+  ): Promise<FFC> {
+    return this.ffcService.update(id, updateFFCDto, user.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete FFC' })
+  @ApiResponse({ status: 204, description: 'FFC deleted successfully' })
+  @ApiResponse({ status: 404, description: 'FFC not found' })
+  @Roles('owner')
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ): Promise<void> {
+    await this.ffcService.remove(id, user.id);
+  }
+
+  @Post(':id/members')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Invite member to FFC' })
+  @ApiResponse({ status: 201, description: 'Invitation sent successfully' })
+  @Roles('admin', 'owner')
+  async inviteMember(
+    @Param('id', ParseUUIDPipe) ffcId: string,
+    @Body() inviteMemberDto: InviteMemberDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.ffcService.inviteMember(ffcId, inviteMemberDto, user);
+  }
+}
+
+// DTOs with class-validator decorators
+// create-ffc.dto.ts
+import { IsNotEmpty, IsString, MaxLength, IsOptional } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class CreateFFCDto {
+  @ApiProperty({ description: 'Name of the FFC', maxLength: 100 })
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ description: 'Description of the FFC', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+}
+
+// Service implementation with database calls
+// ffc.service.ts
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectSlonik } from 'nestjs-slonik';
+import { DatabasePool, sql } from 'slonik';
+import { CreateFFCDto } from './dto/create-ffc.dto';
+import { User } from '../users/entities/user.entity';
+
+@Injectable()
+export class FFCService {
+  constructor(@InjectSlonik() private readonly pool: DatabasePool) {}
+
+  async create(createFFCDto: CreateFFCDto, user: User) {
+    const result = await this.pool.connect(async (connection) => {
+      // Set session context for RLS
+      await connection.query(sql`
+        SELECT sp_set_session_context(${user.tenantId}::int, ${user.id}::uuid)
+      `);
+      
+      // Call stored procedure
+      return connection.one(sql`
+        SELECT * FROM sp_create_ffc(
+          ${user.tenantId}::int,
+          ${user.id}::uuid,
+          ${createFFCDto.name}::text,
+          ${createFFCDto.description || null}::text
+        )
+      `);
+    });
+
+    return result;
+  }
+
+  async findAllForUser(userId: string, pagination: { page: number; limit: number }) {
+    const offset = (pagination.page - 1) * pagination.limit;
+    
+    return this.pool.connect(async (connection) => {
+      const ffcs = await connection.query(sql`
+        SELECT f.*, sp_get_ffc_summary(f.id) as summary
+        FROM fwd_family_circles f
+        JOIN ffc_personas fp ON f.id = fp.ffc_id
+        JOIN personas p ON fp.persona_id = p.id
+        WHERE p.user_id = ${userId}::uuid
+        LIMIT ${pagination.limit}
+        OFFSET ${offset}
+      `);
+      
+      return ffcs.rows;
+    });
+  }
+
+  async findOne(id: string, userId: string) {
+    const ffc = await this.pool.maybeOne(sql`
+      SELECT * FROM sp_get_ffc_summary(${id}::uuid)
+      WHERE is_ffc_member(${id}::uuid, ${userId}::uuid)
+    `);
+
+    if (!ffc) {
+      throw new NotFoundException(`FFC with ID ${id} not found`);
+    }
+
+    return ffc;
+  }
+}
 ```
 
 ### AWS Step Functions Document Processing
@@ -1173,13 +1521,356 @@ export class TenantIsolationGuard implements CanActivate {
 }
 ```
 
-### In-Memory Caching Strategy (Cost-Optimized MVP)
+### AWS Cognito Authentication Flows
+
+#### User Registration Flow
+```typescript
+// registration.service.ts
+import { CognitoIdentityProviderClient, SignUpCommand, ConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class RegistrationService {
+  private cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
+  
+  async registerUser(dto: RegisterUserDto) {
+    // Step 1: Register user with Cognito
+    const signUpCommand = new SignUpCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: dto.email,
+      Password: dto.password,
+      UserAttributes: [
+        { Name: 'email', Value: dto.email },
+        { Name: 'phone_number', Value: dto.phoneNumber },
+        { Name: 'given_name', Value: dto.firstName },
+        { Name: 'family_name', Value: dto.lastName },
+        { Name: 'custom:tenant_id', Value: dto.tenantId.toString() },
+      ],
+    });
+    
+    const cognitoResponse = await this.cognitoClient.send(signUpCommand);
+    
+    // Step 2: Create user record in database (after email verification)
+    // This happens in the confirmRegistration method below
+    
+    return {
+      userSub: cognitoResponse.UserSub,
+      codeDeliveryDetails: cognitoResponse.CodeDeliveryDetails,
+    };
+  }
+  
+  async confirmRegistration(email: string, code: string) {
+    // Step 1: Confirm signup with Cognito
+    const confirmCommand = new ConfirmSignUpCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: email,
+      ConfirmationCode: code,
+    });
+    
+    await this.cognitoClient.send(confirmCommand);
+    
+    // Step 2: Get user details from Cognito
+    const userDetails = await this.getUserFromCognito(email);
+    
+    // Step 3: Create user in database
+    await this.databaseService.query(sql`
+      SELECT * FROM sp_create_user_from_cognito(
+        ${userDetails.tenantId}::int,
+        ${userDetails.sub}::text,
+        ${userDetails.email}::text,
+        ${userDetails.email}::text,
+        ${userDetails.phoneNumber}::text,
+        ${userDetails.firstName}::text,
+        ${userDetails.lastName}::text
+      )
+    `);
+    
+    return { success: true };
+  }
+}
+```
+
+#### User Login Flow (Standard)
+```typescript
+// auth.service.ts
+import { 
+  CognitoIdentityProviderClient, 
+  InitiateAuthCommand,
+  RespondToAuthChallengeCommand 
+} from '@aws-sdk/client-cognito-identity-provider';
+
+@Injectable()
+export class AuthService {
+  private cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
+  
+  async login(email: string, password: string) {
+    try {
+      // Step 1: Initiate authentication with Cognito
+      const authCommand = new InitiateAuthCommand({
+        AuthFlow: 'USER_SRP_AUTH',
+        ClientId: process.env.COGNITO_CLIENT_ID,
+        AuthParameters: {
+          USERNAME: email,
+          PASSWORD: password,
+        },
+      });
+      
+      const authResponse = await this.cognitoClient.send(authCommand);
+      
+      // Step 2: Handle MFA challenge if required
+      if (authResponse.ChallengeName === 'SMS_MFA') {
+        return {
+          requiresMfa: true,
+          session: authResponse.Session,
+          challengeType: 'SMS_MFA',
+        };
+      }
+      
+      // Step 3: Extract tokens
+      const tokens = authResponse.AuthenticationResult;
+      
+      // Step 4: Decode ID token to get user claims
+      const idTokenPayload = this.decodeToken(tokens.IdToken);
+      
+      // Step 5: Log authentication event
+      await this.auditService.logAuthEvent(idTokenPayload.sub, 'LOGIN_SUCCESS');
+      
+      return {
+        accessToken: tokens.AccessToken,
+        idToken: tokens.IdToken,
+        refreshToken: tokens.RefreshToken,
+        expiresIn: tokens.ExpiresIn,
+        user: {
+          id: idTokenPayload.sub,
+          email: idTokenPayload.email,
+          tenantId: idTokenPayload['custom:tenant_id'],
+        },
+      };
+    } catch (error) {
+      await this.auditService.logAuthEvent(email, 'LOGIN_FAILED');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
+  
+  async refreshTokens(refreshToken: string) {
+    const command = new InitiateAuthCommand({
+      AuthFlow: 'REFRESH_TOKEN_AUTH',
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      AuthParameters: {
+        REFRESH_TOKEN: refreshToken,
+      },
+    });
+    
+    const response = await this.cognitoClient.send(command);
+    return response.AuthenticationResult;
+  }
+  
+  async logout(accessToken: string) {
+    // Cognito doesn't support token revocation for user pools
+    // Instead, use AdminUserGlobalSignOut for force logout
+    // Or maintain a token blacklist with short TTL in cache
+    await this.cacheService.blacklistToken(accessToken, 3600); // 1 hour TTL
+  }
+}
+```
+
+#### MFA Setup and Authentication Flow
+```typescript
+// mfa.service.ts
+import { 
+  AssociateSoftwareTokenCommand,
+  VerifySoftwareTokenCommand,
+  SetUserMFAPreferenceCommand,
+  RespondToAuthChallengeCommand
+} from '@aws-sdk/client-cognito-identity-provider';
+
+@Injectable()
+export class MfaService {
+  private cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
+  
+  // Setup TOTP MFA
+  async setupTotpMfa(accessToken: string) {
+    // Step 1: Associate software token
+    const associateCommand = new AssociateSoftwareTokenCommand({
+      AccessToken: accessToken,
+    });
+    
+    const response = await this.cognitoClient.send(associateCommand);
+    
+    // Step 2: Generate QR code URL for authenticator app
+    const otpauthUrl = `otpauth://totp/FWD-INH:${email}?secret=${response.SecretCode}&issuer=FWD-INH`;
+    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+    
+    return {
+      secretCode: response.SecretCode,
+      qrCode: qrCodeDataUrl,
+      session: response.Session,
+    };
+  }
+  
+  // Verify TOTP token and enable MFA
+  async verifyTotpToken(accessToken: string, totpCode: string, session: string) {
+    // Step 1: Verify the TOTP code
+    const verifyCommand = new VerifySoftwareTokenCommand({
+      AccessToken: accessToken,
+      UserCode: totpCode,
+      Session: session,
+    });
+    
+    await this.cognitoClient.send(verifyCommand);
+    
+    // Step 2: Set MFA preference
+    const preferenceCommand = new SetUserMFAPreferenceCommand({
+      AccessToken: accessToken,
+      SoftwareTokenMfaSettings: {
+        Enabled: true,
+        PreferredMfa: true,
+      },
+    });
+    
+    await this.cognitoClient.send(preferenceCommand);
+    
+    return { mfaEnabled: true };
+  }
+  
+  // Complete MFA challenge during login
+  async completeMfaChallenge(session: string, mfaCode: string, challengeType: string) {
+    const challengeResponses: any = {};
+    
+    if (challengeType === 'SMS_MFA') {
+      challengeResponses.SMS_MFA_CODE = mfaCode;
+    } else if (challengeType === 'SOFTWARE_TOKEN_MFA') {
+      challengeResponses.SOFTWARE_TOKEN_MFA_CODE = mfaCode;
+    }
+    
+    const command = new RespondToAuthChallengeCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      ChallengeName: challengeType,
+      Session: session,
+      ChallengeResponses: challengeResponses,
+    });
+    
+    const response = await this.cognitoClient.send(command);
+    
+    return {
+      accessToken: response.AuthenticationResult.AccessToken,
+      idToken: response.AuthenticationResult.IdToken,
+      refreshToken: response.AuthenticationResult.RefreshToken,
+    };
+  }
+}
+```
+
+#### Password Reset Flow
+```typescript
+// password-reset.service.ts
+import { 
+  ForgotPasswordCommand,
+  ConfirmForgotPasswordCommand 
+} from '@aws-sdk/client-cognito-identity-provider';
+
+@Injectable()
+export class PasswordResetService {
+  private cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
+  
+  async initiatePasswordReset(email: string) {
+    const command = new ForgotPasswordCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: email,
+    });
+    
+    const response = await this.cognitoClient.send(command);
+    
+    await this.auditService.logAuthEvent(email, 'PASSWORD_RESET_INITIATED');
+    
+    return {
+      codeDeliveryDetails: response.CodeDeliveryDetails,
+    };
+  }
+  
+  async confirmPasswordReset(email: string, code: string, newPassword: string) {
+    const command = new ConfirmForgotPasswordCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: email,
+      ConfirmationCode: code,
+      Password: newPassword,
+    });
+    
+    await this.cognitoClient.send(command);
+    
+    await this.auditService.logAuthEvent(email, 'PASSWORD_RESET_COMPLETED');
+    
+    return { success: true };
+  }
+}
+```
+
+#### JWT Token Validation Middleware
+```typescript
+// jwt.guard.ts
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
+
+@Injectable()
+export class JwtAuthGuard implements CanActivate {
+  private verifier = CognitoJwtVerifier.create({
+    userPoolId: process.env.COGNITO_USER_POOL_ID,
+    tokenUse: 'access',
+    clientId: process.env.COGNITO_CLIENT_ID,
+  });
+  
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = this.extractTokenFromHeader(request);
+    
+    if (!token) {
+      return false;
+    }
+    
+    try {
+      // Verify token with Cognito public keys
+      const payload = await this.verifier.verify(token);
+      
+      // Add user info to request
+      request.user = {
+        id: payload.sub,
+        email: payload.username,
+        tenantId: payload['custom:tenant_id'],
+        scope: payload.scope,
+      };
+      
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  private extractTokenFromHeader(request: any): string | undefined {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
+  }
+}
+```
+
+### Progressive Caching Strategy (Cost-Optimized)
+
+#### Caching Progression Path
+1. **Phase 1 (0-5K families)**: In-memory caching only - $0/month
+2. **Phase 2 (5K-20K families)**: DynamoDB for sessions - $5-10/month  
+3. **Phase 3 (20K+ families)**: Upstash Redis - $10-30/month pay-per-request
+4. **Phase 4 (Enterprise)**: ElastiCache only if required - $150+/month
+
+#### Cost Comparison
+- **In-Memory**: $0/month (uses existing compute)
+- **DynamoDB**: $0.25/GB/month + minimal request costs
+- **Upstash Redis**: $0.20 per 100K commands (serverless pricing)
+- **ElastiCache**: $150-500/month (always-on instances)
 
 #### Rationale
-- **Cost Savings**: $0/month vs $200-500/month for Redis
-- **Performance**: Sub-millisecond access for cached data
-- **Simplicity**: No additional infrastructure to manage
-- **Sufficient for MVP**: 1-2 ECS instances handle thousands of families
+- **90% Cost Reduction**: DynamoDB/Upstash costs 10% of ElastiCache
+- **Pay-Per-Use**: Only pay for actual usage, not idle capacity
+- **Progressive Scaling**: Start free, scale costs with revenue
+- **No Operations Overhead**: All options are fully managed
 
 #### Implementation
 ```typescript
@@ -1357,8 +2048,10 @@ export const targetGroupConfig = {
 ```
 
 #### Progressive Enhancement Path
+
+##### Phase 1: In-Memory Cache (Default)
 ```typescript
-// cache/cache.module.ts - Easy migration to Redis when needed
+// cache/cache.module.ts - Progressive caching strategy
 @Module({
   providers: [
     {
@@ -1368,11 +2061,13 @@ export const targetGroupConfig = {
         
         switch (cacheType) {
           case 'memory':
-            return new InMemoryCacheService(); // MVP
-          case 'redis':
-            return new RedisCacheService();    // Phase 2 (10K+ families)
+            return new InMemoryCacheService(); // MVP - $0/month
+          case 'dynamodb':
+            return new DynamoDBCacheService();  // Phase 2 - $5-10/month
+          case 'upstash':
+            return new UpstashRedisService();   // Phase 3 - $10-30/month
           case 'hybrid':
-            return new HybridCacheService();   // Memory + Redis fallback
+            return new HybridCacheService();    // Memory + DynamoDB fallback
           default:
             return new InMemoryCacheService();
         }
@@ -1383,6 +2078,81 @@ export const targetGroupConfig = {
   exports: ['CACHE_SERVICE'],
 })
 export class CacheModule {}
+```
+
+##### Phase 2: DynamoDB Session Storage
+```typescript
+// cache/dynamodb-cache.service.ts
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+
+@Injectable()
+export class DynamoDBCacheService implements CacheService {
+  private client: DynamoDBDocumentClient;
+  private tableName = 'fwd-sessions';
+  
+  constructor() {
+    const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
+    this.client = DynamoDBDocumentClient.from(ddbClient);
+  }
+
+  async get(key: string): Promise<any> {
+    const command = new GetCommand({
+      TableName: this.tableName,
+      Key: { sessionId: key }
+    });
+    
+    const response = await this.client.send(command);
+    if (!response.Item || response.Item.ttl < Date.now() / 1000) {
+      return null;
+    }
+    return response.Item.data;
+  }
+
+  async set(key: string, value: any, ttl: number = 3600): Promise<void> {
+    const command = new PutCommand({
+      TableName: this.tableName,
+      Item: {
+        sessionId: key,
+        data: value,
+        ttl: Math.floor(Date.now() / 1000) + ttl,
+        createdAt: new Date().toISOString()
+      }
+    });
+    
+    await this.client.send(command);
+  }
+}
+```
+
+##### Phase 3: Upstash Redis (Serverless)
+```typescript
+// cache/upstash-redis.service.ts
+import { Redis } from '@upstash/redis';
+
+@Injectable()
+export class UpstashRedisService implements CacheService {
+  private redis: Redis;
+  
+  constructor() {
+    this.redis = new Redis({
+      url: process.env.UPSTASH_REDIS_URL,
+      token: process.env.UPSTASH_REDIS_TOKEN,
+    });
+  }
+
+  async get(key: string): Promise<any> {
+    const value = await this.redis.get(key);
+    return value ? JSON.parse(value as string) : null;
+  }
+
+  async set(key: string, value: any, ttl: number = 3600): Promise<void> {
+    await this.redis.setex(key, ttl, JSON.stringify(value));
+  }
+  
+  // Pay-per-request: ~$0.20 per 100K commands
+  // No idle costs, perfect for variable traffic
+}
 ```
 
 ### Real-Time WebSocket Layer with Socket.io
@@ -1734,43 +2504,83 @@ export function AssetDetail({ assetId }: { assetId: string }) {
 ```
 
 #### Scaling Considerations
+
+##### Option 1: Sticky Sessions (Simplest, $0/month)
 ```typescript
-// websocket/websocket-adapter.ts - Redis adapter for horizontal scaling
+// For MVP: Use ALB sticky sessions, no adapter needed
+// websocket/websocket.gateway.ts
+@WebSocketGateway({
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  },
+})
+export class EventsGateway {
+  // No special adapter needed with sticky sessions
+  // ALB ensures same client always hits same server
+}
+
+// ALB configuration ensures WebSocket affinity
+const albConfig = {
+  targetGroup: {
+    protocol: 'HTTP',
+    stickiness: {
+      enabled: true,
+      duration: 86400, // 24 hours
+      type: 'app_cookie',
+      cookieName: 'AWSALBAPP'
+    }
+  }
+};
+```
+
+##### Option 2: DynamoDB Adapter (Scaling, $5-10/month)
+```typescript
+// websocket/dynamodb-adapter.ts - Cost-effective horizontal scaling
 import { IoAdapter } from '@nestjs/platform-socket.io';
-import { createAdapter } from '@socket.io/redis-adapter';
-import { createClient } from 'redis';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
-export class RedisIoAdapter extends IoAdapter {
-  private adapterConstructor: ReturnType<typeof createAdapter>;
+export class DynamoDBAdapter extends IoAdapter {
+  private dynamodb: DynamoDBClient;
+  private tableName = 'websocket-connections';
 
-  async connectToRedis(): Promise<void> {
-    const pubClient = createClient({
-      url: process.env.REDIS_URL,
-    });
-    
-    const subClient = pubClient.duplicate();
+  constructor(app: any) {
+    super(app);
+    this.dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION });
+  }
 
-    await Promise.all([pubClient.connect(), subClient.connect()]);
-
-    this.adapterConstructor = createAdapter(pubClient, subClient);
+  async storeConnection(connectionId: string, serverId: string): Promise<void> {
+    // Store connection-to-server mapping in DynamoDB
+    // Cost: ~$0.25/GB/month + minimal request costs
   }
 
   createIOServer(port: number, options?: any): any {
     const server = super.createIOServer(port, options);
-    
-    if (process.env.NODE_ENV === 'production' && process.env.USE_REDIS === 'true') {
-      server.adapter(this.adapterConstructor);
-    }
-    
+    // Use DynamoDB for connection state, not pub/sub
     return server;
   }
 }
+```
 
-// Usage in main.ts (only when scaling beyond 1 instance)
-if (process.env.USE_REDIS === 'true') {
-  const redisIoAdapter = new RedisIoAdapter(app);
-  await redisIoAdapter.connectToRedis();
-  app.useWebSocketAdapter(redisIoAdapter);
+##### Option 3: Upstash Redis Adapter (High Scale, $10-30/month)
+```typescript
+// websocket/upstash-adapter.ts - Pay-per-request WebSocket scaling
+import { IoAdapter } from '@nestjs/platform-socket.io';
+import { Redis } from '@upstash/redis';
+
+export class UpstashAdapter extends IoAdapter {
+  private redis: Redis;
+
+  constructor(app: any) {
+    super(app);
+    this.redis = new Redis({
+      url: process.env.UPSTASH_REDIS_URL,
+      token: process.env.UPSTASH_REDIS_TOKEN,
+    });
+  }
+
+  // Upstash charges $0.20 per 100K commands
+  // Perfect for variable traffic patterns
 }
 ```
 
@@ -2803,27 +3613,58 @@ export class ProjectionService {
 5. **SOC 2 Compliance** - Immutable audit logs
 6. **Tax Reporting** - Historical valuations for tax purposes
 
-### Queue Processing with BullMQ
+### Queue Processing with AWS SQS
 ```typescript
-// Application-level async tasks (uses in-memory for job state in MVP)
-@Processor('notifications')
+// Application-level async tasks using AWS SQS
+import { SQSClient, SendMessageCommand, ReceiveMessageCommand } from '@aws-sdk/client-sqs';
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
 export class NotificationProcessor {
+  private sqsClient: SQSClient;
+  private queueUrl: string;
+
   constructor(
     private readonly websocketGateway: CollaborationGateway,
-  ) {}
+    private readonly emailService: EmailService,
+  ) {
+    this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
+    this.queueUrl = process.env.NOTIFICATION_QUEUE_URL;
+  }
 
-  @Process('document-ready')
-  async sendDocumentReadyNotification(job: Job) {
-    const { userId, documentId } = job.data;
-    
-    // Send real-time notification via WebSocket
-    await this.websocketGateway.notifyUser(userId, {
-      type: 'document:ready',
-      documentId,
+  async sendNotification(type: string, data: any) {
+    const command = new SendMessageCommand({
+      QueueUrl: this.queueUrl,
+      MessageBody: JSON.stringify({ type, data }),
+      MessageAttributes: {
+        type: { DataType: 'String', StringValue: type }
+      }
     });
     
-    // Also send email/SMS
-    await this.emailService.sendDocumentReadyEmail(userId, documentId);
+    await this.sqsClient.send(command);
+  }
+
+  async processMessages() {
+    const command = new ReceiveMessageCommand({
+      QueueUrl: this.queueUrl,
+      MaxNumberOfMessages: 10,
+      WaitTimeSeconds: 20, // Long polling
+    });
+
+    const response = await this.sqsClient.send(command);
+    
+    for (const message of response.Messages || []) {
+      const { type, data } = JSON.parse(message.Body);
+      
+      if (type === 'document-ready') {
+        await this.websocketGateway.notifyUser(data.userId, {
+          type: 'document:ready',
+          documentId: data.documentId,
+        });
+        
+        await this.emailService.sendDocumentReadyEmail(data.userId, data.documentId);
+      }
+    }
   }
 }
 ```
@@ -2831,7 +3672,7 @@ export class NotificationProcessor {
 ## Unified Project Structure
 
 ```plaintext
-forward-inheritance/
+fwd-inh/
 ├── .github/                        # CI/CD workflows
 ├── apps/                           # Application packages
 │   ├── web/                        # Frontend React application
@@ -2869,6 +3710,67 @@ Monorepo managed with npm workspaces for simplicity in MVP.
 - Database change flow with migrations
 - API development flow
 - Debugging and troubleshooting guides
+
+## Cost Optimization Strategy
+
+### Progressive Infrastructure Scaling
+
+#### Phase 1: MVP (0-5K families) - $50-100/month
+- **Compute**: 1-2 ECS Fargate tasks (0.5 vCPU, 1GB RAM)
+- **Database**: RDS t3.micro PostgreSQL
+- **Caching**: In-memory only (no additional cost)
+- **Sessions**: JWT tokens (stateless, no storage)
+- **Queue**: SQS (pay-per-message)
+- **WebSockets**: Single instance with sticky sessions
+
+#### Phase 2: Growth (5K-20K families) - $200-400/month
+- **Compute**: 2-4 ECS Fargate tasks (1 vCPU, 2GB RAM)
+- **Database**: RDS t3.small PostgreSQL with read replica
+- **Caching**: DynamoDB for sessions ($5-10/month)
+- **Sessions**: DynamoDB with TTL ($0.25/GB/month)
+- **Queue**: SQS with DLQ
+- **WebSockets**: Multiple instances with DynamoDB state
+
+#### Phase 3: Scale (20K+ families) - $500-1000/month
+- **Compute**: Auto-scaling ECS (2-8 tasks)
+- **Database**: RDS m5.large with Multi-AZ
+- **Caching**: Upstash Redis ($10-30/month pay-per-request)
+- **Sessions**: Upstash Redis (serverless pricing)
+- **Queue**: SQS with fan-out to SNS
+- **WebSockets**: Upstash Redis adapter
+
+#### Phase 4: Enterprise (Custom pricing)
+- **Compute**: EKS or dedicated ECS cluster
+- **Database**: Aurora PostgreSQL Serverless v2
+- **Caching**: ElastiCache only if required ($150+/month)
+- **Sessions**: Dedicated session store
+- **Queue**: EventBridge with Step Functions
+- **WebSockets**: Managed WebSocket API Gateway
+
+### Cost Comparison: Traditional vs Optimized
+
+| Component | Traditional Approach | Optimized Approach | Monthly Savings |
+|-----------|---------------------|-------------------|-----------------|
+| Caching | ElastiCache ($150-500) | DynamoDB/Upstash ($5-30) | $145-470 |
+| Queue | Self-managed Redis ($50-100) | AWS SQS ($0-20) | $50-80 |
+| Sessions | Redis Cluster ($100-200) | DynamoDB ($5-10) | $95-190 |
+| WebSockets | Redis Pub/Sub ($50-100) | Sticky Sessions/DynamoDB ($0-10) | $50-90 |
+| **Total** | **$350-900/month** | **$10-70/month** | **$340-830/month** |
+
+### Key Cost Optimization Principles
+
+1. **Start with Zero-Cost Solutions**: In-memory caching, JWT tokens, sticky sessions
+2. **Use Serverless When Possible**: SQS, DynamoDB, Lambda for one-off tasks
+3. **Pay-Per-Use Over Always-On**: Upstash Redis vs ElastiCache
+4. **Progressive Enhancement**: Only add infrastructure when revenue justifies it
+5. **Monitor and Right-Size**: Use CloudWatch to track actual usage
+
+### Break-Even Analysis
+
+- **In-Memory Only**: Supports up to 5,000 families at $0 additional cost
+- **DynamoDB Sessions**: Adds $5-10/month, supports 20,000 families
+- **Upstash Redis**: Adds $10-30/month, supports 50,000+ families
+- **ElastiCache**: Only justified at 100,000+ families or enterprise requirements
 
 ## Deployment Architecture
 
@@ -2969,26 +3871,29 @@ Content-Security-Policy:
 
 #### Authentication Security
 
-**Token Management**
-- JWT access tokens (15-minute expiry)
-- Refresh tokens (7-day expiry with rotation)
-- Token rotation on each refresh
-- Blacklist for revoked tokens in Redis
-- Multi-device session tracking
+**Token Management (AWS Cognito)**
+- JWT Access tokens (1 hour expiry - Cognito default)
+- JWT ID tokens (1 hour expiry - contains user claims)
+- Refresh tokens (30 days default, configurable up to 10 years)
+- Token refresh handled via Cognito RefreshToken API
+- Multi-device support with device tracking in Cognito
 
-**Session Management**
-- Database-backed sessions in `user_sessions` table
-- Session fingerprinting (IP + User Agent hash)
-- Concurrent session limits (5 devices max)
-- Force logout on suspicious activity
-- Session activity tracking and audit logs
+**Session Management (Cognito-Based)**
+- Stateless JWT-based authentication (no database sessions)
+- Device fingerprinting via Cognito device tracking
+- Concurrent device limits enforced by Cognito
+- Global sign-out via AdminUserGlobalSignOut API
+- Session activity tracked in CloudWatch Logs
+- No session tables required in database
 
-**Password Requirements**
-- Minimum 12 characters
-- Requires uppercase, lowercase, number, special character
-- Password history (last 5 passwords)
-- Argon2id hashing with salt
-- Password expiry after 90 days (configurable)
+**Password Requirements (Managed by AWS Cognito)**
+- Minimum 12 characters (configured in User Pool)
+- Requires uppercase, lowercase, number, special character (Cognito policy)
+- Password history tracking (last 5 passwords - Cognito managed)
+- Secure Remote Password (SRP) protocol for authentication
+- Password expiry after 90 days (configured in Cognito)
+- Temporary passwords for admin-created users
+- Self-service password reset via email/SMS
 
 #### PII Protection (AWS Architecture)
 
@@ -3070,11 +3975,11 @@ Content-Security-Policy:
 ```
 
 **Caching Strategy**
-- Redis for session storage and hot data
+- In-memory caching for hot data (MVP), DynamoDB/Upstash for scale
 - 5-minute cache for user permissions
 - 1-hour cache for asset listings
 - API Gateway caching for GET requests
-- Database query result caching in Redis
+- Database query result caching in memory (MVP), DynamoDB/Upstash for scale
 - CloudFront caching for static API responses
 
 **Auto-scaling Configuration**
@@ -3355,75 +4260,100 @@ describe('useAuth Hook', () => {
 #### Backend API Test
 
 ```typescript
-// auth.controller.test.ts - Unit Test
+// auth.controller.spec.ts - NestJS Unit Test
+import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
-import { AuthService } from '@/services/auth.service';
-import { Request, Response } from 'express';
-
-jest.mock('@/services/auth.service');
+import { AuthService } from './auth.service';
+import { CognitoService } from '../cognito/cognito.service';
+import { LoginDto } from './dto/login.dto';
+import { UnauthorizedException } from '@nestjs/common';
 
 describe('AuthController', () => {
   let controller: AuthController;
-  let authService: jest.Mocked<AuthService>;
-  let req: Partial<Request>;
-  let res: Partial<Response>;
+  let authService: AuthService;
+  let cognitoService: CognitoService;
 
-  beforeEach(() => {
-    authService = new AuthService() as jest.Mocked<AuthService>;
-    controller = new AuthController(authService);
-    
-    req = {
-      body: {},
-      params: {},
-      headers: {},
-    };
-    
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-      cookie: jest.fn().mockReturnThis(),
-    };
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AuthController],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            validateCredentials: jest.fn(),
+            generateTokens: jest.fn(),
+            createUser: jest.fn(),
+          },
+        },
+        {
+          provide: CognitoService,
+          useValue: {
+            authenticateUser: jest.fn(),
+            signUp: jest.fn(),
+            verifyToken: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    controller = module.get<AuthController>(AuthController);
+    authService = module.get<AuthService>(AuthService);
+    cognitoService = module.get<CognitoService>(CognitoService);
   });
 
-  describe('POST /login', () => {
-    it('returns token on successful login', async () => {
-      req.body = { email: 'test@example.com', password: 'password123' };
+  describe('login', () => {
+    it('should return tokens on successful login', async () => {
+      const loginDto: LoginDto = { 
+        email: 'test@example.com', 
+        password: 'password123' 
+      };
       
-      authService.validateCredentials.mockResolvedValue({
+      const mockUser = {
         userId: 'user-123',
         email: 'test@example.com',
-      });
-      
-      authService.generateTokens.mockReturnValue({
+        tenantId: 1,
+      };
+
+      const mockTokens = {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-      });
+        idToken: 'id-token',
+      };
 
-      await controller.login(req as Request, res as Response);
+      jest.spyOn(cognitoService, 'authenticateUser').mockResolvedValue(mockTokens);
+      jest.spyOn(authService, 'validateCredentials').mockResolvedValue(mockUser);
 
-      expect(res.cookie).toHaveBeenCalledWith('refreshToken', 'refresh-token', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
+      const result = await controller.login(loginDto);
+
+      expect(result).toEqual({
+        accessToken: mockTokens.accessToken,
+        refreshToken: mockTokens.refreshToken,
+        user: mockUser,
       });
-      
-      expect(res.json).toHaveBeenCalledWith({
-        accessToken: 'access-token',
-        user: { userId: 'user-123', email: 'test@example.com' },
-      });
+      expect(cognitoService.authenticateUser).toHaveBeenCalledWith(
+        loginDto.email,
+        loginDto.password
+      );
     });
 
-    it('returns 401 on invalid credentials', async () => {
-      req.body = { email: 'test@example.com', password: 'wrong' };
+    it('should throw UnauthorizedException on invalid credentials', async () => {
+      const loginDto: LoginDto = { 
+        email: 'test@example.com', 
+        password: 'wrong' 
+      };
       
-      authService.validateCredentials.mockResolvedValue(null);
+      jest.spyOn(cognitoService, 'authenticateUser').mockRejectedValue(
+        new UnauthorizedException('Invalid credentials')
+      );
 
-      await controller.login(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'Invalid credentials',
-      });
+      await expect(controller.login(loginDto)).rejects.toThrow(
+        UnauthorizedException
+      );
+      
+      expect(cognitoService.authenticateUser).toHaveBeenCalledWith(
+        loginDto.email,
+        loginDto.password
+      );
     });
   });
 });
@@ -3641,10 +4571,8 @@ jobs:
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
+      # Note: For production, use DynamoDB ($5-10/month) or Upstash Redis ($10-30/month)
+      # Both provide pay-per-use pricing vs ElastiCache's $150+/month always-on cost
     steps:
       - uses: actions/checkout@v3
       - run: npm ci
@@ -4440,61 +5368,123 @@ class DatabaseError extends AppError {
 }
 ```
 
-#### Express Error Middleware
+#### NestJS Exception Filter
 
 ```typescript
 /**
- * Global error handling middleware
+ * Global exception filter for NestJS
  */
-export const errorHandler: ErrorRequestHandler = (
-  err: Error | AppError,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  // Log error with context
-  logger.error('Request error', {
-    error: err.message,
-    stack: err.stack,
-    url: req.url,
-    method: req.method,
-    body: req.body,
-    user: req.user?.id,
-    requestId: req.id,
-  });
-  
-  // Handle known application errors
-  if (err instanceof AppError) {
-    return res.status(err.statusCode).json(err.toJSON());
-  }
-  
-  // Handle Joi validation errors
-  if (err.name === 'ValidationError' && err.details) {
-    const validationError = new ValidationError(
-      'Validation failed',
-      err.details[0].path.join('.'),
-      { errors: err.details }
+import { 
+  ExceptionFilter, 
+  Catch, 
+  ArgumentsHost, 
+  HttpException,
+  HttpStatus,
+  Logger 
+} from '@nestjs/common';
+import { Response } from 'express';
+import { SlonikError, InvalidInputError, DataIntegrityError } from 'slonik';
+
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
+  catch(exception: unknown, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest();
+
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message = 'Internal server error';
+    let error: any = {};
+
+    // Handle HTTP exceptions
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const exceptionResponse = exception.getResponse();
+      message = exception.message;
+      
+      if (typeof exceptionResponse === 'object') {
+        error = exceptionResponse;
+      }
+    }
+    // Handle Slonik database errors
+    else if (exception instanceof SlonikError) {
+      if (exception instanceof InvalidInputError) {
+        status = HttpStatus.BAD_REQUEST;
+        message = 'Invalid database input';
+      } else if (exception instanceof DataIntegrityError) {
+        status = HttpStatus.CONFLICT;
+        message = 'Data integrity violation';
+      } else {
+        status = HttpStatus.INTERNAL_SERVER_ERROR;
+        message = 'Database operation failed';
+      }
+      error = {
+        code: exception.code,
+        message: exception.message,
+      };
+      
+      // Handle specific PostgreSQL errors
+      if ((exception as any).code?.startsWith('23')) {
+        if ((exception as any).code === '23505') {
+          message = 'Duplicate entry detected';
+          status = HttpStatus.CONFLICT;
+        } else if ((exception as any).code === '23503') {
+          message = 'Foreign key constraint violation';
+        }
+      }
+    }
+    // Handle validation errors
+    else if ((exception as any)?.name === 'ValidationError') {
+      status = HttpStatus.BAD_REQUEST;
+      message = 'Validation failed';
+      error = {
+        errors: (exception as any).details || (exception as any).errors,
+      };
+    }
+    // Handle custom AppError
+    else if (exception instanceof AppError) {
+      status = exception.statusCode;
+      message = exception.message;
+      error = exception.toJSON();
+    }
+    
+    // Log the error
+    this.logger.error(
+      `${request.method} ${request.url} - ${status} - ${message}`,
+      {
+        error: exception,
+        stack: (exception as any)?.stack,
+        userId: request.user?.id,
+        requestId: request.id,
+        body: request.body,
+      }
     );
-    return res.status(400).json(validationError.toJSON());
+
+    // Send response
+    response.status(status).json({
+      statusCode: status,
+      message,
+      error,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+    });
   }
+}
+
+// Register in main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
   
-  // Handle database errors
-  if (err.code && err.code.startsWith('23')) { // PostgreSQL error codes
-    const dbError = new DatabaseError(err);
-    return res.status(500).json(dbError.toJSON());
-  }
+  // Register global exception filter
+  app.useGlobalFilters(new AllExceptionsFilter());
   
-  // Default server error
-  const serverError = new AppError(
-    ErrorCode.SERVER_INTERNAL_ERROR,
-    'An unexpected error occurred',
-    500,
-    undefined,
-    true
-  );
-  
-  res.status(500).json(serverError.toJSON());
-};
+  await app.listen(3000);
+}
 ```
 
 #### Service Layer Error Handling
@@ -5352,7 +6342,7 @@ app.get('/health/detailed', async (req, res) => {
   const checks = {
     api: 'ok',
     database: 'unknown',
-    redis: 'unknown',
+    cache: 'unknown',
     s3: 'unknown',
     external_apis: {},
   };
@@ -5365,12 +6355,12 @@ app.get('/health/detailed', async (req, res) => {
     checks.database = 'error';
   }
   
-  // Redis check
+  // Cache check (in-memory for MVP, ElastiCache for scale)
   try {
-    await redis.ping();
-    checks.redis = 'ok';
+    await cacheService.healthCheck();
+    checks.cache = 'ok';
   } catch (error) {
-    checks.redis = 'error';
+    checks.cache = 'error';
   }
   
   // S3 check
@@ -6109,11 +7099,10 @@ Responsibilities:
   - Password reset flows
 
 Database Tables:
-  - users
-  - user_sessions
-  - user_mfa_settings
-  - password_reset_tokens
-  - user_login_history
+  - users (synchronized from Cognito)
+  - user_profiles (additional app-specific data)
+  # Note: Authentication state managed by Cognito, not database
+  # No session, MFA, or password tables needed
 
 API Gateway Routes:
   - /auth/*
@@ -6450,7 +7439,7 @@ class AssetEventPublisher {
 Asset Service DB:
   - Primary: PostgreSQL (write model)
   - Read replicas: 2 instances
-  - Cache: Service-specific Redis instance
+  - Cache: Service-specific in-memory cache (DynamoDB/Upstash when scaled)
   
 Document Service DB:
   - Primary: PostgreSQL (metadata)
@@ -6460,7 +7449,7 @@ Document Service DB:
 Financial Service DB:
   - Primary: PostgreSQL (accounts)
   - Time-series: TimescaleDB (transactions)
-  - Cache: Redis (balances)
+  - Cache: In-memory (balances), DynamoDB/Upstash for scale
 ```
 
 #### Data Consistency Patterns
@@ -6533,7 +7522,7 @@ Timeline: 18-24 months
 Infrastructure:
   - Kubernetes orchestration (EKS)
   - Service mesh (Istio/AppMesh)
-  - Distributed caching (Redis cluster)
+  - Distributed caching (DynamoDB or Upstash Redis)
   - Message streaming (Kinesis)
   - API Gateway (Kong/AWS API Gateway)
   

@@ -49,6 +49,9 @@ CREATE TYPE ffc_role_enum AS ENUM ('owner', 'beneficiary', 'non_beneficiary', 'a
 -- Security/RBAC enums
 CREATE TYPE permission_category_enum AS ENUM ('asset', 'user', 'admin', 'report', 'document', 'ffc', 'system');
 
+-- Audit entity type enum (extended for subscriptions)
+CREATE TYPE audit_entity_type_enum AS ENUM ('user', 'persona', 'asset', 'document', 'ffc', 'permission', 'system', 'subscription', 'payment', 'service_purchase', 'payment_method');
+
 -- Contact entity type enum
 CREATE TYPE contact_entity_type_enum AS ENUM ('advisor', 'company', 'institution', 'attorney', 'accountant', 'financial_advisor', 'insurance_agent', 'other');
 
@@ -2816,6 +2819,358 @@ CREATE INDEX idx_event_projections_name ON event_projections(projection_name, te
 CREATE INDEX idx_event_projections_aggregate ON event_projections(aggregate_id) WHERE aggregate_id IS NOT NULL;
 
 -- ================================================================
+-- SUBSCRIPTION AND PAYMENT ENUMS
+-- ================================================================
+
+-- Subscription and payment enums
+CREATE TYPE plan_type_enum AS ENUM ('free', 'paid', 'sponsored');
+CREATE TYPE billing_frequency_enum AS ENUM ('monthly', 'annual', 'one_time', 'lifetime');
+CREATE TYPE subscription_status_enum AS ENUM ('active', 'trialing', 'past_due', 'canceled', 'pending', 'paused');
+CREATE TYPE payment_status_enum AS ENUM ('pending', 'succeeded', 'failed', 'refunded', 'partially_refunded');
+CREATE TYPE payment_type_enum AS ENUM ('subscription', 'service', 'seat_upgrade', 'add_on');
+CREATE TYPE transaction_type_enum AS ENUM ('charge', 'refund', 'credit', 'adjustment');
+CREATE TYPE ledger_account_type_enum AS ENUM ('revenue', 'refund', 'credit', 'accounts_receivable');
+CREATE TYPE seat_type_enum AS ENUM ('basic', 'pro', 'enterprise');
+CREATE TYPE payer_type_enum AS ENUM ('owner', 'advisor', 'third_party', 'individual', 'none');
+CREATE TYPE refund_reason_enum AS ENUM ('duplicate', 'fraudulent', 'requested_by_customer', 'other');
+CREATE TYPE service_type_enum AS ENUM ('one_time', 'recurring');
+CREATE TYPE card_brand_enum AS ENUM ('visa', 'mastercard', 'amex', 'discover', 'diners', 'jcb', 'unionpay', 'other');
+
+-- ================================================================
+-- SUBSCRIPTION AND PAYMENT MANAGEMENT TABLES
+-- ================================================================
+
+-- Plans table - Plan templates and catalog
+CREATE TABLE plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    plan_code VARCHAR(50) NOT NULL,
+    plan_name VARCHAR(100) NOT NULL,
+    plan_description TEXT,
+    plan_type plan_type_enum NOT NULL,
+    base_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    billing_frequency billing_frequency_enum NOT NULL,
+    trial_days INTEGER DEFAULT 0,
+    features JSONB DEFAULT '{}',
+    ui_config JSONB DEFAULT '{}',
+    stripe_product_id VARCHAR(255),
+    stripe_price_id VARCHAR(255),
+    status status_enum NOT NULL DEFAULT 'active',
+    is_public BOOLEAN NOT NULL DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by UUID,
+    updated_by UUID,
+    CONSTRAINT unique_plan_code_per_tenant UNIQUE (tenant_id, plan_code),
+    CONSTRAINT valid_base_price CHECK (base_price >= 0)
+);
+
+-- Plan seats configuration
+CREATE TABLE plan_seats (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    plan_id UUID NOT NULL,
+    seat_type seat_type_enum NOT NULL,
+    included_quantity INTEGER, -- NULL means unlimited
+    max_quantity INTEGER, -- NULL means unlimited
+    additional_seat_price DECIMAL(10, 2) DEFAULT 0.00,
+    features JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_seat_type_per_plan UNIQUE (plan_id, seat_type),
+    CONSTRAINT valid_quantities CHECK (
+        (included_quantity IS NULL OR included_quantity >= 0) AND
+        (max_quantity IS NULL OR max_quantity >= 0) AND
+        (max_quantity IS NULL OR included_quantity IS NULL OR max_quantity >= included_quantity)
+    ),
+    CONSTRAINT valid_additional_price CHECK (additional_seat_price >= 0)
+);
+
+-- Subscriptions table - Active subscriptions for FFCs
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    ffc_id UUID NOT NULL,
+    plan_id UUID NOT NULL,
+    owner_user_id UUID NOT NULL,
+    payer_id UUID, -- Can be user_id or null for free plans
+    payer_type payer_type_enum NOT NULL DEFAULT 'owner',
+    advisor_id UUID, -- For advisor-sponsored plans
+    stripe_subscription_id VARCHAR(255),
+    stripe_customer_id VARCHAR(255),
+    status subscription_status_enum NOT NULL DEFAULT 'active',
+    trial_end_date DATE,
+    current_period_start DATE,
+    current_period_end DATE,
+    canceled_at TIMESTAMP,
+    cancel_reason TEXT,
+    next_billing_date DATE,
+    billing_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT valid_billing_amount CHECK (billing_amount >= 0)
+);
+
+-- Create unique partial index for one active subscription per FFC
+CREATE UNIQUE INDEX idx_one_active_subscription_per_ffc 
+ON subscriptions(ffc_id) 
+WHERE status = 'active';
+
+-- Seat assignments table
+CREATE TABLE seat_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subscription_id UUID NOT NULL,
+    persona_id UUID NOT NULL,
+    seat_type seat_type_enum NOT NULL,
+    payer_id UUID, -- For individual seat upgrades
+    is_self_paid BOOLEAN NOT NULL DEFAULT false,
+    status status_enum NOT NULL DEFAULT 'active',
+    invited_at TIMESTAMP,
+    activated_at TIMESTAMP,
+    suspended_at TIMESTAMP,
+    invitation_id UUID,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Create unique partial index for one active seat per persona per subscription
+CREATE UNIQUE INDEX idx_one_active_seat_per_persona_subscription 
+ON seat_assignments(subscription_id, persona_id) 
+WHERE status = 'active';
+
+-- Payment methods table
+CREATE TABLE payment_methods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    user_id UUID NOT NULL,
+    stripe_payment_method_id VARCHAR(255) NOT NULL,
+    stripe_customer_id VARCHAR(255) NOT NULL,
+    payment_type VARCHAR(50) NOT NULL,
+    last_four VARCHAR(4),
+    brand card_brand_enum,
+    exp_month INTEGER,
+    exp_year INTEGER,
+    card_holder_name VARCHAR(255),
+    is_default BOOLEAN NOT NULL DEFAULT false,
+    status status_enum NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT valid_exp_month CHECK (exp_month IS NULL OR (exp_month >= 1 AND exp_month <= 12)),
+    CONSTRAINT valid_exp_year CHECK (exp_year IS NULL OR exp_year >= EXTRACT(YEAR FROM NOW()))
+);
+
+-- Services table - One-time services catalog
+CREATE TABLE services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    service_code VARCHAR(50) NOT NULL,
+    service_name VARCHAR(100) NOT NULL,
+    service_description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    service_type service_type_enum NOT NULL DEFAULT 'one_time',
+    stripe_product_id VARCHAR(255),
+    stripe_price_id VARCHAR(255),
+    features JSONB DEFAULT '{}',
+    delivery_timeline VARCHAR(100),
+    status status_enum NOT NULL DEFAULT 'active',
+    is_public BOOLEAN NOT NULL DEFAULT true,
+    sort_order INTEGER DEFAULT 0,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_service_code_per_tenant UNIQUE (tenant_id, service_code),
+    CONSTRAINT valid_service_price CHECK (price >= 0)
+);
+
+-- Service purchases table
+CREATE TABLE service_purchases (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    service_id UUID NOT NULL,
+    ffc_id UUID NOT NULL,
+    purchaser_user_id UUID NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    stripe_payment_intent_id VARCHAR(255),
+    payment_method_id UUID,
+    status payment_status_enum NOT NULL DEFAULT 'pending',
+    purchased_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    delivered_at TIMESTAMP,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT valid_purchase_amount CHECK (amount >= 0)
+);
+
+-- Payments table - Unified payment tracking
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    payer_id UUID NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    payment_type payment_type_enum NOT NULL,
+    reference_id UUID NOT NULL, -- Links to subscription_id or service_purchase_id
+    payment_method_id UUID,
+    stripe_charge_id VARCHAR(255),
+    stripe_payment_intent_id VARCHAR(255),
+    stripe_invoice_id VARCHAR(255),
+    status payment_status_enum NOT NULL DEFAULT 'pending',
+    failure_reason TEXT,
+    processed_at TIMESTAMP,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT valid_payment_amount CHECK (amount >= 0)
+);
+
+CREATE OR REPLACE VIEW payment_methods_with_usage AS
+SELECT
+  pm.*,
+  (
+    EXISTS (
+      SELECT 1
+      FROM subscriptions s
+      WHERE s.payer_id = pm.user_id
+        AND s.status IN ('active','trialing','past_due')
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM payments p
+      WHERE p.payment_method_id = pm.id
+        AND p.status = 'succeeded'
+        AND p.created_at > now() - INTERVAL '30 days'
+    )
+  ) AS is_in_use
+FROM payment_methods pm;
+
+-- General ledger table - Single-entry bookkeeping
+CREATE TABLE general_ledger (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    transaction_type transaction_type_enum NOT NULL,
+    transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    account_type ledger_account_type_enum NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    reference_type VARCHAR(50) NOT NULL, -- 'subscription', 'service', 'refund'
+    reference_id UUID NOT NULL,
+    stripe_reference VARCHAR(255),
+    category VARCHAR(50) CHECK (category IN ('recurring_monthly', 'recurring_annual', 'one_time', 'refund')),
+    description TEXT,
+    internal_notes TEXT,
+    reconciled BOOLEAN NOT NULL DEFAULT false,
+    reconciled_at TIMESTAMP,
+    reconciled_by UUID,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Refunds table
+CREATE TABLE refunds (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    payment_id UUID NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    reason refund_reason_enum NOT NULL,
+    reason_details TEXT,
+    stripe_refund_id VARCHAR(255),
+    status payment_status_enum NOT NULL DEFAULT 'pending',
+    initiated_by UUID NOT NULL,
+    processed_at TIMESTAMP,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT valid_refund_amount CHECK (amount > 0)
+);
+
+-- Stripe events table - Webhook processing
+CREATE TABLE stripe_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    stripe_event_id VARCHAR(255) NOT NULL UNIQUE,
+    event_type VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'processed', 'failed', 'ignored')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at TIMESTAMP,
+    processed_at TIMESTAMP,
+    payload JSONB NOT NULL,
+    error_message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Subscription transitions table
+CREATE TABLE subscription_transitions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subscription_id UUID NOT NULL,
+    from_plan_id UUID,
+    to_plan_id UUID NOT NULL,
+    transition_type VARCHAR(50) NOT NULL, -- 'upgrade', 'downgrade', 'renewal', 'cancellation'
+    prorated_amount DECIMAL(10, 2),
+    effective_date DATE NOT NULL,
+    initiated_by UUID NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- ================================================================
+-- SUBSCRIPTION AND PAYMENT INDEXES
+-- ================================================================
+
+-- Plan indexes
+CREATE INDEX idx_plans_tenant ON plans(tenant_id);
+CREATE INDEX idx_plans_status ON plans(status) WHERE status = 'active';
+CREATE INDEX idx_plans_public ON plans(is_public) WHERE is_public = true;
+
+-- Subscription indexes
+CREATE INDEX idx_subscriptions_tenant ON subscriptions(tenant_id);
+CREATE INDEX idx_subscriptions_ffc ON subscriptions(ffc_id);
+CREATE INDEX idx_subscriptions_plan ON subscriptions(plan_id);
+CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX idx_subscriptions_advisor ON subscriptions(advisor_id) WHERE advisor_id IS NOT NULL;
+CREATE INDEX idx_subscriptions_next_billing ON subscriptions(next_billing_date) WHERE status = 'active';
+
+-- Seat assignment indexes
+CREATE INDEX idx_seat_assignments_subscription ON seat_assignments(subscription_id);
+CREATE INDEX idx_seat_assignments_persona ON seat_assignments(persona_id);
+CREATE INDEX idx_seat_assignments_status ON seat_assignments(status);
+
+-- Payment method indexes
+CREATE INDEX idx_payment_methods_tenant ON payment_methods(tenant_id);
+CREATE INDEX idx_payment_methods_user ON payment_methods(user_id);
+CREATE INDEX idx_payment_methods_status ON payment_methods(status);
+
+-- Service indexes
+CREATE INDEX idx_services_tenant ON services(tenant_id);
+CREATE INDEX idx_services_status ON services(status) WHERE status = 'active';
+
+-- Payment indexes
+CREATE INDEX idx_payments_tenant ON payments(tenant_id);
+CREATE INDEX idx_payments_payer ON payments(payer_id);
+CREATE INDEX idx_payments_reference ON payments(reference_id);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_created ON payments(created_at DESC);
+-- speeds the “active/trialing/past_due” lookup
+CREATE INDEX IF NOT EXISTS idx_subscriptions_active_like
+  ON subscriptions (payer_id)
+  WHERE status IN ('active','trialing','past_due');
+
+-- speeds the “succeeded in last 30 days by payment_method” lookup
+CREATE INDEX IF NOT EXISTS idx_payments_recent_success_by_pm
+  ON payments (payment_method_id, created_at)
+  WHERE status = 'succeeded';
+
+-- General ledger indexes
+CREATE INDEX idx_general_ledger_tenant ON general_ledger(tenant_id);
+CREATE INDEX idx_general_ledger_date ON general_ledger(transaction_date DESC);
+CREATE INDEX idx_general_ledger_reference ON general_ledger(reference_id);
+CREATE INDEX idx_general_ledger_reconciled ON general_ledger(reconciled) WHERE reconciled = false;
+
+-- Stripe events indexes
+CREATE INDEX idx_stripe_events_status ON stripe_events(status) WHERE status IN ('pending', 'processing');
+CREATE INDEX idx_stripe_events_type ON stripe_events(event_type);
+
+-- ================================================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
 -- ================================================================
 
@@ -2844,6 +3199,16 @@ CREATE TRIGGER update_asset_persona_updated_at BEFORE UPDATE ON asset_persona FO
 CREATE TRIGGER update_asset_permissions_updated_at BEFORE UPDATE ON asset_permissions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Continue for all other tables with updated_at columns...
+
+-- Subscription and payment table triggers
+CREATE TRIGGER update_plans_updated_at BEFORE UPDATE ON plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_plan_seats_updated_at BEFORE UPDATE ON plan_seats FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_seat_assignments_updated_at BEFORE UPDATE ON seat_assignments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_payment_methods_updated_at BEFORE UPDATE ON payment_methods FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_services_updated_at BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_service_purchases_updated_at BEFORE UPDATE ON service_purchases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ================================================================
 -- END OF SCHEMA STRUCTURE FILE

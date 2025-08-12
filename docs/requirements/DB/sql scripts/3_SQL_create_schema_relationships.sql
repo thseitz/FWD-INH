@@ -845,6 +845,139 @@ ALTER TABLE event_projections ADD CONSTRAINT fk_event_projections_tenant
     FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 
 -- ================================================================
+-- SUBSCRIPTION AND PAYMENT RELATIONSHIPS
+-- ================================================================
+
+-- Plans relationships
+ALTER TABLE plans ADD CONSTRAINT fk_plans_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE plans ADD CONSTRAINT fk_plans_created_by 
+    FOREIGN KEY (created_by) REFERENCES users(id);
+
+ALTER TABLE plans ADD CONSTRAINT fk_plans_updated_by 
+    FOREIGN KEY (updated_by) REFERENCES users(id);
+
+-- Plan seats relationships
+ALTER TABLE plan_seats ADD CONSTRAINT fk_plan_seats_plan 
+    FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE;
+
+-- Subscriptions relationships
+ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_ffc 
+    FOREIGN KEY (ffc_id) REFERENCES fwd_family_circles(id) ON DELETE CASCADE;
+
+ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_plan 
+    FOREIGN KEY (plan_id) REFERENCES plans(id);
+
+ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_owner 
+    FOREIGN KEY (owner_user_id) REFERENCES users(id);
+
+ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_payer 
+    FOREIGN KEY (payer_id) REFERENCES users(id);
+
+ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_advisor 
+    FOREIGN KEY (advisor_id) REFERENCES users(id);
+
+-- Seat assignments relationships
+ALTER TABLE seat_assignments ADD CONSTRAINT fk_seat_assignments_subscription 
+    FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE;
+
+ALTER TABLE seat_assignments ADD CONSTRAINT fk_seat_assignments_persona 
+    FOREIGN KEY (persona_id) REFERENCES personas(id);
+
+ALTER TABLE seat_assignments ADD CONSTRAINT fk_seat_assignments_payer 
+    FOREIGN KEY (payer_id) REFERENCES users(id);
+
+ALTER TABLE seat_assignments ADD CONSTRAINT fk_seat_assignments_invitation 
+    FOREIGN KEY (invitation_id) REFERENCES ffc_invitations(id);
+
+-- Payment methods relationships
+ALTER TABLE payment_methods ADD CONSTRAINT fk_payment_methods_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE payment_methods ADD CONSTRAINT fk_payment_methods_user 
+    FOREIGN KEY (user_id) REFERENCES users(id);
+
+-- Services relationships
+ALTER TABLE services ADD CONSTRAINT fk_services_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+-- Service purchases relationships
+ALTER TABLE service_purchases ADD CONSTRAINT fk_service_purchases_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE service_purchases ADD CONSTRAINT fk_service_purchases_service 
+    FOREIGN KEY (service_id) REFERENCES services(id);
+
+ALTER TABLE service_purchases ADD CONSTRAINT fk_service_purchases_ffc 
+    FOREIGN KEY (ffc_id) REFERENCES fwd_family_circles(id);
+
+ALTER TABLE service_purchases ADD CONSTRAINT fk_service_purchases_purchaser 
+    FOREIGN KEY (purchaser_user_id) REFERENCES users(id);
+
+ALTER TABLE service_purchases ADD CONSTRAINT fk_service_purchases_payment_method 
+    FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id);
+
+-- Payments relationships
+ALTER TABLE payments ADD CONSTRAINT fk_payments_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE payments ADD CONSTRAINT fk_payments_payer 
+    FOREIGN KEY (payer_id) REFERENCES users(id);
+
+ALTER TABLE payments ADD CONSTRAINT fk_payments_payment_method 
+    FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id);
+
+-- Note: reference_id is polymorphic, so no FK constraint
+
+-- General ledger relationships
+ALTER TABLE general_ledger ADD CONSTRAINT fk_general_ledger_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE general_ledger ADD CONSTRAINT fk_general_ledger_reconciled_by 
+    FOREIGN KEY (reconciled_by) REFERENCES users(id);
+
+-- Note: reference_id is polymorphic, so no FK constraint
+
+-- Refunds relationships
+ALTER TABLE refunds ADD CONSTRAINT fk_refunds_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+ALTER TABLE refunds ADD CONSTRAINT fk_refunds_payment 
+    FOREIGN KEY (payment_id) REFERENCES payments(id);
+
+ALTER TABLE refunds ADD CONSTRAINT fk_refunds_initiated_by 
+    FOREIGN KEY (initiated_by) REFERENCES users(id);
+
+-- Stripe events (no foreign keys needed - standalone table)
+
+-- Subscription transitions relationships
+ALTER TABLE subscription_transitions ADD CONSTRAINT fk_subscription_transitions_subscription 
+    FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE;
+
+ALTER TABLE subscription_transitions ADD CONSTRAINT fk_subscription_transitions_from_plan 
+    FOREIGN KEY (from_plan_id) REFERENCES plans(id);
+
+ALTER TABLE subscription_transitions ADD CONSTRAINT fk_subscription_transitions_to_plan 
+    FOREIGN KEY (to_plan_id) REFERENCES plans(id);
+
+ALTER TABLE subscription_transitions ADD CONSTRAINT fk_subscription_transitions_initiated_by 
+    FOREIGN KEY (initiated_by) REFERENCES users(id);
+
+-- Update ffc_invitations to support seat assignments
+ALTER TABLE ffc_invitations 
+    ADD COLUMN IF NOT EXISTS seat_type seat_type_enum,
+    ADD COLUMN IF NOT EXISTS subscription_id UUID;
+
+-- Add foreign key for subscription_id
+ALTER TABLE ffc_invitations 
+    ADD CONSTRAINT fk_ffc_invitations_subscription 
+    FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL;
+
+-- ================================================================
 -- INITIAL DATA INSERTS
 -- ================================================================
 
@@ -867,6 +1000,87 @@ INSERT INTO asset_categories (name, code, description, sort_order) VALUES
 ('Digital Assets', 'digital_assets', 'Intellectual Property, Digital Assets', 11),
 ('Ownership Interests', 'ownership_interests', 'Business and Franchise ownership', 12),
 ('Loans', 'loans', 'HEI and Interfamily Loans', 13);
+
+-- Insert default free plan for Forward tenant
+INSERT INTO plans (
+    tenant_id, 
+    plan_code, 
+    plan_name, 
+    plan_description,
+    plan_type, 
+    base_price, 
+    billing_frequency,
+    features,
+    ui_config,
+    status,
+    is_public,
+    sort_order
+) VALUES (
+    1,
+    'FAMILY_UNLIMITED_FREE',
+    'Family Unlimited Free',
+    'Free forever plan with unlimited family members',
+    'free',
+    0.00,
+    'lifetime',
+    '{"unlimited_members": true, "basic_features": true, "document_storage": "5GB", "asset_tracking": true}'::jsonb,
+    '{"hide_seat_management": true, "hide_billing_section": true, "show_unlimited_badge": true, "badge_text": "Unlimited Pro Members"}'::jsonb,
+    'active',
+    true,
+    1
+);
+
+-- Get the plan ID for seat configuration
+DO $$
+DECLARE
+    v_plan_id UUID;
+BEGIN
+    SELECT id INTO v_plan_id FROM plans WHERE plan_code = 'FAMILY_UNLIMITED_FREE' AND tenant_id = 1;
+    
+    -- Insert unlimited pro seats for free plan
+    INSERT INTO plan_seats (
+        plan_id,
+        seat_type,
+        included_quantity, -- NULL means unlimited
+        max_quantity, -- NULL means unlimited
+        additional_seat_price,
+        features
+    ) VALUES (
+        v_plan_id,
+        'pro',
+        NULL, -- Unlimited included
+        NULL, -- Unlimited max
+        0.00,
+        '{"all_features": true}'::jsonb
+    );
+END $$;
+
+-- Insert Estate Capture Service
+INSERT INTO services (
+    tenant_id,
+    service_code,
+    service_name,
+    service_description,
+    price,
+    service_type,
+    features,
+    delivery_timeline,
+    status,
+    is_public,
+    sort_order
+) VALUES (
+    1,
+    'ESTATE_CAPTURE_SERVICE',
+    'Estate Capture Service',
+    'Professional document capture and organization service for your estate planning documents',
+    299.00,
+    'one_time',
+    '{"document_scanning": true, "professional_organization": true, "secure_storage": true, "expert_review": true}'::jsonb,
+    '5-7 business days',
+    'active',
+    true,
+    1
+);
 
 -- ================================================================
 -- END OF SCHEMA RELATIONSHIPS FILE

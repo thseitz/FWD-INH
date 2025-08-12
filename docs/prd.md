@@ -81,12 +81,26 @@ Based on market research and industry studies:
 - **Acquisition Strategy**: Direct marketing campaigns through Builder.io landing pages
 
 ### Business Model
+
+#### Subscription Platform
+- **Initial Plans**:
+  - **Family Unlimited Free Plan**: $0 forever, unlimited Pro seats, no payment required
+  - **Advisor Sponsored Plan**: Advisor-paid, unlimited seats, enhanced support
 - **Revenue Streams**: 
-  - SaaS subscriptions (tiered family plans)
+  - One-time services (Estate Capture Service - $299)
+  - Future paid subscriptions (configurable without code changes)
   - Advisor revenue sharing
   - Referral fees
   - Premium advisory services
-- **Customer Journey**: Landing page � registration � FFC creation � asset management � advisor network expansion
+- **Payment Models**:
+  - Free plans with no payment barrier
+  - Owner-paid subscriptions
+  - Advisor-sponsored plans
+  - Individual seat upgrades
+  - One-time service purchases
+- **Customer Journey**: 
+  - Landing page � registration (no payment) � FFC creation � asset management
+  - Optional: One-time service purchases � advisor network expansion
 
 ### Core Differentiation
 - **Marketing Independence** through Builder.io CMS integration
@@ -117,9 +131,10 @@ Based on market research and industry studies:
 - **A/B Testing Capability** for conversion optimization
 
 #### **2. Complete FFC Onboarding Flow**
-- **User Registration** with email verification
+- **User Registration** with email verification (no payment required)
 - **Secure Login** with session management
-- **FFC Creation** with unique naming and optional family picture upload
+- **FFC Creation** with automatic Free Plan assignment
+- **Unlimited Member Invitations** (no seat restrictions for free plan)
 - **Member Invitation System** (email-based)
 - **Mandatory Dual-Channel Verification** (email + SMS)
 - **Owner Approval Required** for all new members
@@ -128,6 +143,7 @@ Based on market research and industry studies:
   - FFC Owners (edit rights on FFC level)
   - Can add additional owners with edit rights
   - Other roles: Beneficiary, Non-beneficiary
+- **Dynamic UI**: Seat management hidden for unlimited plans
 
 #### **3. Comprehensive Asset Management**
 - **All 13 Asset Categories** implemented from Day 1
@@ -163,7 +179,16 @@ Based on market research and industry studies:
 - **Critical Principle**: Asset owners control their assets, NOT FFC owners
 - **Privacy First**: Assets only visible to personas explicitly granted permission
 
+#### **5. Subscription & Payment Platform**
+- **Free Unlimited Plan** as default for all new FFCs
+- **One-Time Service Marketplace** (Estate Capture Service - $299)
+- **Payment Processing** via Stripe (only for services, not subscriptions)
+- **General Ledger** for financial tracking
+- **Dynamic Plan Configuration** (database-driven, no code changes)
+- **Conditional UI** based on plan type (hide seat management for unlimited plans)
+
 ### **DEFERRED to Later Phases:**
+- Paid subscription plans (post-MVP)
 - Chat System (removed entirely from MVP)
 - Referral Engine (moved to Phase 1B or later)
 - AI Suggestions
@@ -538,6 +563,14 @@ Based on market research and industry studies:
 - **Asset Permission Changes**: Track frequency and patterns
 - **Security Metrics**: Zero successful phishing attempts
 
+### Subscription & Revenue Metrics
+- **Free Plan Adoption**: 100% of new FFCs (no payment friction)
+- **Service Attach Rate**: 30% purchase Estate Capture Service within 90 days
+- **Payment Success Rate**: >98% for one-time services
+- **Time to First Purchase**: Average <30 days from registration
+- **Revenue per FFC**: Track one-time service revenue (target $90/FFC by Day 90)
+- **Zero Payment Abandonment**: No users blocked by payment requirements at signup
+
 ### North Star Metric
 **Weekly Active Family Circles (WAFCs)**
 - **Definition**: FFCs with 2+ members and 3+ platform actions per week
@@ -895,9 +928,49 @@ This serverless approach ensures scalability, security, and compliance without m
 - Integration with permission system
 - Loan performance metrics display
 
+#### Story 3.7: Free Plan Onboarding
+**As a** new FFC owner  
+**I want** to start using Forward without payment barriers  
+**So that** I can experience the value before making financial commitments
+
+**Acceptance Criteria**:
+- FFC creation automatically assigns Free Unlimited Plan
+- No payment information required during signup
+- No seat limitations or counters displayed
+- "Unlimited Pro Members" badge shown
+- All Pro features immediately available
+- No upgrade prompts or paywalls
+
+#### Story 3.8: One-Time Service Purchase
+**As an** FFC owner on the free plan  
+**I want** to purchase the Estate Capture Service  
+**So that** I can get professional help organizing our estate
+
+**Acceptance Criteria**:
+- Service marketplace accessible from dashboard
+- Clear one-time pricing ($299) displayed
+- Payment modal only appears at purchase time
+- Stripe payment processing integration
+- Receipt generation and email delivery
+- Service delivery confirmation
+- Plan remains free after purchase
+- Optional card storage for future purchases
+
+#### Story 3.9: Dynamic UI for Plan Types
+**As a** platform user  
+**I want** to see only relevant features for my plan  
+**So that** the interface isn't cluttered with unnecessary options
+
+**Acceptance Criteria**:
+- Seat management UI hidden for unlimited plans
+- Billing section hidden for free plans
+- Member invitation simplified (no seat allocation)
+- Conditional rendering based on plan configuration
+- Clean UI without upgrade prompts for free users
+
 ### Epic 4: Advanced Features & Integrations
 
-**Goal**: Enhance platform capabilities with advanced search, reporting, audit trails, and third-party integrations.
+**Goal**: Enhance platform capabilities with subscription platform, payment processing, advanced search, reporting, audit trails, and third-party integrations.
 
 **Duration**: 3 weeks (Sprints 10-12)
 
@@ -971,7 +1044,33 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Audit & C
 
 See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Bulk Operations" for complete stored procedure specifications including `bulk_update_assets` function.
 
-#### Story 4.5: Third-Party Integration Framework
+#### Story 4.5: Advisor Sponsored Plans
+**As a** financial advisor  
+**I want** to sponsor multiple family FFCs  
+**So that** I can provide this as a value-added service to my clients
+
+**Acceptance Criteria**:
+- Advisor dashboard for managing multiple FFCs
+- Bulk FFC creation capability
+- Consolidated billing view (future phase)
+- Aggregate usage statistics
+- Ability to transfer ownership to families
+- No payment required from families
+
+#### Story 4.6: General Ledger & Financial Tracking
+**As a** platform administrator  
+**I want** complete financial transaction tracking  
+**So that** we can maintain accurate books and handle refunds properly
+
+**Acceptance Criteria**:
+- All payments recorded in general ledger
+- Transaction categorization (subscription vs service)
+- Refund processing workflow
+- Revenue reconciliation reports
+- Stripe webhook integration for payment events
+- Audit trail for all financial transactions
+
+#### Story 4.7: Third-Party Integration Framework
 **As a** platform administrator  
 **I want** extensible integration capabilities  
 **So that** we can connect with financial institutions and estate planning tools
@@ -988,7 +1087,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Bulk Oper
 
 See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Integration Management" for complete stored procedure specifications including `manage_integration` function.
 
-#### Story 4.6: Quillt API Integration for Financial Accounts
+#### Story 4.8: Quillt API Integration for Financial Accounts
 **As an** FFC member  
 **I want** to connect my bank accounts through Quillt  
 **So that** my account balances update automatically without manual entry
@@ -1025,7 +1124,7 @@ See architecture.md section "Integration Architecture > Quillt Integration Store
 - Investment Accounts (401k, IRA, Brokerage)
 - Loan Accounts (Mortgage, Auto, Personal)
 
-#### Story 4.7: Real Estate Data Provider Integration
+#### Story 4.9: Real Estate Data Provider Integration
 **As an** FFC member with real estate assets  
 **I want** automated property value updates  
 **So that** my real estate portfolio reflects current market values
@@ -1057,7 +1156,7 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 4. **Integration Complexity**: Authentication, rate limits, webhook support
 5. **Legal Compliance**: Terms of service and data usage restrictions
 
-#### Story 4.8: Performance Optimization & Caching
+#### Story 4.10: Performance Optimization & Caching
 **As a** system user  
 **I want** fast response times even with large datasets  
 **So that** the platform remains responsive as our family wealth grows

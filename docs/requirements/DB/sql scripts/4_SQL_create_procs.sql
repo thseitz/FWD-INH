@@ -728,3 +728,748 @@ CREATE OR REPLACE PROCEDURE sp_update_system_configuration(
     p_config_value JSONB,
     p_updated_by UUID
 ) LANGUAGE plpgsql AS $$ BEGIN NULL; END; $$;
+
+-- ================================================================
+-- SUBSCRIPTION AND PAYMENT MANAGEMENT PROCEDURES
+-- ================================================================
+
+-- Create FFC with automatic free plan subscription
+CREATE OR REPLACE PROCEDURE sp_create_ffc_with_subscription(
+    p_tenant_id INTEGER,
+    p_name TEXT,
+    p_description TEXT,
+    p_owner_user_id UUID,
+    p_owner_persona_id UUID,
+    OUT p_ffc_id UUID,
+    OUT p_subscription_id UUID
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_plan_id UUID;
+    v_persona_id UUID;
+BEGIN
+    -- Get the free plan for this tenant
+    SELECT id INTO v_plan_id 
+    FROM plans 
+    WHERE tenant_id = p_tenant_id 
+    AND plan_code = 'FAMILY_UNLIMITED_FREE' 
+    AND status = 'active'
+    LIMIT 1;
+    
+    IF v_plan_id IS NULL THEN
+        RAISE EXCEPTION 'No free plan found for tenant %', p_tenant_id;
+    END IF;
+    
+    -- Create the FFC directly (sp_create_ffc may have different signature)
+    INSERT INTO fwd_family_circles (
+        tenant_id,
+        name,
+        description,
+        owner_user_id,
+        status
+    ) VALUES (
+        p_tenant_id,
+        p_name,
+        p_description,
+        p_owner_user_id,
+        'active'
+    ) RETURNING id INTO p_ffc_id;
+    
+    -- Add owner persona to FFC if provided
+    IF p_owner_persona_id IS NOT NULL THEN
+        INSERT INTO ffc_personas (
+            tenant_id,
+            ffc_id,
+            persona_id,
+            ffc_role
+        ) VALUES (
+            p_tenant_id,
+            p_ffc_id,
+            p_owner_persona_id,
+            'owner'
+        );
+    END IF;
+    
+    -- Create the free subscription
+    INSERT INTO subscriptions (
+        tenant_id,
+        ffc_id,
+        plan_id,
+        owner_user_id,
+        payer_type,
+        status,
+        billing_amount,
+        metadata
+    ) VALUES (
+        p_tenant_id,
+        p_ffc_id,
+        v_plan_id,
+        p_owner_user_id,
+        'none', -- No payment for free plan
+        'active',
+        0.00,
+        jsonb_build_object(
+            'auto_created', true,
+            'created_at', NOW()
+        )
+    ) RETURNING id INTO p_subscription_id;
+    
+    -- Get or use the owner persona
+    IF p_owner_persona_id IS NOT NULL THEN
+        v_persona_id := p_owner_persona_id;
+    ELSE
+        -- Get the owner's persona
+        SELECT id INTO v_persona_id
+        FROM personas
+        WHERE user_id = p_owner_user_id
+        AND tenant_id = p_tenant_id
+        LIMIT 1;
+    END IF;
+    
+    -- Assign owner a pro seat if persona exists
+    IF v_persona_id IS NOT NULL THEN
+        INSERT INTO seat_assignments (
+            subscription_id,
+            persona_id,
+            seat_type,
+            status,
+            activated_at
+        ) VALUES (
+            p_subscription_id,
+            v_persona_id,
+            'pro',
+            'active',
+            NOW()
+        );
+    END IF;
+    
+    -- Log to audit
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        entity_name,
+        change_summary
+    ) VALUES (
+        p_tenant_id,
+        p_owner_user_id,
+        'create',
+        'subscription',
+        p_subscription_id,
+        p_name,
+        'Auto-created free subscription for new FFC'
+    );
+END;
+$$;
+
+-- Process seat invitation after approval
+CREATE OR REPLACE PROCEDURE sp_process_seat_invitation(
+    p_invitation_id UUID,
+    p_subscription_id UUID,
+    p_persona_id UUID,
+    p_seat_type seat_type_enum DEFAULT 'pro'
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_invitation_status invitation_status_enum;
+    v_existing_seat_id UUID;
+    v_plan_id UUID;
+    v_included_quantity INTEGER;
+    v_used_seats INTEGER;
+BEGIN
+    -- Verify invitation is approved
+    SELECT status INTO v_invitation_status
+    FROM ffc_invitations
+    WHERE id = p_invitation_id;
+    
+    IF v_invitation_status != 'approved' THEN
+        RAISE EXCEPTION 'Invitation % is not approved (status: %)', p_invitation_id, v_invitation_status;
+    END IF;
+    
+    -- Check for existing active seat assignment
+    SELECT id INTO v_existing_seat_id
+    FROM seat_assignments
+    WHERE subscription_id = p_subscription_id
+    AND persona_id = p_persona_id
+    AND status = 'active';
+    
+    IF v_existing_seat_id IS NOT NULL THEN
+        RAISE NOTICE 'Persona % already has an active seat assignment', p_persona_id;
+        RETURN;
+    END IF;
+    
+    -- Get plan details to check seat limits
+    SELECT s.plan_id INTO v_plan_id
+    FROM subscriptions s
+    WHERE s.id = p_subscription_id;
+    
+    -- Check seat availability (NULL included_quantity means unlimited)
+    SELECT ps.included_quantity INTO v_included_quantity
+    FROM plan_seats ps
+    WHERE ps.plan_id = v_plan_id
+    AND ps.seat_type = p_seat_type;
+    
+    IF v_included_quantity IS NOT NULL THEN
+        -- Count used seats
+        SELECT COUNT(*) INTO v_used_seats
+        FROM seat_assignments sa
+        WHERE sa.subscription_id = p_subscription_id
+        AND sa.seat_type = p_seat_type
+        AND sa.status = 'active';
+        
+        IF v_used_seats >= v_included_quantity THEN
+            RAISE EXCEPTION 'No available seats of type % for subscription %', p_seat_type, p_subscription_id;
+        END IF;
+    END IF;
+    
+    -- Create seat assignment
+    INSERT INTO seat_assignments (
+        subscription_id,
+        persona_id,
+        seat_type,
+        status,
+        invitation_id,
+        invited_at,
+        activated_at
+    ) VALUES (
+        p_subscription_id,
+        p_persona_id,
+        p_seat_type,
+        'active',
+        p_invitation_id,
+        NOW(),
+        NOW()
+    );
+    
+    -- Update invitation status
+    UPDATE ffc_invitations
+    SET 
+        status = 'accepted',
+        accepted_at = NOW()
+    WHERE id = p_invitation_id;
+END;
+$$;
+
+-- Purchase one-time service
+CREATE OR REPLACE PROCEDURE sp_purchase_service(
+    p_tenant_id INTEGER,
+    p_service_id UUID,
+    p_ffc_id UUID,
+    p_purchaser_user_id UUID,
+    p_payment_method_id UUID,
+    p_stripe_payment_intent_id TEXT,
+    OUT p_purchase_id UUID,
+    OUT p_payment_id UUID
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_service_price DECIMAL(10, 2);
+    v_service_name TEXT;
+BEGIN
+    -- Validate service exists and is active
+    SELECT price, service_name INTO v_service_price, v_service_name
+    FROM services
+    WHERE id = p_service_id
+    AND tenant_id = p_tenant_id
+    AND status = 'active';
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Service % not found or inactive', p_service_id;
+    END IF;
+    
+    -- Create service purchase record
+    INSERT INTO service_purchases (
+        tenant_id,
+        service_id,
+        ffc_id,
+        purchaser_user_id,
+        amount,
+        stripe_payment_intent_id,
+        payment_method_id,
+        status,
+        purchased_at
+    ) VALUES (
+        p_tenant_id,
+        p_service_id,
+        p_ffc_id,
+        p_purchaser_user_id,
+        v_service_price,
+        p_stripe_payment_intent_id,
+        p_payment_method_id,
+        'pending',
+        NOW()
+    ) RETURNING id INTO p_purchase_id;
+    
+    -- Create payment record
+    INSERT INTO payments (
+        tenant_id,
+        payer_id,
+        amount,
+        currency,
+        payment_type,
+        reference_id,
+        payment_method_id,
+        stripe_payment_intent_id,
+        status
+    ) VALUES (
+        p_tenant_id,
+        p_purchaser_user_id,
+        v_service_price,
+        'USD',
+        'service',
+        p_purchase_id,
+        p_payment_method_id,
+        p_stripe_payment_intent_id,
+        'pending'
+    ) RETURNING id INTO p_payment_id;
+    
+    -- Log to audit
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        entity_name,
+        change_summary
+    ) VALUES (
+        p_tenant_id,
+        p_purchaser_user_id,
+        'create',
+        'service_purchase',
+        p_purchase_id,
+        v_service_name,
+        format('Purchased service for $%s', v_service_price)
+    );
+END;
+$$;
+
+-- Process Stripe webhook events
+CREATE OR REPLACE PROCEDURE sp_process_stripe_webhook(
+    p_stripe_event_id TEXT,
+    p_event_type TEXT,
+    p_payload JSONB
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_existing_event_id UUID;
+    v_event_id UUID;
+BEGIN
+    -- Check for duplicate event (idempotency)
+    SELECT id INTO v_existing_event_id
+    FROM stripe_events
+    WHERE stripe_event_id = p_stripe_event_id;
+    
+    IF v_existing_event_id IS NOT NULL THEN
+        -- Event already processed
+        RAISE NOTICE 'Stripe event % already processed', p_stripe_event_id;
+        RETURN;
+    END IF;
+    
+    -- Insert event record
+    INSERT INTO stripe_events (
+        stripe_event_id,
+        event_type,
+        status,
+        payload,
+        attempts,
+        last_attempt_at
+    ) VALUES (
+        p_stripe_event_id,
+        p_event_type,
+        'processing',
+        p_payload,
+        1,
+        NOW()
+    ) RETURNING id INTO v_event_id;
+    
+    -- Route to appropriate handler based on event type
+    CASE p_event_type
+        WHEN 'payment_intent.succeeded' THEN
+            CALL sp_handle_payment_succeeded(v_event_id, p_payload);
+        WHEN 'payment_intent.failed' THEN
+            CALL sp_handle_payment_failed(v_event_id, p_payload);
+        WHEN 'invoice.payment_succeeded' THEN
+            CALL sp_handle_invoice_payment_succeeded(v_event_id, p_payload);
+        WHEN 'customer.subscription.created' THEN
+            CALL sp_handle_subscription_created(v_event_id, p_payload);
+        WHEN 'customer.subscription.updated' THEN
+            CALL sp_handle_subscription_updated(v_event_id, p_payload);
+        WHEN 'customer.subscription.deleted' THEN
+            CALL sp_handle_subscription_deleted(v_event_id, p_payload);
+        ELSE
+            -- Mark as ignored for unsupported event types
+            UPDATE stripe_events
+            SET status = 'ignored',
+                processed_at = NOW()
+            WHERE id = v_event_id;
+            
+            RAISE NOTICE 'Ignoring unsupported event type: %', p_event_type;
+    END CASE;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Update event with error
+        UPDATE stripe_events
+        SET status = 'failed',
+            error_message = SQLERRM,
+            last_attempt_at = NOW()
+        WHERE id = v_event_id;
+        
+        RAISE;
+END;
+$$;
+
+-- Helper procedures for webhook handlers (simplified stubs)
+CREATE OR REPLACE PROCEDURE sp_handle_payment_succeeded(
+    p_event_id UUID,
+    p_payload JSONB
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    -- Update payment status to succeeded
+    UPDATE payments
+    SET status = 'succeeded',
+        processed_at = NOW()
+    WHERE stripe_payment_intent_id = p_payload->>'id';
+    
+    -- Update service purchase if applicable
+    UPDATE service_purchases
+    SET status = 'succeeded'
+    WHERE stripe_payment_intent_id = p_payload->>'id';
+    
+    -- Mark event as processed
+    UPDATE stripe_events
+    SET status = 'processed',
+        processed_at = NOW()
+    WHERE id = p_event_id;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_handle_payment_failed(
+    p_event_id UUID,
+    p_payload JSONB
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    -- Update payment status to failed
+    UPDATE payments
+    SET status = 'failed',
+        failure_reason = p_payload->'last_payment_error'->>'message',
+        processed_at = NOW()
+    WHERE stripe_payment_intent_id = p_payload->>'id';
+    
+    -- Mark event as processed
+    UPDATE stripe_events
+    SET status = 'processed',
+        processed_at = NOW()
+    WHERE id = p_event_id;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_handle_invoice_payment_succeeded(
+    p_event_id UUID,
+    p_payload JSONB
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    -- Update subscription billing
+    UPDATE subscriptions
+    SET current_period_start = to_timestamp(((p_payload->'lines'->'data'->0->'period')->>'start')::int),
+        current_period_end = to_timestamp(((p_payload->'lines'->'data'->0->'period')->>'end')::int),
+        next_billing_date = to_timestamp(((p_payload->'lines'->'data'->0->'period')->>'end')::int)::date
+    WHERE stripe_subscription_id = p_payload->>'subscription';
+    
+    -- Create payment record
+    INSERT INTO payments (
+        tenant_id,
+        payer_id,
+        amount,
+        currency,
+        payment_type,
+        reference_id,
+        stripe_invoice_id,
+        status,
+        processed_at
+    )
+    SELECT 
+        s.tenant_id,
+        s.payer_id,
+        (p_payload->>'amount_paid')::decimal / 100,
+        p_payload->>'currency',
+        'subscription',
+        s.id,
+        p_payload->>'id',
+        'succeeded',
+        NOW()
+    FROM subscriptions s
+    WHERE s.stripe_subscription_id = p_payload->>'subscription';
+    
+    -- Mark event as processed
+    UPDATE stripe_events
+    SET status = 'processed',
+        processed_at = NOW()
+    WHERE id = p_event_id;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_handle_subscription_created(p_event_id UUID, p_payload JSONB)
+LANGUAGE plpgsql AS $$ 
+BEGIN 
+    UPDATE stripe_events SET status = 'processed', processed_at = NOW() WHERE id = p_event_id;
+END; 
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_handle_subscription_updated(p_event_id UUID, p_payload JSONB)
+LANGUAGE plpgsql AS $$ 
+BEGIN 
+    UPDATE stripe_events SET status = 'processed', processed_at = NOW() WHERE id = p_event_id;
+END; 
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_handle_subscription_deleted(p_event_id UUID, p_payload JSONB)
+LANGUAGE plpgsql AS $$ 
+BEGIN 
+    UPDATE stripe_events SET status = 'processed', processed_at = NOW() WHERE id = p_event_id;
+END; 
+$$;
+
+-- Check if payment method is in use (using the view)
+CREATE OR REPLACE FUNCTION sp_check_payment_method_usage(
+    p_payment_method_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_is_in_use BOOLEAN;
+BEGIN
+    -- Use the view to check usage
+    SELECT is_in_use INTO v_is_in_use
+    FROM payment_methods_with_usage
+    WHERE id = p_payment_method_id;
+    
+    RETURN COALESCE(v_is_in_use, FALSE);
+END;
+$$;
+
+-- Safely delete payment method
+CREATE OR REPLACE PROCEDURE sp_delete_payment_method(
+    p_payment_method_id UUID,
+    p_user_id UUID
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_is_in_use BOOLEAN;
+    v_owner_id UUID;
+BEGIN
+    -- Verify ownership
+    SELECT user_id INTO v_owner_id
+    FROM payment_methods
+    WHERE id = p_payment_method_id;
+    
+    IF v_owner_id IS NULL THEN
+        RAISE EXCEPTION 'Payment method % not found', p_payment_method_id;
+    END IF;
+    
+    IF v_owner_id != p_user_id THEN
+        RAISE EXCEPTION 'User % does not own payment method %', p_user_id, p_payment_method_id;
+    END IF;
+    
+    -- Check if in use using our function
+    v_is_in_use := sp_check_payment_method_usage(p_payment_method_id);
+    
+    IF v_is_in_use THEN
+        RAISE EXCEPTION 'Payment method % is currently in use and cannot be deleted', p_payment_method_id;
+    END IF;
+    
+    -- Soft delete the payment method
+    UPDATE payment_methods
+    SET status = 'deleted',
+        updated_at = NOW()
+    WHERE id = p_payment_method_id;
+    
+    -- Log to audit
+    INSERT INTO audit_log (
+        tenant_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        change_summary
+    )
+    SELECT 
+        tenant_id,
+        p_user_id,
+        'delete',
+        'payment_method',
+        p_payment_method_id,
+        'Payment method deleted'
+    FROM payment_methods
+    WHERE id = p_payment_method_id;
+END;
+$$;
+
+-- Transition subscription plan
+CREATE OR REPLACE PROCEDURE sp_transition_subscription_plan(
+    p_subscription_id UUID,
+    p_new_plan_id UUID,
+    p_initiated_by UUID,
+    p_reason TEXT DEFAULT NULL
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_old_plan_id UUID;
+    v_transition_type VARCHAR(50);
+    v_old_price DECIMAL(10, 2);
+    v_new_price DECIMAL(10, 2);
+BEGIN
+    -- Get current plan
+    SELECT plan_id INTO v_old_plan_id
+    FROM subscriptions
+    WHERE id = p_subscription_id;
+    
+    -- Get plan prices to determine transition type
+    SELECT base_price INTO v_old_price
+    FROM plans WHERE id = v_old_plan_id;
+    
+    SELECT base_price INTO v_new_price
+    FROM plans WHERE id = p_new_plan_id;
+    
+    -- Determine transition type
+    IF v_new_price > v_old_price THEN
+        v_transition_type := 'upgrade';
+    ELSIF v_new_price < v_old_price THEN
+        v_transition_type := 'downgrade';
+    ELSE
+        v_transition_type := 'lateral';
+    END IF;
+    
+    -- Record transition
+    INSERT INTO subscription_transitions (
+        subscription_id,
+        from_plan_id,
+        to_plan_id,
+        transition_type,
+        effective_date,
+        initiated_by,
+        reason
+    ) VALUES (
+        p_subscription_id,
+        v_old_plan_id,
+        p_new_plan_id,
+        v_transition_type,
+        CURRENT_DATE,
+        p_initiated_by,
+        p_reason
+    );
+    
+    -- Update subscription
+    UPDATE subscriptions
+    SET plan_id = p_new_plan_id,
+        updated_at = NOW()
+    WHERE id = p_subscription_id;
+END;
+$$;
+
+-- Get subscription details with plan info
+CREATE OR REPLACE FUNCTION sp_get_subscription_details(
+    p_ffc_id UUID
+)
+RETURNS TABLE (
+    subscription_id UUID,
+    plan_name VARCHAR(100),
+    plan_type plan_type_enum,
+    billing_frequency billing_frequency_enum,
+    billing_amount DECIMAL(10, 2),
+    status subscription_status_enum,
+    current_period_end DATE,
+    next_billing_date DATE,
+    seat_counts JSONB
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        s.id as subscription_id,
+        p.plan_name,
+        p.plan_type,
+        p.billing_frequency,
+        s.billing_amount,
+        s.status,
+        s.current_period_end,
+        s.next_billing_date,
+        (
+            SELECT jsonb_object_agg(
+                seat_type_counts.seat_type,
+                seat_type_counts.counts
+            )
+            FROM (
+                SELECT 
+                    sa.seat_type::text as seat_type,
+                    jsonb_build_object(
+                        'active', COUNT(*) FILTER (WHERE sa.status = 'active'),
+                        'total', COUNT(*)
+                    ) as counts
+                FROM seat_assignments sa
+                WHERE sa.subscription_id = s.id
+                GROUP BY sa.seat_type
+            ) as seat_type_counts
+        ) as seat_counts
+    FROM subscriptions s
+    JOIN plans p ON p.id = s.plan_id
+    WHERE s.ffc_id = p_ffc_id
+    AND s.status = 'active';
+END;
+$$;
+
+-- Create general ledger entry
+CREATE OR REPLACE PROCEDURE sp_create_ledger_entry(
+    p_tenant_id INTEGER,
+    p_transaction_type transaction_type_enum,
+    p_account_type ledger_account_type_enum,
+    p_amount DECIMAL(10, 2),
+    p_reference_type VARCHAR(50),
+    p_reference_id UUID,
+    p_description TEXT,
+    p_stripe_reference VARCHAR(255) DEFAULT NULL
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO general_ledger (
+        tenant_id,
+        transaction_type,
+        transaction_date,
+        account_type,
+        amount,
+        currency,
+        reference_type,
+        reference_id,
+        stripe_reference,
+        category,
+        description
+    ) VALUES (
+        p_tenant_id,
+        p_transaction_type,
+        CURRENT_DATE,
+        p_account_type,
+        p_amount,
+        'USD',
+        p_reference_type,
+        p_reference_id,
+        p_stripe_reference,
+        CASE 
+            WHEN p_reference_type = 'subscription' AND p_transaction_type = 'charge' THEN 'recurring_monthly'
+            WHEN p_reference_type = 'service' THEN 'one_time'
+            WHEN p_transaction_type = 'refund' THEN 'refund'
+            ELSE NULL
+        END,
+        p_description
+    );
+END;
+$$;
+
+-- ================================================================
+-- END OF STORED PROCEDURES FILE
+-- ================================================================

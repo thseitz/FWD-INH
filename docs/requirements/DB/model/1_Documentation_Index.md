@@ -2,17 +2,22 @@
 
 ## Documentation Overview
 
-This comprehensive database documentation suite provides complete coverage of the Forward Inheritance Platform's PostgreSQL database architecture. The documentation is organized into **10 specialized documents** covering all aspects of the 56-table database schema, stored procedures, and integration systems.
+This comprehensive database documentation suite provides complete coverage of the Forward Inheritance Platform's PostgreSQL database architecture. The documentation is organized into **10 specialized documents** covering all aspects of the 70+-table database schema (including subscription platform), stored procedures, and integration systems.
 
 ### Documentation Statistics
-- **Total Database Tables**: 56
-- **Stored Procedures & Functions**: 50
-- **Enum Types**: 59
-- **Integration Points**: 6 external systems
+- **Total Database Tables**: 70+ (56 original + 14 subscription/payment tables)
+- **Stored Procedures & Functions**: 64+ (50 original + 14 subscription procedures)
+- **Enum Types**: 71 (59 original + 12 subscription/payment enums)
+- **Integration Points**: 7 external systems (including Stripe)
 - **Security Features**: Multi-factor authentication (AWS Cognito), RBAC, audit logging
 - **Compliance Standards**: SOC 2, GDPR, HIPAA ready
 
 ## Document Collection
+
+### 0. 📋 [Database Overview](./0_DB_Overview.md) 
+**Purpose**: Introduction   
+**Key Content**: Design Principles   
+**Audience**: Developers, architects, project managers
 
 ### 1. 📋 [Documentation Index](./1_Documentation_Index.md) *(This Document)*
 **Purpose**: Complete navigation guide and documentation overview  
@@ -25,8 +30,9 @@ This comprehensive database documentation suite provides complete coverage of th
 **Quick Facts**: 
 - Core Infrastructure: 19 tables
 - Asset Management: 15 tables  
+- Subscription & Payment: 14 tables
 - Security & Compliance: 19 tables
-- Integration Systems: 6 external systems
+- Integration Systems: 7 external systems (including Stripe)
 
 ### 3. 🔐 [Authentication & User Management Procedures](./3_Procs_Authentication.md)
 **Purpose**: User authentication, profile management, and invitation workflows  
@@ -38,47 +44,53 @@ This comprehensive database documentation suite provides complete coverage of th
 **Key Tables**: `tenants`, `users`, `personas`, `fwd_family_circles`, `ffc_personas`  
 **Key Features**: Multi-tenant isolation, dual-identity system, family organization
 
-### 5. 👨‍👩‍👧‍👦 [FFC Management Procedures](./4_Procs_FFC_Management.md)
+### 5. 👨‍👩‍👧‍👦 [FFC Management Procedures](./5_Procs_FFC_Management.md)
 **Purpose**: Forward Family Circle creation and member management  
 **Key Procedures**: FFC creation, member management, role updates, summary reporting  
 **Key Features**: Multi-member support, role-based permissions, membership validation
 
-### 6. 📧 [Contact Management Procedures](./5_Procs_Contact_Management.md)
+### 6. 📧 [Contact Management Procedures](./6_Procs_Contact_Management.md)
 **Purpose**: Email and phone number association with personas  
 **Key Procedures**: Add email to persona, add phone to persona  
 **Key Features**: Normalized contact storage, multiple usage contexts, verification support
 
-### 7. 🏦 [Asset Management Tables](./5_Tables_Assets.md)
+### 7. 🏦 [Asset Management Tables](./7_Tables_Assets.md)
 **Purpose**: Comprehensive asset tracking across 13 specialized categories  
 **Key Tables**: `assets` (base), 13 specialized asset tables, `asset_persona` (ownership)  
 **Asset Categories**: Real estate, financial accounts, vehicles, insurance, legal documents, business interests, digital assets
 
-### 8. 📊 [Asset Management Procedures](./6_Procs_Assets.md)
+### 8. 📊 [Asset Management Procedures](./8_Procs_Assets.md)
 **Purpose**: Asset CRUD operations, ownership management, and valuation tracking  
 **Key Procedures**: Asset creation, ownership transfers, valuation updates, inheritance planning  
 **Key Features**: Multi-owner support, inheritance tracking, automated valuations
 
-### 9. 📞 [Contact & Address Management Tables](./7_Tables_Contacts.md)
+### 9. 📞 [Contact & Address Management Tables](./9_Tables_Contacts.md)
 **Purpose**: Normalized contact system eliminating data duplication  
 **Key Tables**: `email_address`, `phone_number`, `address`, `social_media` + usage junction tables  
 **Key Features**: One contact record, multiple usage contexts, privacy controls, international support
 
-### 10. 🔐 [Security & Compliance Tables](./8_Tables_Security.md)
+### 10. 🔐 [Security & Compliance Tables](./10_Tables_Security.md)
 **Purpose**: Authentication, RBAC, audit logging, and compliance management  
 **Key Tables**: 19 security tables including sessions, permissions, audit logs, PII processing  
 **Key Features**: Multi-factor authentication, comprehensive audit trails, PII detection, regulatory compliance
 
-### 11. 🛡️ [Security & Compliance Procedures](./9_Procs_Security.md)
+### 11. 🛡️ [Security & Compliance Procedures](./11_Procs_Security.md)
 **Purpose**: Session management, audit logging, and compliance reporting  
 **Key Procedures**: Session context, audit logging, PII detection, compliance reports, helper functions  
 **Key Features**: RLS helpers, automatic timestamps, automated PII detection, SOC 2 reporting
 
-### 12. 🔌 [Integration & External Systems](./10_Procs_Integration.md)
+### 12. 💳 [Subscription & Payment Management](./12_Subscription_Payment.md)
+**Purpose**: Subscription plans, seat management, payment processing, and financial tracking  
+**Key Tables**: `plans`, `subscriptions`, `seat_assignments`, `payments`, `general_ledger`, `stripe_events`  
+**Key Procedures**: FFC subscription creation, seat invitation processing, service purchases, webhook handling  
+**Key Features**: Free plan auto-assignment, dynamic UI configuration, Stripe integration, single-entry bookkeeping
+
+### 13. 🔌 [Integration & External Systems](./13_Procs_Integration.md)
 **Purpose**: External system connectivity and data synchronization  
-**Key Integrations**: Quillt (financial data), Builder.io (content), real estate APIs, translation services  
+**Key Integrations**: Quillt (financial data), Builder.io (content), Stripe (payments), real estate APIs, translation services  
 **Key Features**: Encrypted credentials, retry logic, data quality validation, health monitoring
 
-### 13. 📊 [Event Sourcing Procedures](./11_Procs_Event_Sourcing.md)
+### 14. 📊 [Event Sourcing Procedures](./14_Procs_Event_Sourcing.md)
 **Purpose**: Event-driven architecture with complete audit trails  
 **Key Procedures**: Event append, event replay, snapshot creation, projection rebuilding  
 **Key Features**: Immutable event log, state reconstruction, CQRS support, time travel debugging

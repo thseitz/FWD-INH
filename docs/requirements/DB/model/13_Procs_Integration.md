@@ -2,19 +2,21 @@
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Quillt Integration Procedures](#quillt-integration-procedures)
-3. [Real Estate Integration Procedures](#real-estate-integration-procedures)
-4. [Advisor Company Management](#advisor-company-management)
-5. [Builder.io Integration](#builderio-integration)
-6. [Translation Management](#translation-management)
-7. [Integration Health Monitoring](#integration-health-monitoring)
-8. [System Configuration](#system-configuration)
+2. [Stripe Payment Integration](#stripe-payment-integration)
+3. [Quillt Integration Procedures](#quillt-integration-procedures)
+4. [Real Estate Integration Procedures](#real-estate-integration-procedures)
+5. [Advisor Company Management](#advisor-company-management)
+6. [Builder.io Integration](#builderio-integration)
+7. [Translation Management](#translation-management)
+8. [Integration Health Monitoring](#integration-health-monitoring)
+9. [System Configuration](#system-configuration)
 
 ## Overview
 
-The Forward Inheritance Platform implements **14 integration procedures** that connect with external services including Quillt for financial data, real estate valuation services, Builder.io for content management, and translation services. These procedures provide secure, audited integration capabilities with comprehensive error handling and retry mechanisms.
+The Forward Inheritance Platform implements **20+ integration procedures** that connect with external services including Quillt for financial data, Stripe for payments, real estate valuation services, Builder.io for content management, and translation services. These procedures provide secure, audited integration capabilities with comprehensive error handling and retry mechanisms.
 
 ### Integration Categories
+- **Stripe Payment Integration**: 6 procedures for payment processing and webhooks
 - **Quillt Financial Integration**: 4 procedures for financial account synchronization
 - **Real Estate Services**: 2 procedures for property data synchronization
 - **Advisor Management**: 2 procedures for professional service provider management
@@ -28,6 +30,90 @@ The Forward Inheritance Platform implements **14 integration procedures** that c
 - **Comprehensive Logging**: All integration activities logged for audit
 - **Error Recovery**: Automatic error detection and recovery mechanisms
 - **Rate Limiting**: Built-in rate limiting for external API calls
+
+## Stripe Payment Integration
+
+### Overview
+The Stripe integration handles all payment processing, subscription management, and financial webhook events. The system uses asynchronous webhook processing to ensure reliability and idempotency.
+
+### sp_process_stripe_webhook
+Processes incoming Stripe webhook events asynchronously.
+
+**Purpose**: Handle payment events from Stripe with idempotent processing
+**Parameters**:
+- `p_stripe_event_id` (VARCHAR): Unique Stripe event identifier
+- `p_event_type` (VARCHAR): Type of Stripe event
+- `p_payload` (JSONB): Complete event payload
+
+**Key Features**:
+- Idempotent processing prevents duplicate handling
+- Event routing based on type
+- Complete error tracking
+- Automatic status updates
+
+### sp_handle_payment_success
+Processes successful payment events from Stripe.
+
+**Purpose**: Update payment records and general ledger on successful payment
+**Parameters**:
+- `p_payload` (JSONB): Stripe payment intent success payload
+
+**Processing Steps**:
+1. Extract payment intent ID from payload
+2. Update payment record status to 'succeeded'
+3. Create general ledger entry
+4. Update service purchase if applicable
+5. Send confirmation notifications
+
+### sp_handle_payment_failure
+Handles failed payment events from Stripe.
+
+**Purpose**: Update records and notify users of payment failures
+**Parameters**:
+- `p_payload` (JSONB): Stripe payment intent failure payload
+
+**Processing Steps**:
+1. Update payment status to 'failed'
+2. Record failure reason
+3. Notify user of failure
+4. Trigger retry logic if applicable
+
+### sp_handle_subscription_payment
+Processes recurring subscription payments.
+
+**Purpose**: Handle monthly/annual subscription charges
+**Parameters**:
+- `p_payload` (JSONB): Stripe invoice payment success payload
+
+**Processing Steps**:
+1. Update subscription billing dates
+2. Create payment record
+3. Record in general ledger
+4. Update next billing date
+
+### sp_create_stripe_customer
+Creates or updates Stripe customer record.
+
+**Purpose**: Synchronize user data with Stripe
+**Parameters**:
+- `p_user_id` (UUID): Platform user ID
+- `p_email` (VARCHAR): User email
+- `p_metadata` (JSONB): Additional customer metadata
+
+**Returns**: Stripe customer ID
+
+### sp_sync_stripe_products
+Synchronizes product catalog with Stripe.
+
+**Purpose**: Keep plans and services in sync with Stripe
+**Parameters**:
+- `p_sync_type` (VARCHAR): 'full' or 'incremental'
+
+**Processing**:
+1. Fetch products from Stripe
+2. Update local plan/service records
+3. Create missing products in Stripe
+4. Log synchronization results
 
 ## Quillt Integration Procedures
 

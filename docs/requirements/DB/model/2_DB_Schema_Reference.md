@@ -11,12 +11,13 @@
 
 ## Schema Overview
 
-The Forward Inheritance Platform database consists of **56 tables** organized into logical functional areas. The schema supports multi-tenant architecture, comprehensive asset management, and detailed audit tracking.
+The Forward Inheritance Platform database consists of **70+ tables** organized into logical functional areas. The schema supports multi-tenant architecture, comprehensive asset management, subscription billing, and detailed audit tracking.
 
 ### Key Statistics
-- **Total Tables**: 56
-- **Enum Types**: 59
-- **Stored Procedures**: 46
+- **Total Tables**: 70+ (including 14 subscription/payment tables)
+- **Enum Types**: 71 (including 12 subscription/payment enums)
+- **Views**: 1 (payment_methods_with_usage for payment protection)
+- **Stored Procedures**: 64+ (including 14 subscription procedures)
 - **Indexes**: 60+ (including composite indexes)
 - **Primary Key Strategy**: INTEGER for tenants (1=Forward, 2-50 for customers), UUID for entities
 
