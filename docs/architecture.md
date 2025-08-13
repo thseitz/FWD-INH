@@ -17,7 +17,7 @@ This unified approach combines what would traditionally be separate backend and 
 Based on review of the PRD and existing documentation, this is a **Greenfield project** with no existing starter template mentioned. The project is being built from scratch with the following key constraints:
 
 - Database-first architecture with all operations through stored procedures
-- PostgreSQL as the primary database (already designed with 56 tables)
+- PostgreSQL as the primary database (already designed with 72 tables)
 - AWS cloud infrastructure preferred
 - React frontend with TypeScript
 - Nest.js backend (enterprise-grade Node.js framework)
@@ -79,7 +79,7 @@ graph TB
     end
     
     subgraph "Data Layer"
-        RDS[(RDS PostgreSQL<br/>56 Tables<br/>45+ Stored Procedures)]
+        RDS[(RDS PostgreSQL<br/>72 Tables<br/>69 Stored Procedures)]
         S3[S3 Storage<br/>Documents]
         MEM[In-Memory Cache<br/>NestJS Service]
     end
@@ -147,7 +147,7 @@ This is the DEFINITIVE technology selection for the entire Forward Inheritance P
 | Backend Language | TypeScript | 5.3+ | Type-safe backend | Shared types with frontend, consistency across stack |
 | Backend Framework | Nest.js | 10.0+ | Enterprise Node.js framework | Modular architecture, dependency injection, built-in testing support, TypeScript-first |
 | API Style | REST | - | API architecture | Simple, well-understood, sufficient for requirements |
-| Database | PostgreSQL | 14+ | Primary data store | Already designed with 56 tables, JSONB support, robust |
+| Database | PostgreSQL | 14+ | Primary data store | Already designed with 72 tables, JSONB support, robust |
 | Cache | **In-Memory (NestJS)** | - | Session & data cache | **Cost-optimized: In-memory caching as primary strategy. DynamoDB for distributed sessions, Upstash Redis for pay-per-use caching when needed** |
 | File Storage | AWS S3 | - | Document storage | Integrated encryption, versioning, cost-effective |
 | Authentication | AWS Cognito | - | Auth system | JWT-based with Cognito User Pools, MFA support, SRP protocol |
@@ -292,10 +292,8 @@ interface Asset {
   ffcId: string;
   name: string;
   description?: string;
-  acquisitionDate?: Date;
-  acquisitionValue?: number;
-  currentValue?: number;
-  valueAsOfDate?: Date;
+  estimatedValue?: number;
+  lastValuedDate?: Date;
   currencyCode: string;
   primaryDocumentId?: string;
   supportingDocuments?: string[];
@@ -714,7 +712,7 @@ The platform integrates with several external services to provide comprehensive 
 
 ## Database Schema
 
-The database schema is already fully designed with 56 tables and 45+ stored procedures. Essential tables include:
+The database schema is already fully designed with 72 tables and 69 stored procedures (54 functions and 15 procedures). Essential tables include:
 
 - Multi-tenant foundation (tenants, users, personas)
 - Family circles (fwd_family_circles, ffc_personas)
@@ -728,7 +726,7 @@ Key stored procedures handle:
 - Permission checking
 - All CRUD operations
 
-**Note**: The complete schema with all 56 tables and 45+ stored procedures is documented in `DB-architecture.md`.
+**Note**: The complete schema with all 72 tables and 69 stored procedures is documented in `DB-architecture.md`.
 
 ## Frontend Architecture
 
@@ -1364,7 +1362,7 @@ export class FFCService {
     
     return this.pool.connect(async (connection) => {
       const ffcs = await connection.query(sql`
-        SELECT f.*, sp_get_ffc_summary(f.id) as summary
+        SELECT f.*, sp_get_ffc_summary(f.id, ${userId}::uuid) as summary
         FROM fwd_family_circles f
         JOIN ffc_personas fp ON f.id = fp.ffc_id
         JOIN personas p ON fp.persona_id = p.id
@@ -1379,8 +1377,7 @@ export class FFCService {
 
   async findOne(id: string, userId: string) {
     const ffc = await this.pool.maybeOne(sql`
-      SELECT * FROM sp_get_ffc_summary(${id}::uuid)
-      WHERE is_ffc_member(${id}::uuid, ${userId}::uuid)
+      SELECT * FROM sp_get_ffc_summary(${id}::uuid, ${userId}::uuid)
     `);
 
     if (!ffc) {
@@ -3170,7 +3167,7 @@ WITH latest_events AS (
 SELECT 
   aggregate_id as asset_id,
   event_data->>'name' as asset_name,
-  (event_data->>'currentValue')::DECIMAL as current_value,
+  (event_data->>'estimatedValue')::DECIMAL as estimated_value,
   event_data->>'status' as status,
   created_at as last_updated
 FROM latest_events;
@@ -3506,7 +3503,7 @@ export class AssetsService {
     await this.pool.query(sql`
       UPDATE assets 
       SET 
-        current_value = ${newValue},
+        estimated_value = ${newValue},
         last_valued_date = NOW()
       WHERE id = ${assetId}::uuid
     `);
@@ -5516,11 +5513,11 @@ class AssetService {
       // Execute stored procedure
       const result = await client.func('sp_create_asset', [
         data.tenantId,
-        data.ffcId,
-        data.categoryCode,
+        data.ownerPersonaId,
+        data.assetType,
         data.name,
         data.description,
-        data.value,
+        data.ownershipPercentage || 100.00,
         userId,
       ]);
       

@@ -283,7 +283,10 @@ CREATE TABLE usage_email (
     
     -- Multi-tenancy and audit
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Unique constraint for entity-email combination
+    CONSTRAINT usage_email_entity_email_unique UNIQUE (entity_type, entity_id, email_id)
 );
 ```
 
@@ -320,7 +323,10 @@ CREATE TABLE usage_phone (
     
     -- Multi-tenancy and audit
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Unique constraint for entity-phone combination
+    CONSTRAINT usage_phone_entity_phone_unique UNIQUE (entity_type, entity_id, phone_id)
 );
 ```
 

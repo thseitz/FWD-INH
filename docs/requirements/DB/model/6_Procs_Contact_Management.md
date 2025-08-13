@@ -24,41 +24,43 @@ The contact management procedures handle the association of email addresses and 
 Associates an email address with a persona, creating the email record if needed.
 
 ```sql
-CREATE OR REPLACE PROCEDURE sp_add_email_to_persona(
+CREATE OR REPLACE FUNCTION sp_add_email_to_persona(
     p_persona_id UUID,
     p_email TEXT,
-    p_email_type email_type_enum,
-    p_usage_type email_usage_type_enum,
-    p_is_primary BOOLEAN
-)
-LANGUAGE plpgsql AS $$
+    p_usage_type email_usage_type_enum DEFAULT 'personal',
+    p_is_primary BOOLEAN DEFAULT FALSE,
+    p_added_by UUID DEFAULT NULL
+) RETURNS UUID AS $$
 DECLARE
-    v_email_id UUID;
+    v_user_id UUID;
     v_tenant_id INTEGER;
+    v_email_id UUID;
 BEGIN
-    -- Get tenant ID from persona
-    SELECT p.tenant_id INTO v_tenant_id
-    FROM personas p
-    WHERE p.id = p_persona_id;
+    -- Get user_id if not provided
+    v_user_id := COALESCE(p_added_by, current_user_id());
     
-    -- Insert or get existing email
-    INSERT INTO email_address (
-        tenant_id,
-        email_address,
-        email_type,
-        is_verified,
-        created_by
-    ) VALUES (
-        v_tenant_id,
-        LOWER(TRIM(p_email)),
-        p_email_type,
-        FALSE,
-        current_user_id()
-    )
-    ON CONFLICT (tenant_id, email_address) 
-    DO UPDATE SET
-        updated_at = NOW()
-    RETURNING id INTO v_email_id;
+    -- Get tenant_id from persona
+    SELECT tenant_id INTO v_tenant_id FROM personas WHERE id = p_persona_id;
+    
+    -- Check if email already exists
+    SELECT id INTO v_email_id 
+    FROM email_address 
+    WHERE email_address = lower(p_email) AND tenant_id = v_tenant_id;
+    
+    -- Create email if doesn't exist
+    IF v_email_id IS NULL THEN
+        INSERT INTO email_address (
+            tenant_id,
+            email_address,
+            is_verified,
+            status
+        ) VALUES (
+            v_tenant_id,
+            lower(p_email),
+            FALSE,
+            'active'
+        ) RETURNING id INTO v_email_id;
+    END IF;
     
     -- Create usage record
     INSERT INTO usage_email (
@@ -76,8 +78,7 @@ BEGIN
         p_usage_type,
         p_is_primary
     )
-    ON CONFLICT (entity_type, entity_id, email_id, usage_type)
-    DO UPDATE SET
+    ON CONFLICT (entity_type, entity_id, email_id) DO UPDATE SET
         is_primary = EXCLUDED.is_primary,
         updated_at = NOW();
     
@@ -135,26 +136,24 @@ CALL sp_add_email_to_persona(
 Associates a phone number with a persona, creating the phone record if needed.
 
 ```sql
-CREATE OR REPLACE PROCEDURE sp_add_phone_to_persona(
+CREATE OR REPLACE FUNCTION sp_add_phone_to_persona(
     p_persona_id UUID,
     p_phone TEXT,
-    p_phone_type phone_type_enum,
-    p_usage_type phone_usage_type_enum,
-    p_is_primary BOOLEAN
-)
-LANGUAGE plpgsql AS $$
+    p_country_code VARCHAR(5) DEFAULT '+1',
+    p_usage_type phone_usage_type_enum DEFAULT 'mobile',
+    p_is_primary BOOLEAN DEFAULT FALSE,
+    p_added_by UUID DEFAULT NULL
+) RETURNS UUID AS $$
 DECLARE
-    v_phone_id UUID;
+    v_user_id UUID;
     v_tenant_id INTEGER;
-    v_normalized_phone TEXT;
+    v_phone_id UUID;
 BEGIN
-    -- Get tenant ID from persona
-    SELECT p.tenant_id INTO v_tenant_id
-    FROM personas p
-    WHERE p.id = p_persona_id;
+    -- Get user_id if not provided
+    v_user_id := COALESCE(p_added_by, current_user_id());
     
-    -- Normalize phone number (remove non-digits, except + for country code)
-    v_normalized_phone := REGEXP_REPLACE(p_phone, '[^0-9+]', '', 'g');
+    -- Get tenant_id from persona
+    SELECT tenant_id INTO v_tenant_id FROM personas WHERE id = p_persona_id;
     
     -- Insert or get existing phone
     INSERT INTO phone_number (

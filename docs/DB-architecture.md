@@ -1449,117 +1449,122 @@ FROM payment_methods pm;
 
 ## Stored Procedures
 
-The database includes 60+ comprehensive stored procedures organized into the following categories:
+The database includes 65+ comprehensive stored procedures organized into the following categories:
 
 ### Core Procedures (42)
 
 #### RLS Helper Functions (3)
-- `current_user_id()` - Get current user's ID from session context
-- `current_tenant_id()` - Get current tenant ID from session context
-- `is_ffc_member(p_ffc_id UUID, p_user_id UUID DEFAULT current_user_id())` - Check if user is member of an FFC
+- `current_user_id()` RETURNS UUID - Get current user's ID from session context
+- `current_tenant_id()` RETURNS INTEGER - Get current tenant ID from session context
+- `is_ffc_member(p_ffc_id UUID, p_user_id UUID DEFAULT current_user_id())` RETURNS BOOLEAN - Check if user is member of an FFC
 
 #### User Management (2)
-- `sp_create_user_from_cognito(p_tenant_id INTEGER, p_cognito_user_id TEXT, p_cognito_username TEXT, p_email TEXT, p_phone TEXT, p_first_name TEXT, p_last_name TEXT)` - Create user from Cognito registration
-- `sp_update_user_profile(p_user_id UUID, p_first_name TEXT, p_last_name TEXT, p_display_name TEXT, p_profile_picture_url TEXT, p_preferred_language CHAR(2), p_timezone VARCHAR(50))` - Update user profile information
+- `sp_create_user_from_cognito(p_tenant_id INTEGER, p_cognito_user_id TEXT, p_cognito_username TEXT, p_email TEXT, p_phone VARCHAR(20), p_first_name TEXT, p_last_name TEXT, p_email_verified BOOLEAN DEFAULT FALSE, p_phone_verified BOOLEAN DEFAULT FALSE, p_country_code VARCHAR(5) DEFAULT '+1')` RETURNS TABLE (user_id UUID, persona_id UUID, email_id UUID, phone_id UUID) - Create user from Cognito registration
+- `sp_update_user_profile(p_user_id UUID, p_first_name TEXT, p_last_name TEXT, p_display_name TEXT, p_profile_picture_url TEXT, p_preferred_language CHAR(2), p_timezone VARCHAR(50))` RETURNS BOOLEAN - Update user profile information
 
 #### FFC Management (4)
-- `sp_create_ffc(p_tenant_id INTEGER, p_owner_user_id UUID, p_name TEXT, p_description TEXT)` - Create a new FFC and add owner as member
-- `sp_add_persona_to_ffc(p_ffc_id UUID, p_persona_id UUID, p_role ffc_role_enum)` - Add persona to FFC with specified role
-- `sp_update_ffc_member_role(p_ffc_id UUID, p_persona_id UUID, p_new_role ffc_role_enum)` - Update member's role within FFC
-- `sp_remove_ffc_member(p_ffc_id UUID, p_persona_id UUID)` - Remove member from FFC
+- `sp_create_ffc(p_tenant_id INTEGER, p_owner_user_id UUID, p_name TEXT, p_description TEXT DEFAULT NULL)` RETURNS UUID - Create a new FFC and add owner as member
+- `sp_add_persona_to_ffc(p_tenant_id INTEGER, p_ffc_id UUID, p_persona_id UUID, p_role ffc_role_enum, p_added_by UUID)` RETURNS BOOLEAN - Add persona to FFC with specified role
+- `sp_update_ffc_member_role(p_ffc_id UUID, p_persona_id UUID, p_new_role ffc_role_enum, p_updated_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Update member's role within FFC
+- `sp_remove_ffc_member(p_ffc_id UUID, p_persona_id UUID, p_removed_by UUID DEFAULT NULL, p_reason TEXT DEFAULT NULL)` RETURNS BOOLEAN - Remove member from FFC
 
 #### Asset Management (8)
-- `sp_create_asset(p_tenant_id INTEGER, p_category_id UUID, p_name TEXT, p_description TEXT, p_value DECIMAL, p_owner_persona_id UUID, p_metadata JSONB)` - Create new asset
-- `sp_update_asset(p_asset_id UUID, p_name TEXT, p_description TEXT, p_value DECIMAL, p_metadata JSONB)` - Update existing asset properties
-- `sp_delete_asset(p_asset_id UUID)` - Delete asset
-- `sp_transfer_asset_ownership(p_asset_id UUID, p_from_persona_id UUID, p_to_persona_id UUID, p_ownership_percentage DECIMAL)` - Transfer ownership between personas
-- `sp_update_asset_value(p_asset_id UUID, p_new_value DECIMAL, p_valuation_date DATE, p_notes TEXT)` - Update asset valuation
-- `sp_get_asset_details(p_asset_id UUID)` - Retrieve comprehensive asset information
-- `sp_search_assets(p_tenant_id INTEGER, p_search_term TEXT, p_category_id UUID, p_min_value DECIMAL, p_max_value DECIMAL, p_owner_persona_id UUID)` - Search assets with filters
-- `sp_assign_asset_to_persona(p_asset_id UUID, p_persona_id UUID, p_ownership_type ownership_type_enum, p_ownership_percentage DECIMAL)` - Link assets to personas
+- `sp_create_asset(p_tenant_id INTEGER, p_owner_persona_id UUID, p_asset_type asset_type_enum, p_name TEXT, p_description TEXT, p_ownership_percentage DECIMAL(5,2) DEFAULT 100.00, p_created_by_user_id UUID DEFAULT NULL)` RETURNS UUID - Create new asset
+- `sp_update_asset(p_asset_id UUID, p_name TEXT DEFAULT NULL, p_description TEXT DEFAULT NULL, p_estimated_value DECIMAL(15,2) DEFAULT NULL, p_status status_enum DEFAULT NULL, p_metadata JSONB DEFAULT NULL, p_updated_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Update existing asset properties
+- `sp_delete_asset(p_asset_id UUID, p_deleted_by UUID DEFAULT NULL, p_hard_delete BOOLEAN DEFAULT FALSE)` RETURNS BOOLEAN - Delete asset (soft or hard delete)
+- `sp_transfer_asset_ownership(p_asset_id UUID, p_from_persona_id UUID, p_to_persona_id UUID, p_ownership_percentage DECIMAL(5,2) DEFAULT NULL, p_transfer_type VARCHAR(50) DEFAULT 'full', p_transferred_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Transfer ownership between personas
+- `sp_update_asset_value(p_asset_id UUID, p_new_value DECIMAL(15,2), p_valuation_date DATE DEFAULT CURRENT_DATE, p_valuation_method VARCHAR(50) DEFAULT 'market', p_updated_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Update asset valuation
+- `sp_get_asset_details(p_asset_id UUID, p_requesting_user UUID DEFAULT NULL)` RETURNS TABLE - Retrieve comprehensive asset information
+- `sp_search_assets(p_ffc_id UUID DEFAULT NULL, p_category_code VARCHAR(50) DEFAULT NULL, p_owner_persona_id UUID DEFAULT NULL, p_status status_enum DEFAULT NULL, p_min_value DECIMAL(15,2) DEFAULT NULL, p_max_value DECIMAL(15,2) DEFAULT NULL, p_search_term TEXT DEFAULT NULL, p_limit INTEGER DEFAULT 100, p_offset INTEGER DEFAULT 0)` RETURNS TABLE - Search assets with filters
+- `sp_assign_asset_to_persona(p_asset_id UUID, p_persona_id UUID, p_ownership_type ownership_type_enum DEFAULT 'owner', p_ownership_percentage DECIMAL(5,2) DEFAULT 100.00, p_is_primary BOOLEAN DEFAULT FALSE, p_assigned_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Link assets to personas
 
 #### Contact Management (2)
-- `sp_add_email_to_persona(p_persona_id UUID, p_email TEXT, p_email_type email_type_enum, p_usage_type email_usage_type_enum, p_is_primary BOOLEAN)` - Add email to persona
-- `sp_add_phone_to_persona(p_persona_id UUID, p_phone TEXT, p_phone_type phone_type_enum, p_usage_type phone_usage_type_enum, p_is_primary BOOLEAN)` - Add phone to persona
+- `sp_add_email_to_persona(p_persona_id UUID, p_email TEXT, p_usage_type email_usage_type_enum DEFAULT 'personal', p_is_primary BOOLEAN DEFAULT FALSE, p_added_by UUID DEFAULT NULL)` RETURNS UUID - Add email to persona
+- `sp_add_phone_to_persona(p_persona_id UUID, p_phone VARCHAR(20), p_country_code VARCHAR(5) DEFAULT '+1', p_usage_type phone_usage_type_enum DEFAULT 'primary', p_is_primary BOOLEAN DEFAULT FALSE, p_added_by UUID DEFAULT NULL)` RETURNS UUID - Add phone to persona
 
 #### Invitation Management (1)
-- `sp_create_invitation(p_tenant_id INTEGER, p_ffc_id UUID, p_invited_by_user_id UUID, p_invitee_email TEXT, p_invitee_phone TEXT, p_invitee_first_name TEXT, p_invitee_last_name TEXT, p_role ffc_role_enum)` - Create FFC invitation
+- `sp_create_invitation(p_tenant_id INTEGER, p_ffc_id UUID, p_phone_number VARCHAR(20), p_role ffc_role_enum, p_invited_by UUID, p_persona_first_name TEXT, p_persona_last_name TEXT)` RETURNS UUID - Create FFC invitation
 
-#### Subscription Management (14)
-- `sp_create_ffc_with_subscription(p_tenant_id INTEGER, p_owner_user_id UUID, p_owner_persona_id UUID, p_ffc_name TEXT, p_description TEXT)` - Create FFC with automatic free plan assignment (prevents duplicate active subscriptions)
-- `sp_process_seat_invitation(p_invitation_id UUID, p_persona_id UUID, p_user_id UUID)` - Process seat invitation after approval (checks for existing assignments)
-- `sp_purchase_service(p_tenant_id INTEGER, p_service_code VARCHAR, p_ffc_id UUID, p_user_id UUID, p_payment_method_id UUID, p_stripe_payment_intent_id VARCHAR)` - Purchase one-time service
-- `sp_process_stripe_webhook(p_stripe_event_id VARCHAR, p_event_type VARCHAR, p_payload JSONB)` - Process Stripe webhook events asynchronously
-- `sp_record_ledger_entry(p_tenant_id INTEGER, p_transaction_type transaction_type_enum, p_amount DECIMAL, p_category VARCHAR, p_reference_id UUID, p_stripe_reference VARCHAR, p_description TEXT)` - Record transaction in general ledger
-- `sp_handle_payment_success(p_payload JSONB)` - Handle successful payment from Stripe
-- `sp_handle_payment_failure(p_payload JSONB)` - Handle failed payment from Stripe
-- `sp_handle_subscription_payment(p_payload JSONB)` - Handle subscription payment from Stripe
-- `sp_transition_subscription_plan(p_subscription_id UUID, p_new_plan_id UUID, p_user_id UUID, p_reason TEXT)` - Change subscription plan
-- `sp_cancel_subscription(p_subscription_id UUID, p_user_id UUID, p_reason TEXT)` - Cancel subscription
-- `sp_get_subscription_status(p_ffc_id UUID)` - Get current subscription status and details
-- `sp_calculate_seat_availability(p_subscription_id UUID)` - Calculate available seats for limited plans
-- `sp_check_payment_method_usage(p_payment_method_id UUID)` - Check if payment method is in use before deletion
+#### Subscription Management (18)
+- `sp_create_ffc_with_subscription(p_tenant_id INTEGER, p_name TEXT, p_description TEXT, p_owner_user_id UUID, p_owner_persona_id UUID, OUT p_ffc_id UUID, OUT p_subscription_id UUID)` - Create FFC with automatic free plan assignment (prevents duplicate active subscriptions)
+- `sp_process_seat_invitation(p_invitation_id UUID, p_subscription_id UUID, p_persona_id UUID, p_seat_type seat_type_enum DEFAULT 'pro')` - Process seat invitation after approval (checks for existing assignments)
+- `sp_purchase_service(p_tenant_id INTEGER, p_service_id UUID, p_ffc_id UUID, p_purchaser_user_id UUID, p_payment_method_id UUID, p_stripe_payment_intent_id TEXT, OUT p_purchase_id UUID, OUT p_payment_id UUID)` - Purchase one-time service by service ID
+- `sp_purchase_service(p_tenant_id INTEGER, p_service_code VARCHAR(50), p_ffc_id UUID, p_purchaser_user_id UUID, p_payment_method_id UUID, p_stripe_payment_intent_id TEXT, OUT p_purchase_id UUID, OUT p_payment_id UUID)` - Purchase one-time service by service code (overloaded)
+- `sp_process_stripe_webhook(p_stripe_event_id TEXT, p_event_type TEXT, p_payload JSONB)` - Process Stripe webhook events asynchronously
+- `sp_handle_payment_succeeded(p_event_id UUID, p_payload JSONB)` - Handle successful payment from Stripe
+- `sp_handle_payment_failed(p_event_id UUID, p_payload JSONB)` - Handle failed payment from Stripe
+- `sp_handle_invoice_payment_succeeded(p_event_id UUID, p_payload JSONB)` - Handle successful invoice payment from Stripe
+- `sp_handle_subscription_created(p_event_id UUID, p_payload JSONB)` - Handle subscription created webhook
+- `sp_handle_subscription_updated(p_event_id UUID, p_payload JSONB)` - Handle subscription updated webhook
+- `sp_handle_subscription_deleted(p_event_id UUID, p_payload JSONB)` - Handle subscription deleted webhook
+- `sp_check_payment_method_usage(p_payment_method_id UUID)` RETURNS BOOLEAN - Check if payment method is in use before deletion
 - `sp_delete_payment_method(p_payment_method_id UUID, p_user_id UUID)` - Safely delete payment method (fails if in use)
+- `sp_transition_subscription_plan(p_subscription_id UUID, p_new_plan_id UUID, p_initiated_by UUID, p_reason TEXT DEFAULT NULL)` - Change subscription plan
+- `sp_cancel_subscription(p_subscription_id UUID, p_user_id UUID, p_reason TEXT DEFAULT NULL)` - Cancel subscription
+- `sp_get_subscription_status(p_ffc_id UUID)` RETURNS TABLE - Get current subscription status and details
+- `sp_calculate_seat_availability(p_subscription_id UUID)` RETURNS TABLE - Calculate available seats for subscription plans
+- `sp_get_subscription_details(p_ffc_id UUID)` RETURNS TABLE - Get detailed subscription information with seat counts
+- `sp_create_ledger_entry(p_tenant_id INTEGER, p_transaction_type transaction_type_enum, p_account_type ledger_account_type_enum, p_amount DECIMAL(10,2), p_reference_type VARCHAR(50), p_reference_id UUID, p_description TEXT, p_stripe_reference VARCHAR(255) DEFAULT NULL)` - Create general ledger entry
 
 #### Audit & Compliance (4)
-- `sp_log_audit_event(p_tenant_id INTEGER, p_user_id UUID, p_action audit_action_enum, p_entity_type audit_entity_type_enum, p_entity_id UUID, p_details JSONB, p_ip_address TEXT)` - Log audit events
-- `sp_create_audit_event(p_tenant_id INTEGER, p_event_type TEXT, p_event_data JSONB, p_user_id UUID, p_metadata JSONB)` - Create audit events
-- `sp_get_audit_trail(p_tenant_id INTEGER, p_entity_type audit_entity_type_enum, p_entity_id UUID, p_start_date TIMESTAMP WITH TIME ZONE, p_end_date TIMESTAMP WITH TIME ZONE)` - Retrieve audit history
-- `sp_generate_compliance_report(p_tenant_id INTEGER, p_report_type TEXT, p_start_date TIMESTAMP WITH TIME ZONE, p_end_date TIMESTAMP WITH TIME ZONE)` - Generate compliance reports
+- `sp_log_audit_event(p_action VARCHAR(50), p_entity_type VARCHAR(50), p_entity_id UUID, p_entity_name TEXT DEFAULT NULL, p_old_values JSONB DEFAULT NULL, p_new_values JSONB DEFAULT NULL, p_metadata JSONB DEFAULT '{}', p_user_id UUID DEFAULT NULL)` RETURNS UUID - Log audit events
+- `sp_create_audit_event(p_event_type TEXT, p_event_category VARCHAR(50), p_description TEXT, p_risk_level VARCHAR(20) DEFAULT 'low', p_compliance_framework VARCHAR(50) DEFAULT 'SOC2', p_metadata JSONB DEFAULT '{}', p_user_id UUID DEFAULT NULL)` RETURNS UUID - Create audit events
+- `sp_get_audit_trail(p_entity_type VARCHAR(50) DEFAULT NULL, p_entity_id UUID DEFAULT NULL, p_user_id UUID DEFAULT NULL, p_action VARCHAR(50) DEFAULT NULL, p_start_date timestamptz DEFAULT NULL, p_end_date timestamptz DEFAULT NULL, p_limit INTEGER DEFAULT 100, p_offset INTEGER DEFAULT 0)` RETURNS TABLE - Retrieve audit history
+- `sp_generate_compliance_report(p_framework VARCHAR(50) DEFAULT 'SOC2', p_start_date DATE DEFAULT NULL, p_end_date DATE DEFAULT NULL, p_include_pii_activity BOOLEAN DEFAULT TRUE)` RETURNS TABLE - Generate compliance reports
 
 #### Reporting (1)
-- `sp_get_ffc_summary(p_ffc_id UUID)` - Get comprehensive FFC summary with statistics
+- `sp_get_ffc_summary(p_ffc_id UUID, p_user_id UUID)` RETURNS TABLE - Get comprehensive FFC summary with statistics
 
 #### Session Context (2)
-- `sp_set_session_context(p_user_id UUID, p_tenant_id INTEGER)` - Set user and tenant context for session
-- `sp_clear_session_context()` - Clear session context
+- `sp_set_session_context(p_user_id UUID, p_tenant_id INTEGER)` RETURNS VOID - Set user and tenant context for session
+- `sp_clear_session_context()` RETURNS VOID - Clear session context
 
 #### Utility Functions (1)
-- `update_updated_at_column()` - Trigger function to update timestamps
+- `update_updated_at_column()` RETURNS TRIGGER - Trigger function to update timestamps
 
 ### Event Sourcing Procedures (4)
 
 #### Event Store Management
-- `sp_append_event(p_tenant_id INTEGER, p_aggregate_id UUID, p_aggregate_type TEXT, p_event_type TEXT, p_event_data JSONB, p_user_id UUID, p_metadata JSONB)` - Append event to store
-- `sp_replay_events(p_aggregate_id UUID, p_from_version INTEGER, p_to_version INTEGER)` - Replay events for an aggregate
-- `sp_create_snapshot(p_aggregate_id UUID, p_aggregate_type TEXT, p_version INTEGER, p_state JSONB)` - Create snapshot of aggregate state
-- `sp_rebuild_projection(p_projection_name TEXT, p_aggregate_type TEXT, p_aggregate_id UUID)` - Rebuild projection from event stream
+- `sp_append_event(p_tenant_id INTEGER, p_aggregate_id UUID, p_aggregate_type TEXT, p_event_type TEXT, p_event_data JSONB, p_event_metadata JSONB DEFAULT NULL, p_user_id UUID DEFAULT NULL)` RETURNS UUID - Append event to store
+- `sp_replay_events(p_aggregate_id UUID, p_from_version INTEGER DEFAULT 1, p_to_version INTEGER DEFAULT NULL)` RETURNS TABLE - Replay events for an aggregate
+- `sp_create_snapshot(p_tenant_id INTEGER, p_aggregate_id UUID, p_aggregate_type TEXT, p_snapshot_data JSONB)` RETURNS UUID - Create snapshot of aggregate state
+- `sp_rebuild_projection(p_tenant_id INTEGER, p_projection_name TEXT, p_aggregate_id UUID DEFAULT NULL)` RETURNS VOID - Rebuild projection from event stream
 
 ### Integration Procedures (18+)
 
 #### PII Management (2)
-- `sp_detect_pii(p_tenant_id INTEGER, p_text_content TEXT, p_entity_type TEXT, p_entity_id UUID)` - Detect PII in text with masking
-- `sp_update_pii_job_status(p_job_id UUID, p_status TEXT, p_results JSONB)` - Update PII processing job status
+- `sp_detect_pii(p_text TEXT, p_context TEXT DEFAULT 'general', p_user_id UUID DEFAULT NULL)` RETURNS TABLE (detected BOOLEAN, pii_types JSONB, confidence_score DECIMAL, masked_text TEXT, detection_details JSONB) - Detect PII in text with masking
+- `sp_update_pii_job_status(p_job_id UUID, p_status VARCHAR(20), p_processed_records INTEGER DEFAULT NULL, p_pii_found_count INTEGER DEFAULT NULL, p_error_message TEXT DEFAULT NULL, p_results JSONB DEFAULT NULL)` RETURNS BOOLEAN - Update PII processing job status
 
 #### Quillt Integration (4)
-- `sp_configure_quillt_integration(p_tenant_id INTEGER, p_user_id UUID, p_connection_id UUID, p_configuration JSONB)` - Configure Quillt integration
-- `sp_sync_quillt_data(p_integration_id UUID, p_sync_type TEXT)` - Synchronize financial account data
-- `sp_validate_quillt_credentials(p_user_id UUID, p_connection_id UUID)` - Validate API credentials
-- `sp_get_quillt_sync_status(p_user_id UUID)` - Get sync status
+- `sp_configure_quillt_integration(p_user_id UUID, p_access_token TEXT, p_refresh_token TEXT DEFAULT NULL, p_environment VARCHAR(20) DEFAULT 'production', p_auto_sync BOOLEAN DEFAULT TRUE, p_sync_frequency INTEGER DEFAULT 24, p_metadata JSONB DEFAULT '{}')` RETURNS UUID - Configure Quillt integration
+- `sp_sync_quillt_data(p_user_id UUID, p_sync_type VARCHAR(50) DEFAULT 'full', p_data_categories JSONB DEFAULT '["accounts", "transactions", "documents"]')` RETURNS TABLE - Synchronize financial account data
+- `sp_validate_quillt_credentials(p_user_id UUID, p_access_token TEXT DEFAULT NULL)` RETURNS TABLE (is_valid BOOLEAN, expires_at timestamptz, validation_details JSONB) - Validate API credentials
+- `sp_get_quillt_sync_status(p_user_id UUID, p_days_back INTEGER DEFAULT 7)` RETURNS TABLE - Get sync status
 
 #### Real Estate Integration (2)
-- `sp_sync_real_estate_data(p_integration_id UUID, p_property_address TEXT)` - Sync property valuations
-- `sp_get_real_estate_sync_history(p_tenant_id INTEGER, p_days_back INTEGER)` - Retrieve sync history
+- `sp_sync_real_estate_data(p_provider VARCHAR(50) DEFAULT 'zillow', p_property_ids UUID[] DEFAULT NULL, p_sync_all BOOLEAN DEFAULT FALSE, p_user_id UUID DEFAULT NULL)` RETURNS TABLE - Sync property valuations
+- `sp_get_real_estate_sync_history(p_provider VARCHAR(50) DEFAULT NULL, p_days_back INTEGER DEFAULT 30, p_limit INTEGER DEFAULT 100)` RETURNS TABLE - Retrieve sync history
 
 #### Advisor Companies (2)
-- `sp_manage_advisor_company(p_operation TEXT, p_tenant_id INTEGER, p_company_name TEXT, p_company_type TEXT, p_contact_info JSONB, p_company_id UUID)` - Manage advisor companies
-- `sp_get_advisor_companies(p_tenant_id INTEGER, p_company_type TEXT, p_is_active BOOLEAN)` - Search advisor companies
+- `sp_manage_advisor_company(p_action VARCHAR(20), p_company_id UUID DEFAULT NULL, p_company_name TEXT DEFAULT NULL, p_company_type VARCHAR(50) DEFAULT NULL, p_contact_email TEXT DEFAULT NULL, p_contact_phone VARCHAR(20) DEFAULT NULL, p_website TEXT DEFAULT NULL, p_address TEXT DEFAULT NULL, p_metadata JSONB DEFAULT '{}', p_user_id UUID DEFAULT NULL)` RETURNS TABLE - Manage advisor companies
+- `sp_get_advisor_companies(p_company_type VARCHAR(50) DEFAULT NULL, p_is_active BOOLEAN DEFAULT TRUE, p_search_term TEXT DEFAULT NULL, p_limit INTEGER DEFAULT 100, p_offset INTEGER DEFAULT 0)` RETURNS TABLE - Search advisor companies
 
 #### Integration Health (2)
-- `sp_check_integration_health(p_tenant_id INTEGER, p_integration_type TEXT)` - Monitor integration health
-- `sp_retry_failed_integration(p_integration_type TEXT, p_integration_id UUID, p_retry_count INTEGER)` - Retry failed integrations
+- `sp_check_integration_health(p_integration_type VARCHAR(50) DEFAULT NULL)` RETURNS TABLE - Monitor integration health for all integration types
+- `sp_retry_failed_integration(p_integration_type VARCHAR(50), p_integration_id UUID, p_retry_count INTEGER DEFAULT 1, p_user_id UUID DEFAULT NULL)` RETURNS TABLE - Retry failed integrations
 
 #### Builder.io Integration (3)
-- `sp_configure_builder_io(p_tenant_id INTEGER, p_api_key TEXT, p_space_id TEXT, p_environment TEXT)` - Configure Builder.io integration
-- `sp_refresh_builder_content(p_integration_id UUID, p_content_type TEXT)` - Refresh content from Builder.io
-- `sp_get_builder_content_status(p_tenant_id INTEGER)` - Get content sync status
+- `sp_configure_builder_io(p_api_key TEXT, p_space_id TEXT, p_environment VARCHAR(20) DEFAULT 'production', p_model_names JSONB DEFAULT '["page", "section", "component"]', p_webhook_url TEXT DEFAULT NULL, p_user_id UUID DEFAULT NULL)` RETURNS UUID - Configure Builder.io integration
+- `sp_refresh_builder_content(p_space_id TEXT, p_model_name VARCHAR(50) DEFAULT NULL, p_content_ids TEXT[] DEFAULT NULL)` RETURNS TABLE - Refresh content from Builder.io
+- `sp_get_builder_content_status(p_space_id TEXT DEFAULT NULL)` RETURNS TABLE - Get content sync status
 
 #### Translation Management (2)
-- `sp_manage_translation(p_operation TEXT, p_entity_type TEXT, p_entity_id UUID, p_language_code TEXT, p_field_name TEXT, p_original_text TEXT, p_translated_text TEXT, p_translation_id UUID)` - Manage translations
-- `sp_get_translations(p_entity_type TEXT, p_entity_id UUID, p_language_code TEXT)` - Retrieve translations
+- `sp_manage_translation(p_action VARCHAR(20), p_translation_id UUID DEFAULT NULL, p_entity_type VARCHAR(50) DEFAULT NULL, p_entity_id TEXT DEFAULT NULL, p_field_name TEXT DEFAULT NULL, p_language_code CHAR(2) DEFAULT NULL, p_translated_value TEXT DEFAULT NULL, p_is_verified BOOLEAN DEFAULT FALSE, p_user_id UUID DEFAULT NULL)` RETURNS UUID - Manage translations
+- `sp_get_translations(p_entity_type VARCHAR(50) DEFAULT NULL, p_entity_id TEXT DEFAULT NULL, p_language_code CHAR(2) DEFAULT NULL, p_only_verified BOOLEAN DEFAULT FALSE)` RETURNS TABLE - Retrieve translations
 
 #### System Configuration (1)
-- `sp_update_system_configuration(p_tenant_id INTEGER, p_config_key TEXT, p_config_value JSONB, p_updated_by UUID)` - Update system settings
+- `sp_update_system_configuration(p_config_key TEXT, p_config_value JSONB, p_config_category VARCHAR(50) DEFAULT 'general', p_description TEXT DEFAULT NULL, p_user_id UUID DEFAULT NULL)` RETURNS BOOLEAN - Update system settings
 
 ## Helper Functions
 

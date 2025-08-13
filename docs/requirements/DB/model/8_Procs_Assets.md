@@ -148,8 +148,7 @@ CREATE OR REPLACE FUNCTION sp_update_asset(
     p_asset_id UUID,
     p_name TEXT DEFAULT NULL,
     p_description TEXT DEFAULT NULL,
-    p_acquisition_value DECIMAL(15,2) DEFAULT NULL,
-    p_acquisition_date DATE DEFAULT NULL,
+    p_estimated_value DECIMAL(15,2) DEFAULT NULL,
     p_status status_enum DEFAULT NULL,
     p_metadata JSONB DEFAULT NULL,
     p_updated_by UUID DEFAULT NULL
@@ -164,8 +163,7 @@ BEGIN
     UPDATE assets SET
         name = COALESCE(p_name, name),
         description = COALESCE(p_description, description),
-        acquisition_value = COALESCE(p_acquisition_value, acquisition_value),
-        acquisition_date = COALESCE(p_acquisition_date, acquisition_date),
+        estimated_value = COALESCE(p_estimated_value, estimated_value),
         status = COALESCE(p_status, status),
         tags = CASE 
             WHEN p_metadata IS NOT NULL THEN tags || p_metadata

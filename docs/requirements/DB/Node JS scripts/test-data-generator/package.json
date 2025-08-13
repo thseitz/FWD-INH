@@ -16,7 +16,11 @@
     "test-procedures": "npm run build && node dist/test-stored-procedures.js",
     "test-procs": "tsx src/test-stored-procedures.ts",
     "test-with-output": "npm run build && node dist/test-stored-procedures-with-output.js",
-    "test-output": "tsx src/test-stored-procedures-with-output.ts"
+    "test-output": "tsx src/test-stored-procedures-with-output.ts",
+    "test-comprehensive": "npm run build && node dist/run-comprehensive-tests.js",
+    "test-comp": "tsx src/run-comprehensive-tests.ts",
+    "test-safe": "npm run build && node dist/run-safe-tests.js",
+    "test-safe-quick": "tsx src/run-safe-tests.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",

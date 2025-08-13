@@ -25,28 +25,57 @@ The FFC (Forward Family Circle) management procedures handle the creation, modif
 Creates a new Forward Family Circle with an owner.
 
 ```sql
-CREATE OR REPLACE PROCEDURE sp_create_ffc(
+CREATE OR REPLACE FUNCTION sp_create_ffc(
     p_tenant_id INTEGER,
     p_owner_user_id UUID,
     p_name TEXT,
-    p_description TEXT,
-    OUT p_ffc_id UUID
-)
-LANGUAGE plpgsql AS $$
+    p_description TEXT DEFAULT NULL
+) RETURNS UUID AS $$
+DECLARE
+    v_ffc_id UUID;
+    v_owner_persona_id UUID;
 BEGIN
+    -- Create the FFC
     INSERT INTO fwd_family_circles (
         tenant_id,
         owner_user_id,
         name,
-        description
+        description,
+        status
     ) VALUES (
         p_tenant_id,
         p_owner_user_id,
         p_name,
-        p_description
-    ) RETURNING id INTO p_ffc_id;
+        p_description,
+        'active'
+    ) RETURNING id INTO v_ffc_id;
+    
+    -- Get or create owner's persona
+    SELECT id INTO v_owner_persona_id
+    FROM personas
+    WHERE user_id = p_owner_user_id
+    LIMIT 1;
+    
+    -- Add owner as member with owner role
+    IF v_owner_persona_id IS NOT NULL THEN
+        INSERT INTO ffc_personas (
+            tenant_id,
+            ffc_id,
+            persona_id,
+            ffc_role,
+            joined_at
+        ) VALUES (
+            p_tenant_id,
+            v_ffc_id,
+            v_owner_persona_id,
+            'owner',
+            NOW()
+        );
+    END IF;
+    
+    RETURN v_ffc_id;
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 **Parameters:**

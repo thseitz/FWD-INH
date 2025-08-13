@@ -684,7 +684,7 @@ CREATE OR REPLACE FUNCTION sp_get_ffc_summary(
     p_ffc_id UUID,
     p_user_id UUID
 ) RETURNS TABLE (
-    ffc_name VARCHAR,
+    ffc_name TEXT,
     owner_name TEXT,
     member_count BIGINT,
     asset_count BIGINT,
@@ -702,10 +702,12 @@ BEGIN
         f.name,
         u.first_name || ' ' || u.last_name as owner_name,
         (SELECT COUNT(*) FROM ffc_personas WHERE ffc_id = p_ffc_id),
-        (SELECT COUNT(*) FROM assets WHERE ffc_id = p_ffc_id),
-        (SELECT COUNT(*) FROM document_metadata d 
-         JOIN assets a ON a.id = d.id 
-         WHERE a.ffc_id = p_ffc_id),
+        (SELECT COUNT(DISTINCT a.id) 
+         FROM assets a 
+         JOIN asset_persona ap ON a.id = ap.asset_id
+         JOIN ffc_personas fp ON ap.persona_id = fp.persona_id
+         WHERE fp.ffc_id = p_ffc_id),
+        0::BIGINT, -- Document count - documents not directly linked to FFCs
         f.created_at
     FROM fwd_family_circles f
     JOIN users u ON f.owner_user_id = u.id
@@ -810,8 +812,7 @@ CREATE OR REPLACE FUNCTION sp_update_asset(
     p_asset_id UUID,
     p_name TEXT DEFAULT NULL,
     p_description TEXT DEFAULT NULL,
-    p_acquisition_value DECIMAL(15,2) DEFAULT NULL,
-    p_acquisition_date DATE DEFAULT NULL,
+    p_estimated_value DECIMAL(15,2) DEFAULT NULL,
     p_status status_enum DEFAULT NULL,
     p_metadata JSONB DEFAULT NULL,
     p_updated_by UUID DEFAULT NULL
@@ -826,8 +827,7 @@ BEGIN
     UPDATE assets SET
         name = COALESCE(p_name, name),
         description = COALESCE(p_description, description),
-        acquisition_value = COALESCE(p_acquisition_value, acquisition_value),
-        acquisition_date = COALESCE(p_acquisition_date, acquisition_date),
+        estimated_value = COALESCE(p_estimated_value, estimated_value),
         status = COALESCE(p_status, status),
         tags = CASE 
             WHEN p_metadata IS NOT NULL THEN tags || p_metadata
@@ -1147,7 +1147,7 @@ BEGIN
         a.description,
         ac.name,
         a.acquisition_value,
-        a.current_value,
+        a.estimated_value,
         a.acquisition_date,
         a.last_valuation_date,
         a.status,
@@ -1185,12 +1185,12 @@ CREATE OR REPLACE FUNCTION sp_search_assets(
     p_offset INTEGER DEFAULT 0
 ) RETURNS TABLE (
     asset_id UUID,
-    asset_name VARCHAR,
-    category_name VARCHAR,
-    current_value DECIMAL,
+    asset_name TEXT,
+    category_name TEXT,
+    estimated_value DECIMAL(15,2),
     status status_enum,
-    ffc_name VARCHAR,
-    primary_owner VARCHAR
+    ffc_name TEXT,
+    primary_owner TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -1198,7 +1198,7 @@ BEGIN
         a.id,
         a.name,
         ac.name,
-        a.current_value,
+        a.estimated_value,
         a.status,
         f.name,
         (
@@ -1210,13 +1210,25 @@ BEGIN
         )
     FROM assets a
     JOIN asset_categories ac ON a.category_id = ac.id
-    JOIN fwd_family_circles f ON a.ffc_id = f.id
+    LEFT JOIN LATERAL (
+        SELECT DISTINCT fc.id, fc.name
+        FROM asset_persona ap
+        JOIN ffc_personas fp ON ap.persona_id = fp.persona_id
+        JOIN fwd_family_circles fc ON fp.ffc_id = fc.id
+        WHERE ap.asset_id = a.id
+        LIMIT 1
+    ) f ON true
     WHERE 
-        (p_ffc_id IS NULL OR a.ffc_id = p_ffc_id)
+        (p_ffc_id IS NULL OR EXISTS (
+            SELECT 1 
+            FROM asset_persona ap2
+            JOIN ffc_personas fp2 ON ap2.persona_id = fp2.persona_id
+            WHERE ap2.asset_id = a.id AND fp2.ffc_id = p_ffc_id
+        ))
         AND (p_category_code IS NULL OR ac.code = p_category_code)
         AND (p_status IS NULL OR a.status = p_status)
-        AND (p_min_value IS NULL OR a.current_value >= p_min_value)
-        AND (p_max_value IS NULL OR a.current_value <= p_max_value)
+        AND (p_min_value IS NULL OR a.estimated_value >= p_min_value)
+        AND (p_max_value IS NULL OR a.estimated_value <= p_max_value)
         AND (p_search_term IS NULL OR 
              a.name ILIKE '%' || p_search_term || '%' OR
              a.description ILIKE '%' || p_search_term || '%')
@@ -1374,7 +1386,7 @@ BEGIN
     ) VALUES (
         (SELECT tenant_id FROM fwd_family_circles WHERE id = p_ffc_id),
         v_user_id,
-        'update_member_role',
+        'update',
         'ffc',
         p_ffc_id,
         (SELECT name FROM fwd_family_circles WHERE id = p_ffc_id),
@@ -1750,7 +1762,7 @@ CREATE OR REPLACE FUNCTION sp_get_audit_trail(
     user_name TEXT,
     action VARCHAR,
     entity_type VARCHAR,
-    entity_name VARCHAR,
+    entity_name TEXT,
     changes JSONB,
     metadata JSONB
 ) AS $$
@@ -1760,8 +1772,8 @@ BEGIN
         al.id,
         al.created_at,
         u.first_name || ' ' || u.last_name,
-        al.action,
-        al.entity_type,
+        al.action::VARCHAR,
+        al.entity_type::VARCHAR,
         al.entity_name,
         jsonb_build_object(
             'old_values', al.old_values,
@@ -1771,10 +1783,10 @@ BEGIN
     FROM audit_log al
     LEFT JOIN users u ON al.user_id = u.id
     WHERE 
-        (p_entity_type IS NULL OR al.entity_type = p_entity_type)
+        (p_entity_type IS NULL OR al.entity_type = p_entity_type::audit_entity_type_enum)
         AND (p_entity_id IS NULL OR al.entity_id = p_entity_id)
         AND (p_user_id IS NULL OR al.user_id = p_user_id)
-        AND (p_action IS NULL OR al.action = p_action)
+        AND (p_action IS NULL OR al.action = p_action::audit_action_enum)
         AND (p_start_date IS NULL OR al.created_at >= p_start_date)
         AND (p_end_date IS NULL OR al.created_at <= p_end_date)
     ORDER BY al.created_at DESC
@@ -1812,20 +1824,18 @@ BEGIN
     SELECT 
         CURRENT_DATE,
         p_framework,
-        (SELECT COUNT(*) FROM audit_events 
-         WHERE compliance_framework = p_framework 
-         AND occurred_at::DATE BETWEEN v_start AND v_end),
-        (SELECT COUNT(*) FROM audit_events 
-         WHERE compliance_framework = p_framework 
-         AND risk_level = 'high'
-         AND occurred_at::DATE BETWEEN v_start AND v_end),
+        (SELECT COUNT(*) FROM audit_log 
+         WHERE created_at::DATE BETWEEN v_start AND v_end),
+        (SELECT COUNT(*) FROM audit_log 
+         WHERE metadata->>'risk_level' = 'high'
+         AND created_at::DATE BETWEEN v_start AND v_end),
         CASE WHEN p_include_pii_activity THEN
             (SELECT COUNT(*) FROM pii_access_logs 
-             WHERE access_timestamp::DATE BETWEEN v_start AND v_end)
+             WHERE accessed_at::DATE BETWEEN v_start AND v_end)
         ELSE 0 END,
         (SELECT COUNT(*) FROM user_login_history 
-         WHERE login_success = FALSE 
-         AND login_timestamp::DATE BETWEEN v_start AND v_end),
+         WHERE was_successful = FALSE 
+         AND attempt_timestamp::DATE BETWEEN v_start AND v_end),
         (SELECT COUNT(*) FROM audit_log 
          WHERE action IN ('create', 'update', 'delete') 
          AND created_at::DATE BETWEEN v_start AND v_end),
@@ -1837,17 +1847,17 @@ BEGIN
             )
          ) FROM (
             SELECT user_id, COUNT(*) as event_count
-            FROM audit_events
-            WHERE occurred_at::DATE BETWEEN v_start AND v_end
+            FROM audit_log
+            WHERE created_at::DATE BETWEEN v_start AND v_end
             GROUP BY user_id
          ) ae
          JOIN users u ON ae.user_id = u.id),
         (SELECT jsonb_build_object(
-            'high', COUNT(*) FILTER (WHERE risk_level = 'high'),
-            'medium', COUNT(*) FILTER (WHERE risk_level = 'medium'),
-            'low', COUNT(*) FILTER (WHERE risk_level = 'low')
-         ) FROM audit_events
-         WHERE occurred_at::DATE BETWEEN v_start AND v_end);
+            'high', COUNT(*) FILTER (WHERE metadata->>'risk_level' = 'high'),
+            'medium', COUNT(*) FILTER (WHERE metadata->>'risk_level' = 'medium'),
+            'low', COUNT(*) FILTER (WHERE metadata->>'risk_level' = 'low')
+         ) FROM audit_log
+         WHERE created_at::DATE BETWEEN v_start AND v_end);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
