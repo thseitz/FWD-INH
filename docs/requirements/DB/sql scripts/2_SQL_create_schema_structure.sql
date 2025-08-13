@@ -287,16 +287,6 @@ CREATE TYPE audit_action_enum AS ENUM (
     'status_change'
 );
 
-CREATE TYPE audit_entity_type_enum AS ENUM (
-    'user',
-    'persona',
-    'asset',
-    'document',
-    'ffc',
-    'permission',
-    'system'
-);
-
 -- PII detection enums
 CREATE TYPE pii_type_enum AS ENUM (
     'ssn',
@@ -345,8 +335,8 @@ CREATE TABLE tenants (
     
     -- System fields
     is_active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -397,9 +387,9 @@ CREATE TABLE media_storage (
     
     -- Audit
     uploaded_by UUID NOT NULL,
-    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -446,8 +436,8 @@ CREATE TABLE document_metadata (
     custom_metadata JSONB DEFAULT '{}',
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -492,8 +482,8 @@ CREATE TABLE users (
     
     -- System Fields
     status user_status_enum NOT NULL DEFAULT 'pending_verification',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID
 );
@@ -536,8 +526,8 @@ CREATE TABLE personas (
     -- System fields
     is_living BOOLEAN NOT NULL DEFAULT TRUE,
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -574,8 +564,8 @@ CREATE TABLE fwd_family_circles (
     -- System fields
     is_active BOOLEAN DEFAULT TRUE,
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -607,12 +597,12 @@ CREATE TABLE phone_number (
     
     -- Multi-tenancy and audit
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT valid_phone_format CHECK (phone_number ~ '^[0-9]{10,15}$'),
-    CONSTRAINT valid_country_code CHECK (country_code ~ '^\+[0-9]{1,4}$')
+    CONSTRAINT phones_valid_country_code CHECK (country_code ~ '^\+[0-9]{1,4}$')
 );
 
 -- Table 8: email_address
@@ -632,8 +622,8 @@ CREATE TABLE email_address (
     
     -- Multi-tenancy and audit
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -671,11 +661,11 @@ CREATE TABLE address (
     
     -- Multi-tenancy and audit
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
-    CONSTRAINT valid_country_code CHECK (country ~ '^[A-Z]{2}$'),
+    CONSTRAINT addresses_valid_country_code CHECK (country ~ '^[A-Z]{2}$'),
     CONSTRAINT valid_coordinates CHECK (
         (latitude IS NULL AND longitude IS NULL) OR
         (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
@@ -706,8 +696,8 @@ CREATE TABLE social_media (
     
     -- Multi-tenancy and audit
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT valid_username CHECK (username != ''),
@@ -736,7 +726,7 @@ CREATE TABLE usage_email (
     notes TEXT,
     
     -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -762,7 +752,7 @@ CREATE TABLE usage_phone (
     notes TEXT,
     
     -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -788,11 +778,11 @@ CREATE TABLE usage_address (
     end_date DATE,
     
     -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
-    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date > effective_date)
+    CONSTRAINT ffc_members_valid_date_range CHECK (end_date IS NULL OR end_date > effective_date)
 );
 
 -- Table 14: usage_social_media
@@ -818,7 +808,7 @@ CREATE TABLE usage_social_media (
     recovery_phone_id UUID,
     
     -- Multi-tenancy and audit
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -851,8 +841,8 @@ CREATE TABLE contact_info (
     -- System fields
     is_preferred BOOLEAN DEFAULT FALSE,
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT must_have_name CHECK (company_name IS NOT NULL OR contact_name IS NOT NULL)
@@ -879,14 +869,14 @@ CREATE TABLE ffc_personas (
     custom_permissions JSONB DEFAULT '{}',
     
     -- Status
-    joined_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     invited_at TIMESTAMP WITH TIME ZONE,
     invitation_accepted_at TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT TRUE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -910,8 +900,8 @@ CREATE TABLE user_roles (
     priority INTEGER DEFAULT 100,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_role_name_per_tenant UNIQUE (tenant_id, name)
@@ -935,8 +925,8 @@ CREATE TABLE user_permissions (
     
     -- System fields
     is_system_permission BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_permission_per_tenant UNIQUE (tenant_id, category, resource, action)
@@ -950,7 +940,7 @@ CREATE TABLE role_permissions (
     permission_id UUID NOT NULL,
     
     -- Grant details
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     granted_by UUID,
     
     -- Constraints
@@ -967,7 +957,7 @@ CREATE TABLE user_role_assignments (
     
     -- Assignment details
     assigned_by UUID NOT NULL,
-    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE,
     
     -- Assignment metadata
@@ -981,8 +971,8 @@ CREATE TABLE user_role_assignments (
     revocation_reason TEXT,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID
 );
@@ -1015,7 +1005,7 @@ CREATE TABLE ffc_invitations (
     
     -- Status tracking
     status invitation_status_enum NOT NULL DEFAULT 'sent',
-    sent_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     accepted_at TIMESTAMP WITH TIME ZONE,
     approved_at TIMESTAMP WITH TIME ZONE,
     approved_by_user_id UUID,
@@ -1026,8 +1016,8 @@ CREATE TABLE ffc_invitations (
     expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '30 days'),
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1055,7 +1045,7 @@ CREATE TABLE invitation_verification_attempts (
     failure_reason TEXT,
     
     -- Tracking
-    attempted_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    attempted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Phone specific
     phone_id UUID NOT NULL,
@@ -1085,8 +1075,8 @@ CREATE TABLE asset_categories (
     requires_documentation BOOLEAN DEFAULT FALSE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID
 );
@@ -1114,8 +1104,8 @@ CREATE TABLE assets (
     status status_enum NOT NULL DEFAULT 'active',
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1153,14 +1143,14 @@ CREATE TABLE asset_persona (
     end_date DATE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
     CONSTRAINT valid_percentage CHECK (ownership_percentage BETWEEN 0 AND 100),
-    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date > effective_date)
+    CONSTRAINT asset_personas_valid_date_range CHECK (end_date IS NULL OR end_date > effective_date)
 );
 
 -- Table 25.1: asset_permissions
@@ -1172,9 +1162,9 @@ CREATE TABLE asset_permissions (
     persona_id UUID NOT NULL,
     permission_level VARCHAR(20) NOT NULL CHECK (permission_level IN ('read', 'edit', 'admin')),
     granted_by_persona_id UUID,
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_asset_persona_permission UNIQUE (asset_id, persona_id)
@@ -1236,8 +1226,8 @@ CREATE TABLE personal_directives (
     revocation_document_id UUID,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1301,14 +1291,14 @@ CREATE TABLE trusts (
     is_active BOOLEAN DEFAULT TRUE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
     CONSTRAINT valid_trust_name CHECK (trust_name != ''),
-    CONSTRAINT valid_state CHECK (state_of_formation ~ '^[A-Z]{2}$' OR state_of_formation IS NULL),
+    CONSTRAINT trusts_valid_state CHECK (state_of_formation ~ '^[A-Z]{2}$' OR state_of_formation IS NULL),
     CONSTRAINT valid_trust_dates CHECK (
         (termination_date IS NULL OR termination_date > execution_date) AND
         (effective_date IS NULL OR effective_date >= execution_date)
@@ -1374,13 +1364,13 @@ CREATE TABLE wills (
     superseded_by_will_id UUID,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
-    CONSTRAINT valid_state CHECK (state_of_execution ~ '^[A-Z]{2}$'),
+    CONSTRAINT personal_directives_valid_state CHECK (state_of_execution ~ '^[A-Z]{2}$'),
     CONSTRAINT valid_revocation CHECK (
         (is_current = TRUE AND revoked_date IS NULL) OR
         (is_current = FALSE AND revoked_date IS NOT NULL)
@@ -1440,8 +1430,8 @@ CREATE TABLE personal_property (
     pet_care_status pet_care_status_enum,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID
 );
@@ -1499,8 +1489,8 @@ CREATE TABLE operational_property (
     service_records UUID[],
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1549,8 +1539,8 @@ CREATE TABLE inventory (
     next_inventory_date DATE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1622,8 +1612,8 @@ CREATE TABLE real_estate (
     survey_document_id UUID,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1686,13 +1676,13 @@ CREATE TABLE life_insurance (
     policy_status VARCHAR(50) DEFAULT 'active', -- active, lapsed, paid-up, surrendered
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
-    CONSTRAINT valid_amounts CHECK (
+    CONSTRAINT life_insurance_valid_amounts CHECK (
         death_benefit_amount > 0 AND
         (cash_value >= 0 OR cash_value IS NULL) AND
         (annual_premium >= 0 OR annual_premium IS NULL)
@@ -1750,8 +1740,8 @@ CREATE TABLE financial_accounts (
     statement_document_ids UUID[],
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1806,14 +1796,14 @@ CREATE TABLE recurring_income (
     is_active BOOLEAN DEFAULT TRUE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
-    CONSTRAINT valid_payment_amount CHECK (payment_amount > 0),
-    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date > start_date)
+    CONSTRAINT pensions_valid_payment_amount CHECK (payment_amount > 0),
+    CONSTRAINT pensions_valid_date_range CHECK (end_date IS NULL OR end_date > start_date)
 );
 
 -- Table 36: digital_assets
@@ -1862,8 +1852,8 @@ CREATE TABLE digital_assets (
     auto_renew_enabled BOOLEAN DEFAULT FALSE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -1928,14 +1918,14 @@ CREATE TABLE ownership_interests (
     financial_statements_document_ids UUID[],
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
     CONSTRAINT valid_ownership_percentage CHECK (ownership_percentage BETWEEN 0 AND 100),
-    CONSTRAINT valid_state CHECK (state_of_formation ~ '^[A-Z]{2}$' OR state_of_formation IS NULL),
+    CONSTRAINT businesses_valid_state CHECK (state_of_formation ~ '^[A-Z]{2}$' OR state_of_formation IS NULL),
     CONSTRAINT valid_shares CHECK (number_of_shares >= 0 OR number_of_shares IS NULL)
 );
 
@@ -1994,13 +1984,13 @@ CREATE TABLE loans (
     collection_agency_contact_id UUID,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
     -- Constraints
-    CONSTRAINT valid_amounts CHECK (
+    CONSTRAINT loans_valid_amounts CHECK (
         original_amount > 0 AND
         current_balance >= 0 AND
         current_balance <= original_amount
@@ -2029,9 +2019,9 @@ CREATE TABLE user_sessions (
     os VARCHAR(50),
     
     -- Session lifecycle
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Session metadata
     is_active BOOLEAN DEFAULT TRUE,
@@ -2080,8 +2070,8 @@ CREATE TABLE user_mfa_settings (
     recovery_codes TEXT[],
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -2099,7 +2089,7 @@ CREATE TABLE password_reset_tokens (
     token_hash TEXT NOT NULL UNIQUE,
     
     -- Token lifecycle
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     used_at TIMESTAMP WITH TIME ZONE,
     
@@ -2131,7 +2121,7 @@ CREATE TABLE user_login_history (
     email TEXT NOT NULL, -- Track even failed attempts
     
     -- Attempt details
-    attempt_timestamp TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    attempt_timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     was_successful BOOLEAN NOT NULL,
     failure_reason TEXT,
     
@@ -2182,8 +2172,8 @@ CREATE TABLE audit_log (
     user_agent TEXT,
     request_id UUID,
     
-    -- Timestamp
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    -- TIMESTAMPTZ
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Additional metadata
     metadata JSONB DEFAULT '{}'
@@ -2213,8 +2203,8 @@ CREATE TABLE audit_events (
     session_id UUID,
     
     -- Timing
-    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    detected_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    occurred_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    detected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Response
     response_action TEXT,
@@ -2254,8 +2244,8 @@ CREATE TABLE pii_detection_rules (
     examples TEXT[],
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID
 );
@@ -2290,7 +2280,7 @@ CREATE TABLE pii_processing_jobs (
     processing_options JSONB DEFAULT '{}',
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     scheduled_by UUID,
     
     -- Constraints
@@ -2325,8 +2315,8 @@ CREATE TABLE masking_configurations (
     is_active BOOLEAN DEFAULT TRUE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -2342,7 +2332,7 @@ CREATE TABLE pii_access_logs (
     
     -- Access details
     user_id UUID NOT NULL,
-    accessed_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    accessed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- What was accessed
     table_name TEXT NOT NULL,
@@ -2404,8 +2394,8 @@ CREATE TABLE translations (
     last_used_at TIMESTAMP WITH TIME ZONE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -2434,8 +2424,8 @@ CREATE TABLE user_language_preferences (
     large_text_mode BOOLEAN DEFAULT FALSE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_user_language_pref UNIQUE (user_id),
@@ -2483,8 +2473,8 @@ CREATE TABLE advisor_companies (
     is_active BOOLEAN DEFAULT TRUE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     
@@ -2519,8 +2509,8 @@ CREATE TABLE builder_io_integrations (
     last_error TEXT,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_builder_integration UNIQUE (tenant_id)
@@ -2561,8 +2551,8 @@ CREATE TABLE quillt_integrations (
     connection_status integration_status_enum DEFAULT 'disconnected',
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_quillt_user UNIQUE (tenant_id, user_id)
@@ -2582,7 +2572,7 @@ CREATE TABLE quillt_webhook_logs (
     headers JSONB,
     
     -- Processing
-    received_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    received_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     processed_at TIMESTAMP WITH TIME ZONE,
     processing_status webhook_status_enum DEFAULT 'pending',
     processing_error TEXT,
@@ -2616,8 +2606,8 @@ CREATE TABLE real_estate_provider_integrations (
     last_sync_at TIMESTAMP WITH TIME ZONE,
     
     -- System fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_provider_per_tenant UNIQUE (tenant_id, provider_name)
@@ -2645,7 +2635,7 @@ CREATE TABLE real_estate_sync_logs (
     error_message TEXT,
     
     -- Timing
-    initiated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    initiated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
     
     -- Constraints
@@ -2673,7 +2663,7 @@ CREATE TABLE event_store (
     event_version INTEGER NOT NULL, -- Order of events for an aggregate
     
     -- Audit
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID NOT NULL,
     
     -- Constraints
@@ -2696,7 +2686,7 @@ CREATE TABLE event_snapshots (
     snapshot_data JSONB NOT NULL,       -- Complete state at this version
     
     -- Metadata
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_aggregate_snapshot UNIQUE (aggregate_id, snapshot_version)
@@ -2717,7 +2707,7 @@ CREATE TABLE event_projections (
     last_event_version INTEGER NOT NULL, -- Last processed event version
     
     -- Metadata
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     -- Constraints
     CONSTRAINT unique_projection UNIQUE (tenant_id, projection_name, aggregate_id)
@@ -2859,8 +2849,8 @@ CREATE TABLE plans (
     is_public BOOLEAN NOT NULL DEFAULT true,
     sort_order INTEGER DEFAULT 0,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
     CONSTRAINT unique_plan_code_per_tenant UNIQUE (tenant_id, plan_code),
@@ -2876,8 +2866,8 @@ CREATE TABLE plan_seats (
     max_quantity INTEGER, -- NULL means unlimited
     additional_seat_price DECIMAL(10, 2) DEFAULT 0.00,
     features JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_seat_type_per_plan UNIQUE (plan_id, seat_type),
     CONSTRAINT valid_quantities CHECK (
         (included_quantity IS NULL OR included_quantity >= 0) AND
@@ -2903,13 +2893,13 @@ CREATE TABLE subscriptions (
     trial_end_date DATE,
     current_period_start DATE,
     current_period_end DATE,
-    canceled_at TIMESTAMP,
+    canceled_at TIMESTAMPTZ,
     cancel_reason TEXT,
     next_billing_date DATE,
     billing_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT valid_billing_amount CHECK (billing_amount >= 0)
 );
 
@@ -2927,13 +2917,13 @@ CREATE TABLE seat_assignments (
     payer_id UUID, -- For individual seat upgrades
     is_self_paid BOOLEAN NOT NULL DEFAULT false,
     status status_enum NOT NULL DEFAULT 'active',
-    invited_at TIMESTAMP,
-    activated_at TIMESTAMP,
-    suspended_at TIMESTAMP,
+    invited_at TIMESTAMPTZ,
+    activated_at TIMESTAMPTZ,
+    suspended_at TIMESTAMPTZ,
     invitation_id UUID,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Create unique partial index for one active seat per persona per subscription
@@ -2956,8 +2946,8 @@ CREATE TABLE payment_methods (
     card_holder_name VARCHAR(255),
     is_default BOOLEAN NOT NULL DEFAULT false,
     status status_enum NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT valid_exp_month CHECK (exp_month IS NULL OR (exp_month >= 1 AND exp_month <= 12)),
     CONSTRAINT valid_exp_year CHECK (exp_year IS NULL OR exp_year >= EXTRACT(YEAR FROM NOW()))
 );
@@ -2979,8 +2969,8 @@ CREATE TABLE services (
     is_public BOOLEAN NOT NULL DEFAULT true,
     sort_order INTEGER DEFAULT 0,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_service_code_per_tenant UNIQUE (tenant_id, service_code),
     CONSTRAINT valid_service_price CHECK (price >= 0)
 );
@@ -2996,11 +2986,11 @@ CREATE TABLE service_purchases (
     stripe_payment_intent_id VARCHAR(255),
     payment_method_id UUID,
     status payment_status_enum NOT NULL DEFAULT 'pending',
-    purchased_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    delivered_at TIMESTAMP,
+    purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    delivered_at TIMESTAMPTZ,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT valid_purchase_amount CHECK (amount >= 0)
 );
 
@@ -3019,11 +3009,11 @@ CREATE TABLE payments (
     stripe_invoice_id VARCHAR(255),
     status payment_status_enum NOT NULL DEFAULT 'pending',
     failure_reason TEXT,
-    processed_at TIMESTAMP,
+    processed_at TIMESTAMPTZ,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT valid_payment_amount CHECK (amount >= 0)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT subscription_service_purchases_valid_payment_amount CHECK (amount >= 0)
 );
 
 CREATE OR REPLACE VIEW payment_methods_with_usage AS
@@ -3062,10 +3052,10 @@ CREATE TABLE general_ledger (
     description TEXT,
     internal_notes TEXT,
     reconciled BOOLEAN NOT NULL DEFAULT false,
-    reconciled_at TIMESTAMP,
+    reconciled_at TIMESTAMPTZ,
     reconciled_by UUID,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Refunds table
@@ -3079,9 +3069,9 @@ CREATE TABLE refunds (
     stripe_refund_id VARCHAR(255),
     status payment_status_enum NOT NULL DEFAULT 'pending',
     initiated_by UUID NOT NULL,
-    processed_at TIMESTAMP,
+    processed_at TIMESTAMPTZ,
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT valid_refund_amount CHECK (amount > 0)
 );
 
@@ -3092,11 +3082,11 @@ CREATE TABLE stripe_events (
     event_type VARCHAR(100) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'processed', 'failed', 'ignored')),
     attempts INTEGER NOT NULL DEFAULT 0,
-    last_attempt_at TIMESTAMP,
-    processed_at TIMESTAMP,
+    last_attempt_at TIMESTAMPTZ,
+    processed_at TIMESTAMPTZ,
     payload JSONB NOT NULL,
     error_message TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Subscription transitions table
@@ -3110,7 +3100,7 @@ CREATE TABLE subscription_transitions (
     effective_date DATE NOT NULL,
     initiated_by UUID NOT NULL,
     reason TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ================================================================
