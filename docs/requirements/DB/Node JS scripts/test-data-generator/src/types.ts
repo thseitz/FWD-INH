@@ -19,39 +19,36 @@ export interface DatabaseConfig {
 }
 
 export interface TestPersona {
-  tenant_id: string;
+  tenant_id: number;
   first_name: string;
   last_name: string;
-  email: string;
-  phone: string;
   date_of_birth: Date;
-  language_preference: 'en' | 'es';
-  timezone: string;
-  profile_picture_url?: string;
+  is_living: boolean;
+  status: string;
+  language_preference?: 'en' | 'es'; // Not in DB but used for generation
   created_at: Date;
   updated_at: Date;
 }
 
 export interface TestFfc {
-  tenant_id: string;
+  tenant_id: number;
   name: string;
   description?: string;
-  family_picture_url?: string;
-  created_by_persona_id: string;
+  family_photo_url?: string;
+  owner_user_id: string;
+  status: string;
   created_at: Date;
   updated_at: Date;
 }
 
 export interface TestAsset {
-  tenant_id: string;
-  ffc_id: string;
-  category: AssetCategory;
+  tenant_id: number;
+  category_id: string;
   name: string;
   description?: string;
   estimated_value: number;
-  currency: string;
-  category_specific_data: Record<string, any>;
-  created_by_persona_id: string;
+  currency_code: string;
+  status: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -72,28 +69,32 @@ export type AssetCategory =
   | 'loans';
 
 export interface TestAssetOwnership {
+  tenant_id: number;
   asset_id: string;
   persona_id: string;
   ownership_percentage: number;
-  ownership_type: 'direct' | 'trust' | 'beneficiary';
+  ownership_type: string;
   created_at: Date;
 }
 
 export interface TestAssetPermission {
+  tenant_id: number;
   asset_id: string;
   persona_id: string;
-  permission_level: 'read' | 'edit' | 'admin';
+  permission_level: string;
   granted_by_persona_id: string;
+  granted_at: Date;
   created_at: Date;
 }
 
 export interface TestFfcMembership {
+  tenant_id: number;
   ffc_id: string;
   persona_id: string;
-  role: 'owner' | 'beneficiary' | 'non_beneficiary' | 'advisor';
-  invited_by_persona_id: string;
-  invitation_status: 'pending' | 'accepted' | 'declined';
-  verified_at?: Date;
+  ffc_role: string;
+  joined_at?: Date;
+  invited_at: Date;
+  is_active: boolean;
   created_at: Date;
 }
 

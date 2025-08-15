@@ -20,7 +20,9 @@
     "test-comprehensive": "npm run build && node dist/run-comprehensive-tests.js",
     "test-comp": "tsx src/run-comprehensive-tests.ts",
     "test-safe": "npm run build && node dist/run-safe-tests.js",
-    "test-safe-quick": "tsx src/run-safe-tests.ts"
+    "test-safe-quick": "tsx src/run-safe-tests.ts",
+    "test-fixed": "npm run build && node dist/test-fixed-procedures.js",
+    "test-fixed-quick": "tsx src/test-fixed-procedures.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",

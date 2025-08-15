@@ -10,7 +10,7 @@ export class PersonaGenerator {
    */
   generatePersonas(
     count: number, 
-    tenantId: string, 
+    tenantId: number, 
     language: 'en' | 'es' | 'mixed' = 'mixed'
   ): TestPersona[] {
     const personas: TestPersona[] = [];
@@ -24,7 +24,7 @@ export class PersonaGenerator {
     return personas;
   }
 
-  private generateSinglePersona(tenantId: string, language: 'en' | 'es'): TestPersona {
+  private generateSinglePersona(tenantId: number, language: 'en' | 'es'): TestPersona {
     // Note: Modern faker.js uses locales differently - we'll handle this in individual methods
 
     const firstName = this.generateFirstName(language);
@@ -36,12 +36,10 @@ export class PersonaGenerator {
       tenant_id: tenantId,
       first_name: firstName,
       last_name: lastName,
-      email: email,
-      phone: phone,
       date_of_birth: this.generateBirthDate(),
+      is_living: true,
+      status: 'active',
       language_preference: language,
-      timezone: this.generateTimezone(language),
-      profile_picture_url: this.generateProfilePicture(),
       created_at: this.generateCreatedDate(),
       updated_at: new Date()
     };
@@ -213,7 +211,7 @@ export class PersonaGenerator {
    */
   generateFamilyGroup(
     size: number, 
-    tenantId: string, 
+    tenantId: number, 
     language: 'en' | 'es' | 'mixed' = 'mixed'
   ): { 
     patriarch?: TestPersona, 
@@ -242,7 +240,7 @@ export class PersonaGenerator {
     return { patriarch, matriarch, children, spouses, grandchildren };
   }
 
-  private generatePatriarch(tenantId: string, surname: string, language: 'en' | 'es'): TestPersona {
+  private generatePatriarch(tenantId: number, surname: string, language: 'en' | 'es'): TestPersona {
     const firstName = this.generateFirstName(language);
     return {
       ...this.generateSinglePersona(tenantId, language),
@@ -252,7 +250,7 @@ export class PersonaGenerator {
     };
   }
 
-  private generateMatriarch(tenantId: string, surname: string, language: 'en' | 'es'): TestPersona {
+  private generateMatriarch(tenantId: number, surname: string, language: 'en' | 'es'): TestPersona {
     const firstName = this.generateFirstName(language);
     return {
       ...this.generateSinglePersona(tenantId, language),
@@ -262,7 +260,7 @@ export class PersonaGenerator {
     };
   }
 
-  private generateChildren(count: number, tenantId: string, familySurname: string, language: 'en' | 'es'): TestPersona[] {
+  private generateChildren(count: number, tenantId: number, familySurname: string, language: 'en' | 'es'): TestPersona[] {
     return Array.from({ length: count }, () => {
       const firstName = this.generateFirstName(language);
       return {
@@ -274,7 +272,7 @@ export class PersonaGenerator {
     });
   }
 
-  private generateSpouses(children: TestPersona[], tenantId: string, language: 'en' | 'es'): TestPersona[] {
+  private generateSpouses(children: TestPersona[], tenantId: number, language: 'en' | 'es'): TestPersona[] {
     return children
       .filter(() => faker.datatype.boolean(0.6)) // 60% of children have spouses
       .map(() => this.generateSinglePersona(tenantId, language));
@@ -283,7 +281,7 @@ export class PersonaGenerator {
   private generateGrandchildren(
     children: TestPersona[], 
     spouses: TestPersona[], 
-    tenantId: string, 
+    tenantId: number, 
     language: 'en' | 'es'
   ): TestPersona[] {
     const grandchildren: TestPersona[] = [];

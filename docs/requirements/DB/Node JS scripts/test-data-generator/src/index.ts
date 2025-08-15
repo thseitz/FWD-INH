@@ -11,10 +11,10 @@ const program = new Command();
 // Default configuration
 const defaultDbConfig: DatabaseConfig = {
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'forward_inheritance',
+  port: parseInt(process.env.DB_PORT || '15432'),
+  database: process.env.DB_NAME || 'fwd_db',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password'
+  password: process.env.DB_PASSWORD || 'FGt!3reGTdt5BG!'
 };
 
 const defaultConfig: GenerationConfig = {

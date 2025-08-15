@@ -1,4 +1,3 @@
--- Step 1: Run this first in postgres DB
 DROP DATABASE IF EXISTS fwd_db;
 CREATE DATABASE fwd_db
     WITH 

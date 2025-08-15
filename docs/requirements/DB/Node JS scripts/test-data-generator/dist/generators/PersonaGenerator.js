@@ -27,12 +27,10 @@ class PersonaGenerator {
             tenant_id: tenantId,
             first_name: firstName,
             last_name: lastName,
-            email: email,
-            phone: phone,
             date_of_birth: this.generateBirthDate(),
+            is_living: true,
+            status: 'active',
             language_preference: language,
-            timezone: this.generateTimezone(language),
-            profile_picture_url: this.generateProfilePicture(),
             created_at: this.generateCreatedDate(),
             updated_at: new Date()
         };

@@ -1,6 +1,5 @@
 import { Pool, PoolClient } from 'pg';
 import { PersonaGenerator } from './generators/PersonaGenerator';
-import { AssetGenerator } from './generators/AssetGenerator';
 import { 
   GenerationConfig, 
   DatabaseConfig, 
@@ -17,12 +16,10 @@ import { faker } from '@faker-js/faker';
 export class TestDataGenerator {
   private pool: Pool;
   private personaGenerator: PersonaGenerator;
-  private assetGenerator: AssetGenerator;
 
   constructor(dbConfig: DatabaseConfig) {
     this.pool = new Pool(dbConfig);
     this.personaGenerator = new PersonaGenerator();
-    this.assetGenerator = new AssetGenerator();
   }
 
   /**
@@ -56,6 +53,9 @@ export class TestDataGenerator {
       for (const tenantId of tenantIds) {
         console.log(`👥 Generating data for tenant: ${tenantId}`);
         
+        // Generate users for this tenant
+        const users = await this.generateUsersForTenant(client, tenantId, 2);
+        
         // Generate personas for this tenant
         const personas = await this.generatePersonasForTenant(
           client, 
@@ -70,6 +70,7 @@ export class TestDataGenerator {
           client, 
           tenantId, 
           personas, 
+          users,
           config.ffcsPerTenant
         );
         stats.ffcs += ffcs.length;
@@ -138,12 +139,13 @@ export class TestDataGenerator {
       
       // Delete in reverse dependency order
       await client.query('DELETE FROM asset_permissions WHERE TRUE');
-      await client.query('DELETE FROM asset_ownerships WHERE TRUE');
-      await client.query('DELETE FROM asset_documents WHERE TRUE');
+      await client.query('DELETE FROM asset_persona WHERE TRUE');
       await client.query('DELETE FROM assets WHERE TRUE');
-      await client.query('DELETE FROM ffc_memberships WHERE TRUE');
-      await client.query('DELETE FROM ffcs WHERE TRUE');
+      await client.query('DELETE FROM ffc_personas WHERE TRUE');
+      await client.query('DELETE FROM fwd_family_circles WHERE TRUE');
       await client.query('DELETE FROM personas WHERE TRUE');
+      await client.query('DELETE FROM users WHERE TRUE');
+      await client.query('DELETE FROM plans WHERE TRUE');
       await client.query('DELETE FROM tenants WHERE TRUE');
       
       await client.query('COMMIT');
@@ -158,8 +160,8 @@ export class TestDataGenerator {
     }
   }
 
-  private async generateTenants(client: PoolClient, count: number): Promise<string[]> {
-    const tenantIds: string[] = [];
+  private async generateTenants(client: PoolClient, count: number): Promise<number[]> {
+    const tenantIds: number[] = [];
     
     for (let i = 0; i < count; i++) {
       const tenantId = this.generateTenantId();
@@ -167,9 +169,9 @@ export class TestDataGenerator {
       const domain = `${faker.internet.domainWord()}.forwardinheritance.com`;
       
       await client.query(
-        `INSERT INTO tenants (id, name, domain, created_at, updated_at) 
-         VALUES ($1, $2, $3, NOW(), NOW())`,
-        [tenantId, name, domain]
+        `INSERT INTO tenants (id, name, display_name, domain, is_active, created_at, updated_at) 
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+        [tenantId, name, name, domain, true]
       );
       
       tenantIds.push(tenantId);
@@ -178,9 +180,29 @@ export class TestDataGenerator {
     return tenantIds;
   }
 
+  private async generateUsersForTenant(client: PoolClient, tenantId: number, count: number): Promise<string[]> {
+    const userIds: string[] = [];
+    
+    for (let i = 0; i < count; i++) {
+      const userId = this.generateUuid();
+      const firstName = faker.person.firstName();
+      const lastName = faker.person.lastName();
+      
+      await client.query(
+        `INSERT INTO users (id, tenant_id, cognito_user_id, cognito_username, first_name, last_name, status, created_at, updated_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+        [userId, tenantId, `${userId}-cognito`, `${firstName.toLowerCase()}${lastName.toLowerCase()}`, firstName, lastName, 'active']
+      );
+      
+      userIds.push(userId);
+    }
+    
+    return userIds;
+  }
+
   private async generatePersonasForTenant(
     client: PoolClient,
-    tenantId: string,
+    tenantId: number,
     count: number,
     language: 'en' | 'es' | 'mixed'
   ): Promise<TestPersona[]> {
@@ -220,23 +242,17 @@ export class TestDataGenerator {
     
     await client.query(
       `INSERT INTO personas (
-        id, tenant_id, first_name, last_name, email, phone, 
-        date_of_birth, language_preference, timezone, profile_picture_url,
-        created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        id, tenant_id, first_name, last_name, 
+        date_of_birth, is_living, status, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
       [
         personaId,
         persona.tenant_id,
         persona.first_name,
         persona.last_name,
-        persona.email,
-        persona.phone,
         persona.date_of_birth,
-        persona.language_preference,
-        persona.timezone,
-        persona.profile_picture_url,
-        persona.created_at,
-        persona.updated_at
+        true, // is_living
+        'active' // status
       ]
     );
     
@@ -246,20 +262,23 @@ export class TestDataGenerator {
 
   private async generateFfcsForTenant(
     client: PoolClient,
-    tenantId: string,
+    tenantId: number,
     personas: TestPersona[],
+    users: string[],
     count: number
   ): Promise<TestFfc[]> {
     const ffcs: TestFfc[] = [];
     
     for (let i = 0; i < count; i++) {
       const creator = faker.helpers.arrayElement(personas);
+      const ownerUser = faker.helpers.arrayElement(users);
       const ffc: TestFfc = {
         tenant_id: tenantId,
-        name: this.generateFfcName(creator.last_name, creator.language_preference),
-        description: this.generateFfcDescription(creator.language_preference),
-        family_picture_url: faker.datatype.boolean(0.4) ? faker.image.avatar() : undefined,
-        created_by_persona_id: (creator as any).id,
+        name: this.generateFfcName(creator.last_name, creator.language_preference || 'en'),
+        description: this.generateFfcDescription(creator.language_preference || 'en'),
+        family_photo_url: faker.datatype.boolean(0.4) ? faker.image.avatar() : undefined,
+        owner_user_id: ownerUser,
+        status: 'active',
         created_at: faker.date.recent({ days: 180 }),
         updated_at: new Date()
       };
@@ -276,17 +295,18 @@ export class TestDataGenerator {
     const ffcId = this.generateUuid();
     
     await client.query(
-      `INSERT INTO ffcs (
-        id, tenant_id, name, description, family_picture_url,
-        created_by_persona_id, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO fwd_family_circles (
+        id, tenant_id, name, description, family_photo_url,
+        owner_user_id, status, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         ffcId,
         ffc.tenant_id,
         ffc.name,
         ffc.description,
-        ffc.family_picture_url,
-        ffc.created_by_persona_id,
+        ffc.family_photo_url,
+        ffc.owner_user_id,
+        ffc.status,
         ffc.created_at,
         ffc.updated_at
       ]
@@ -303,38 +323,41 @@ export class TestDataGenerator {
     const memberships: TestFfcMembership[] = [];
     
     for (const ffc of ffcs) {
-      // Add creator as owner
+      // Add creator as owner - use first persona as the owner
+      const ownerPersona = personas[0];
       const creatorMembership = await this.insertFfcMembership(client, {
+        tenant_id: 1,
         ffc_id: (ffc as any).id,
-        persona_id: ffc.created_by_persona_id,
-        role: 'owner',
-        invited_by_persona_id: ffc.created_by_persona_id,
-        invitation_status: 'accepted',
-        verified_at: ffc.created_at,
+        persona_id: (ownerPersona as any).id,
+        ffc_role: 'owner',
+        joined_at: ffc.created_at,
+        invited_at: ffc.created_at,
+        is_active: true,
         created_at: ffc.created_at
       });
       memberships.push(creatorMembership);
       
       // Add 3-8 additional members
       const additionalMemberCount = faker.number.int({ min: 3, max: 8 });
-      const availablePersonas = personas.filter(p => (p as any).id !== ffc.created_by_persona_id);
+      const availablePersonas = personas.filter(p => (p as any).id !== (ownerPersona as any).id);
       const selectedMembers = faker.helpers.arrayElements(availablePersonas, additionalMemberCount);
       
       for (const member of selectedMembers) {
         const membership = await this.insertFfcMembership(client, {
+          tenant_id: 1,
           ffc_id: (ffc as any).id,
           persona_id: (member as any).id,
-          role: faker.helpers.weightedArrayElement([
+          ffc_role: faker.helpers.weightedArrayElement([
             { value: 'beneficiary', weight: 60 },
             { value: 'non_beneficiary', weight: 30 },
             { value: 'advisor', weight: 10 }
           ]),
-          invited_by_persona_id: ffc.created_by_persona_id,
-          invitation_status: faker.helpers.weightedArrayElement([
-            { value: 'accepted', weight: 85 },
-            { value: 'pending', weight: 15 }
+          joined_at: faker.date.recent({ days: 30 }),
+          invited_at: faker.date.between({ from: ffc.created_at, to: new Date() }),
+          is_active: faker.helpers.weightedArrayElement([
+            { value: true, weight: 85 },
+            { value: false, weight: 15 }
           ]),
-          verified_at: faker.date.recent({ days: 30 }),
           created_at: faker.date.between({ from: ffc.created_at, to: new Date() })
         });
         memberships.push(membership);
@@ -345,18 +368,22 @@ export class TestDataGenerator {
   }
 
   private async insertFfcMembership(client: PoolClient, membership: TestFfcMembership): Promise<TestFfcMembership> {
+    const membershipId = this.generateUuid();
+    
     await client.query(
-      `INSERT INTO ffc_memberships (
-        ffc_id, persona_id, role, invited_by_persona_id,
-        invitation_status, verified_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO ffc_personas (
+        id, tenant_id, ffc_id, persona_id, ffc_role, 
+        joined_at, invited_at, is_active, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
+        membershipId,
+        membership.tenant_id,
         membership.ffc_id,
         membership.persona_id,
-        membership.role,
-        membership.invited_by_persona_id,
-        membership.invitation_status,
-        membership.verified_at,
+        membership.ffc_role,
+        membership.joined_at,
+        membership.invited_at,
+        membership.is_active,
         membership.created_at
       ]
     );
@@ -366,19 +393,29 @@ export class TestDataGenerator {
 
   private async generateAssetsForFfc(
     client: PoolClient,
-    tenantId: string,
+    tenantId: number,
     ffc: TestFfc,
     personas: TestPersona[],
     count: number,
     scenario: 'high_net_worth' | 'mass_affluent' | 'mixed'
   ): Promise<TestAsset[]> {
-    const assets = this.assetGenerator.generateAssets(
-      count,
-      tenantId,
-      (ffc as any).id,
-      ffc.created_by_persona_id,
-      scenario
-    );
+    // Generate simple assets that match the database structure
+    const assets: TestAsset[] = [];
+    
+    for (let i = 0; i < count; i++) {
+      const asset: TestAsset = {
+        tenant_id: tenantId,
+        category_id: await this.getRandomCategoryId(client),
+        name: faker.finance.accountName(),
+        description: faker.lorem.sentence(),
+        estimated_value: faker.number.int({ min: 10000, max: 1000000 }),
+        currency_code: 'USD',
+        status: 'active',
+        created_at: faker.date.recent({ days: 90 }),
+        updated_at: new Date()
+      };
+      assets.push(asset);
+    }
     
     const insertedAssets: TestAsset[] = [];
     
@@ -391,26 +428,28 @@ export class TestDataGenerator {
     return insertedAssets;
   }
 
+  private async getRandomCategoryId(client: PoolClient): Promise<string> {
+    const categoryResult = await client.query('SELECT id FROM asset_categories ORDER BY RANDOM() LIMIT 1');
+    return categoryResult.rows[0]?.id;
+  }
+
   private async insertAsset(client: PoolClient, asset: TestAsset): Promise<string> {
     const assetId = this.generateUuid();
     
     await client.query(
       `INSERT INTO assets (
-        id, tenant_id, ffc_id, category, name, description,
-        estimated_value, currency, category_specific_data,
-        created_by_persona_id, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        id, tenant_id, category_id, name, description,
+        estimated_value, currency_code, status, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         assetId,
         asset.tenant_id,
-        asset.ffc_id,
-        asset.category,
+        asset.category_id,
         asset.name,
         asset.description,
         asset.estimated_value,
-        asset.currency,
-        JSON.stringify(asset.category_specific_data),
-        asset.created_by_persona_id,
+        asset.currency_code,
+        asset.status,
         asset.created_at,
         asset.updated_at
       ]
@@ -431,22 +470,39 @@ export class TestDataGenerator {
       // Generate ownership (1-3 owners per asset)
       const ownerCount = faker.number.int({ min: 1, max: 3 });
       const selectedOwners = faker.helpers.arrayElements(personas, ownerCount);
-      const totalPercentage = 100;
+      
+      // Generate percentages that add up to 100
+      let remainingPercentage = 100;
+      const percentages: number[] = [];
+      
+      for (let i = 0; i < selectedOwners.length; i++) {
+        const isLastOwner = i === selectedOwners.length - 1;
+        let percentage: number;
+        
+        if (isLastOwner) {
+          percentage = remainingPercentage;
+        } else {
+          // Ensure each owner gets at least 5% and leave enough for remaining owners
+          const minPercentage = 5;
+          const maxPercentage = Math.max(minPercentage, remainingPercentage - (selectedOwners.length - i - 1) * minPercentage);
+          percentage = faker.number.int({ min: minPercentage, max: maxPercentage });
+          remainingPercentage -= percentage;
+        }
+        
+        percentages.push(percentage);
+      }
       
       for (let i = 0; i < selectedOwners.length; i++) {
         const owner = selectedOwners[i];
-        const isLastOwner = i === selectedOwners.length - 1;
-        const percentage = isLastOwner 
-          ? totalPercentage - ownerships.filter(o => o.asset_id === (asset as any).id).reduce((sum, o) => sum + o.ownership_percentage, 0)
-          : faker.number.int({ min: 10, max: 60 });
         
         const ownership: TestAssetOwnership = {
+          tenant_id: 1,
           asset_id: (asset as any).id,
           persona_id: (owner as any).id,
-          ownership_percentage: percentage,
+          ownership_percentage: percentages[i],
           ownership_type: faker.helpers.weightedArrayElement([
-            { value: 'direct', weight: 70 },
-            { value: 'trust', weight: 20 },
+            { value: 'owner', weight: 70 },
+            { value: 'trustee', weight: 20 },
             { value: 'beneficiary', weight: 10 }
           ]),
           created_at: asset.created_at
@@ -462,6 +518,7 @@ export class TestDataGenerator {
       
       for (const viewer of selectedViewers) {
         const permission: TestAssetPermission = {
+          tenant_id: 1,
           asset_id: (asset as any).id,
           persona_id: (viewer as any).id,
           permission_level: faker.helpers.weightedArrayElement([
@@ -469,7 +526,8 @@ export class TestDataGenerator {
             { value: 'edit', weight: 30 },
             { value: 'admin', weight: 10 }
           ]),
-          granted_by_persona_id: asset.created_by_persona_id,
+          granted_by_persona_id: (viewer as any).id, // Use viewer as grantor for simplicity
+          granted_at: faker.date.between({ from: asset.created_at, to: new Date() }),
           created_at: faker.date.between({ from: asset.created_at, to: new Date() })
         };
         
@@ -482,11 +540,15 @@ export class TestDataGenerator {
   }
 
   private async insertAssetOwnership(client: PoolClient, ownership: TestAssetOwnership): Promise<void> {
+    const ownershipId = this.generateUuid();
+    
     await client.query(
-      `INSERT INTO asset_ownerships (
-        asset_id, persona_id, ownership_percentage, ownership_type, created_at
-      ) VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO asset_persona (
+        id, tenant_id, asset_id, persona_id, ownership_percentage, ownership_type, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
+        ownershipId,
+        ownership.tenant_id,
         ownership.asset_id,
         ownership.persona_id,
         ownership.ownership_percentage,
@@ -497,15 +559,20 @@ export class TestDataGenerator {
   }
 
   private async insertAssetPermission(client: PoolClient, permission: TestAssetPermission): Promise<void> {
+    const permissionId = this.generateUuid();
+    
     await client.query(
       `INSERT INTO asset_permissions (
-        asset_id, persona_id, permission_level, granted_by_persona_id, created_at
-      ) VALUES ($1, $2, $3, $4, $5)`,
+        id, tenant_id, asset_id, persona_id, permission_level, granted_by_persona_id, granted_at, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
+        permissionId,
+        permission.tenant_id,
         permission.asset_id,
         permission.persona_id,
         permission.permission_level,
         permission.granted_by_persona_id,
+        permission.granted_at,
         permission.created_at
       ]
     );
@@ -513,8 +580,8 @@ export class TestDataGenerator {
 
   // Utility methods
 
-  private generateTenantId(): string {
-    return `tenant_${faker.string.alphanumeric(8)}`;
+  private generateTenantId(): number {
+    return faker.number.int({ min: 1, max: 999999 });
   }
 
   private generateUuid(): string {
