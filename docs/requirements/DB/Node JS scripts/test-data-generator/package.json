@@ -5,24 +5,9 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "generate": "npm run build && npm start",
-    "clean": "npm run build && npm start -- --clean",
-    "forward-scenario": "npm run build && node dist/forward-scenario.js",
-    "forward-generate": "npm run build && node dist/forward-scenario.js generate",
-    "forward-clean": "npm run build && node dist/forward-scenario.js clean --confirm",
-    "forward-info": "npm run build && node dist/forward-scenario.js info",
-    "test-procedures": "npm run build && node dist/test-stored-procedures.js",
-    "test-procs": "tsx src/test-stored-procedures.ts",
-    "test-with-output": "npm run build && node dist/test-stored-procedures-with-output.js",
-    "test-output": "tsx src/test-stored-procedures-with-output.ts",
-    "test-comprehensive": "npm run build && node dist/run-comprehensive-tests.js",
-    "test-comp": "tsx src/run-comprehensive-tests.ts",
-    "test-safe": "npm run build && node dist/run-safe-tests.js",
-    "test-safe-quick": "tsx src/run-safe-tests.ts",
-    "test-fixed": "npm run build && node dist/test-fixed-procedures.js",
-    "test-fixed-quick": "tsx src/test-fixed-procedures.ts"
+    "populate": "tsx populate-database.ts",
+    "test": "tsx test-all-procedures.ts",
+    "populate-and-test": "tsx populate-database.ts && tsx test-all-procedures.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",
