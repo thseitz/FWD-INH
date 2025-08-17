@@ -35,12 +35,14 @@ This document provides a high-level overview of the database design principles, 
 
 ### Core Principles
 
-#### 1. **Database-First Architecture**
-All business logic is implemented through stored procedures and functions rather than application code. This ensures:
-- Consistent data validation across all client applications
-- Centralized business rule enforcement
-- Better performance through reduced network roundtrips
-- Easier maintenance and updates
+#### 1. **Type-Safe Database Architecture**
+The platform uses pgTyped and Slonik for type-safe database operations:
+- **pgTyped** provides compile-time SQL type safety from live schema
+- **Slonik** delivers production-grade runtime PostgreSQL client
+- **Single source of truth** - Each query lives in one `.sql` file
+- **84% migration** - 59 of 70 procedures converted to individual SQL queries
+- **Type validation** across all client applications
+- **Better performance** through optimized query patterns
 
 #### 2. **Multi-Tenant Design**
 Every table includes a `tenant_id` to ensure complete data isolation between different family organizations:

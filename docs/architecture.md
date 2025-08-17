@@ -16,7 +16,7 @@ This unified approach combines what would traditionally be separate backend and 
 
 Based on review of the PRD and existing documentation, this is a **Greenfield project** with no existing starter template mentioned. The project is being built from scratch with the following key constraints:
 
-- Database-first architecture with all operations through stored procedures
+- Type-safe database architecture with pgTyped and Slonik (84% of stored procedures converted to SQL queries)
 - PostgreSQL as the primary database (already designed with 72 tables)
 - AWS cloud infrastructure preferred
 - React frontend with TypeScript
@@ -29,22 +29,36 @@ Based on review of the PRD and existing documentation, this is a **Greenfield pr
 
 ### Technical Summary
 
-The Forward Inheritance Platform employs a multi-tenant SaaS architecture with a React/TypeScript frontend deployed via AWS Amplify for streamlined CI/CD, communicating through RESTful APIs with a Nest.js backend running on containerized AWS infrastructure (Fargate/ECS). The backend leverages Nest.js's modular architecture with dependency injection, guards for multi-tenant isolation, and interceptors for cross-cutting concerns. Database access is exclusively through PostgreSQL stored procedures using Slonik for type-safe operations. The platform includes a comprehensive subscription and payment system with Stripe integration, supporting free plans with automatic assignment, paid subscriptions with seat management, and one-time service purchases. For document processing, AWS Step Functions orchestrates a serverless pipeline using S3, Lambda, and Comprehend for PII detection and masking, while AWS SQS handles application-level async tasks including Stripe webhook processing. The platform integrates with external services including Stripe for payments, Twilio for SMS, SendGrid for email, Quillt for financial aggregation, and Vanta for SOC 2 compliance. This architecture achieves enterprise-grade security, scalability for millions of families, and maintainable code through Nest.js's structured approach.
+The Forward Inheritance Platform employs a multi-tenant SaaS architecture with a React/TypeScript frontend deployed via AWS Amplify for streamlined CI/CD, communicating through RESTful APIs with a Nest.js backend running on containerized AWS infrastructure (Fargate/ECS). The backend leverages Nest.js's modular architecture with dependency injection, guards for multi-tenant isolation, and interceptors for cross-cutting concerns. Database access uses pgTyped for compile-time SQL type safety and Slonik for runtime execution, with 84% of stored procedures converted to individual SQL queries (99 files). Authentication is handled via AWS Cognito with secure httpOnly cookies, using Authorization Code Grant with PKCE flow through API Gateway. The platform includes a comprehensive subscription and payment system with Stripe integration, supporting free plans with automatic assignment, paid subscriptions with seat management, and one-time service purchases. For document processing, AWS Step Functions orchestrates a serverless pipeline using S3, Lambda, and Comprehend for PII detection and masking, while AWS SQS handles application-level async tasks including Stripe webhook processing. The platform integrates with external services including Stripe for payments, Twilio for SMS, SendGrid for email, Quillt for financial aggregation, and Vanta for SOC 2 compliance. This architecture achieves enterprise-grade security, scalability for millions of families, and maintainable code through Nest.js's structured approach.
 
 ### Platform and Infrastructure Choice
 
 **Platform:** AWS Cloud Services  
-**Key Services:** Amplify (React hosting/CI/CD), API Gateway, Fargate/ECS, RDS PostgreSQL, S3, Lambda, CloudFront, KMS  
-**Deployment Host and Regions:** Primary: US-West-1 , with CloudFront edge locations US wide
+**Key Services:** 
+- **AWS Amplify:** React SPA hosting, CI/CD pipeline, authentication flow orchestration
+- **API Gateway:** Auth routes proxy, API rate limiting, CORS handling
+- **Fargate/ECS:** NestJS backend containers
+- **RDS PostgreSQL:** Primary database (70+ tables)
+- **S3:** Document storage
+- **Lambda:** PII processing, async operations
+- **CloudFront:** CDN for static assets
+- **KMS:** Encryption key management
+**Deployment Host and Regions:** Primary: US-West-1, with CloudFront edge locations US wide
 
 ### Repository Structure
 
 **Structure:** Monorepo  
-**Monorepo Tool:** npm workspaces (with potential migration to Nx for enhanced tooling)  
+**Monorepo Tool:** Nx (enterprise-grade monorepo management)  
 **Package Organization:** 
 - `/apps` - Frontend (React) and Backend (Node.js) applications
 - `/packages` - Shared types, utilities, and database interfaces
 - `/infrastructure` - AWS CDK/Terraform definitions
+
+**Why Nx over alternatives:**
+- Advanced dependency graph visualization
+- Superior caching strategies
+- Robust plugin ecosystem
+- Better build optimization for enterprise needs
 
 ### High Level Architecture Diagram
 
@@ -118,7 +132,7 @@ graph TB
 
 ### Architectural Patterns
 
-- **Database-First CRUD Layer:** All data operations through stored procedures for security and performance optimization - _Rationale:_ Prevents SQL injection, provides operational flexibility for query optimization, enables database-level performance tuning
+- **Type-Safe Database Operations:** pgTyped for compile-time SQL validation, Slonik for runtime execution with 99 SQL query files - _Rationale:_ Prevents SQL injection through parameterization, compile-time type safety, better version control and testing of individual queries
 - **Modular Architecture with Nest.js:** Domain-driven modules with dependency injection, guards, and interceptors - _Rationale:_ Enterprise-grade structure, testability, and clear separation of concerns
 - **Business Logic in Application Layer:** Nest.js services handle all business rules, validations, and orchestration - _Rationale:_ Keeps business logic testable, maintainable, and independent of database implementation
 - **Multi-Tenant Isolation:** Tenant ID-based data segregation at database level - _Rationale:_ Complete data isolation for different white lable B2B partners, while maintaining single codebase
@@ -143,28 +157,379 @@ This is the DEFINITIVE technology selection for the entire Forward Inheritance P
 | Frontend Framework | React | 18.2+ | UI framework | Mature ecosystem, component reusability, strong community |
 | Frontend Routing | React Router | 6.20+ | Client-side routing | De facto standard, nested routes, data loading APIs |
 | UI Component Library | shadcn/ui + Radix | Latest | Accessible components | Customizable, accessible by default, Tailwind integration |
-| State Management | Zustand | 4.4+ | Client state management | Simpler than Redux, TypeScript-first, small bundle size |
+| State Management | Zustand | 4.4+ | Client UI state only | Simpler than Redux, TypeScript-first, no server state duplication |
+| Real-time Communication | Socket.io | Latest | WebSocket implementation | Bidirectional for FFC messaging, reusable for all real-time features |
+| Internationalization | Custom Simple | - | English/Spanish only | Lightweight translation for US market, not full i18n |
 | Backend Language | TypeScript | 5.3+ | Type-safe backend | Shared types with frontend, consistency across stack |
 | Backend Framework | Nest.js | 10.0+ | Enterprise Node.js framework | Modular architecture, dependency injection, built-in testing support, TypeScript-first |
 | API Style | REST | - | API architecture | Simple, well-understood, sufficient for requirements |
 | Database | PostgreSQL | 14+ | Primary data store | Already designed with 72 tables, JSONB support, robust |
 | Cache | **In-Memory (NestJS)** | - | Session & data cache | **Cost-optimized: In-memory caching as primary strategy. DynamoDB for distributed sessions, Upstash Redis for pay-per-use caching when needed** |
 | File Storage | AWS S3 | - | Document storage | Integrated encryption, versioning, cost-effective |
-| Authentication | AWS Cognito | - | Auth system | JWT-based with Cognito User Pools, MFA support, SRP protocol |
+| Authentication | AWS Cognito | - | Auth system | Authorization Code Grant with PKCE, httpOnly cookies via API Gateway, MFA support |
 | Frontend Testing | Vitest + React Testing Library | Latest | Unit/integration tests | Fast, Jest-compatible, good React integration |
 | Backend Testing | Jest | 29+ | API testing | Mature, extensive mocking, good TypeScript support |
 | E2E Testing | Playwright | 1.40+ | End-to-end testing | Cross-browser, reliable, good debugging |
 | Build Tool | Vite | 5.0+ | Frontend bundling | Fast HMR, excellent DX, optimized production builds |
 | Bundler | esbuild (via Vite) | - | JS/TS compilation | Fastest compilation, built into Vite |
+| Monorepo Build | Nx | 17+ | Build orchestration | Advanced caching, dependency graph, parallel builds |
 | IaC Tool | AWS CDK | 2.100+ | Infrastructure as code | TypeScript-native, better AWS integration than Terraform |
 | CI/CD | GitHub Actions + AWS Amplify | - | Deployment automation | GitHub integration, Amplify for React auto-deploy |
 | Monitoring | CloudWatch + Sentry | - | Observability | AWS-native metrics, error tracking with Sentry |
 | Logging | Winston + CloudWatch | - | Application logging | Structured logging, AWS integration |
 | CSS Framework | Tailwind CSS | 3.4+ | Styling system | Utility-first, small production builds, shadcn/ui compatible |
 | Container Platform | Docker + ECS/Fargate | - | Backend deployment | Serverless containers, no cluster management needed |
-| ORM/Query Builder | Slonik + pgtyped | Latest | Database interface | Type-safe stored procedure calls, SQL injection prevention, perfect for stored procedures |
-| Queue Management | AWS SQS | - | Application task queue | Serverless message queue for notifications, reports, Stripe webhooks, API sync tasks. Cost-effective pay-per-message pricing |
+| ORM/Query Builder | Slonik + pgTyped | Latest | Database interface | Type-safe SQL operations, compile-time validation, 99 SQL query files + 10 procedure wrappers |
+| Queue Management | AWS SQS | - | Application task queue | Configured with DLQ, monitoring, idempotent handlers. Used for notifications, Stripe webhooks, async tasks |
 | Workflow Orchestration | AWS Step Functions | - | Document processing | Serverless orchestration for PII detection pipeline |
+
+## Database Access Architecture (pgTyped + Slonik)
+
+The platform uses a modern type-safe approach for database operations, with 84% of stored procedures converted to individual SQL queries.
+
+### pgTyped Configuration
+
+pgTyped provides compile-time type safety by introspecting the live PostgreSQL schema and generating TypeScript types from SQL files.
+
+**Configuration (`pgtyped.config.json`):**
+```json
+{
+  "srcDir": "docs/requirements/DB/sql scripts/5_SQL_files",
+  "glob": "*.sql",
+  "db": {
+    "host": "localhost",
+    "port": 15432,
+    "database": "fwd_db"
+  },
+  "outDir": "apps/api/generated/pgtyped",
+  "camelCaseColumnNames": true
+}
+```
+
+**Development Workflow:**
+1. Write SQL queries in `.sql` files with parameter comments
+2. Run `pnpm pgtyped:gen` to generate TypeScript types
+3. Use generated types in NestJS services
+4. Commit both SQL and `.types.ts` files
+
+### Slonik Runtime Client
+
+Slonik provides a production-grade PostgreSQL client with connection pooling, strict parameterization, and monitoring.
+
+**Connection Configuration with Timeout Protection:**
+```typescript
+import { createPool } from 'slonik';
+
+export const slonikPool = createPool(connectionString, {
+  // Connection pool settings
+  maximumPoolSize: 10,
+  minimumPoolSize: 2,
+  
+  // Timeout configurations (prevent rogue queries)
+  connectionTimeout: 60000,      // 60s to establish connection
+  idleTimeout: 30000,           // 30s idle before closing
+  statementTimeout: 30000,       // 30s max per statement
+  
+  interceptors: [
+    // Query logging, performance monitoring, error handling
+  ]
+});
+
+// Database-level timeout settings
+await slonikPool.query(sql`
+  ALTER DATABASE fwd_db SET statement_timeout = '30s';
+  ALTER DATABASE fwd_db SET lock_timeout = '10s';
+  ALTER DATABASE fwd_db SET idle_in_transaction_session_timeout = '60s';
+`);
+```
+
+**Service Pattern:**
+```typescript
+// NestJS service using pgTyped types and Slonik
+async getUserById(params: GetUserByIdParams): Promise<GetUserByIdRow | null> {
+  const text = loadSql('get_user_by_id.sql');
+  const result = await this.pool.query(sql.unsafe(text, [params.id]));
+  return result.rows[0] as GetUserByIdRow;
+}
+```
+
+### SQL Query Organization
+
+**File Structure:**
+```
+/docs/requirements/DB/sql scripts/5_SQL_files/
+├── Authentication/      (5 files)
+├── Assets/             (15 files)
+├── Subscriptions/      (20 files)
+├── Contacts/           (6 files)
+├── Audit/              (5 files)
+├── EventSourcing/      (6 files)
+├── Integrations/       (30+ files)
+└── Wrappers/           (10 procedure wrappers)
+```
+
+**Migration Statistics:**
+- Total Procedures: 70
+- Converted to SQL: 59 (84%)
+- Kept as Procedures: 10 (complex business logic)
+- Total SQL Files: 99 conversions + 10 wrappers
+
+**Remaining Complex Procedures:**
+1. `sp_create_user_from_cognito` - Multi-table transactional user creation
+2. `sp_create_asset` - Complex asset creation with validation
+3. `sp_create_ffc_with_subscription` - FFC with automatic subscription
+4. `sp_process_seat_invitation` - Complex invitation workflow
+5. `sp_purchase_service` - Payment processing logic
+6. `sp_process_stripe_webhook` - Dynamic webhook routing
+7. `sp_rebuild_projection` - Event sourcing projection
+8. `sp_sync_quillt_data` - Financial data synchronization
+9. `sp_sync_real_estate_data` - Property data sync
+10. `sp_refresh_builder_content` - CMS content refresh
+
+## Real-time Communication Architecture (WebSockets)
+
+The platform uses WebSockets for all real-time features, with Socket.io providing reliable bidirectional communication.
+
+### WebSocket Implementation
+
+**Primary Use Case:** FFC Group Messaging
+```typescript
+// Backend: NestJS WebSocket Gateway
+@WebSocketGateway({
+  cors: { 
+    origin: process.env.FRONTEND_URL, 
+    credentials: true 
+  },
+  transports: ['websocket', 'polling']
+})
+export class EventsGateway {
+  @WebSocketServer()
+  server: Server;
+
+  // FFC group messaging (bidirectional)
+  @SubscribeMessage('ffc:message')
+  async handleFFCMessage(client: Socket, payload: FFCMessage) {
+    const room = `ffc:${payload.ffcId}`;
+    // Validate user is FFC member
+    if (!await this.isFFCMember(client.userId, payload.ffcId)) {
+      throw new WsException('Unauthorized');
+    }
+    this.server.to(room).emit('ffc:new-message', payload);
+  }
+
+  // Join FFC room on connection
+  async handleConnection(client: Socket) {
+    const user = await this.validateToken(client.handshake.auth.token);
+    const ffcs = await this.getUserFFCs(user.id);
+    ffcs.forEach(ffc => client.join(`ffc:${ffc.id}`));
+    client.join(`user:${user.id}`);
+  }
+}
+```
+
+**Secondary Use Cases (Unidirectional):**
+- Document processing status updates
+- Payment confirmation notifications
+- Quillt sync progress
+- Asset valuation updates
+
+### Frontend WebSocket Hook
+```typescript
+const useWebSocket = () => {
+  const socket = useRef<Socket>();
+  
+  useEffect(() => {
+    socket.current = io(process.env.REACT_APP_WS_URL, {
+      withCredentials: true,
+      transports: ['websocket', 'polling']
+    });
+
+    // FFC messaging listeners
+    socket.current.on('ffc:new-message', (message) => {
+      // Update message store
+    });
+
+    // Status update listeners
+    socket.current.on('document:status', (status) => {
+      // Update document processing UI
+    });
+
+    return () => socket.current?.disconnect();
+  }, []);
+
+  return socket.current;
+};
+```
+
+### Why WebSockets over SSE
+- **Bidirectional:** Required for FFC group messaging
+- **Infrastructure Reuse:** Single solution for all real-time needs
+- **Reliability:** Socket.io handles reconnection, fallback to polling
+- **Room Support:** Built-in room/namespace management for FFCs
+
+## Authentication Architecture (AWS Cognito + API Gateway)
+
+The platform uses AWS Cognito with secure httpOnly cookies for authentication, ensuring tokens never reach JavaScript code.
+
+### Cognito Configuration
+
+**User Pool Settings:**
+- **OAuth Flows:** Authorization Code Grant only (with PKCE)
+- **Scopes:** `openid`, `email`, `profile`
+- **Callback URL:** `https://api.example.com/auth/callback`
+- **Sign-out URL:** `https://app.example.com/`
+- **Domain:** `your-pool-domain.auth.us-west-2.amazoncognito.com`
+
+**Custom JWT Claims via Lambda Trigger:**
+```typescript
+// Lambda function for Pre Token Generation trigger
+export const handler = async (event: any) => {
+  const { userPoolId, userName } = event;
+  
+  // Lookup tenant_id once during token generation (not every request)
+  const user = await getUserByUsername(userName);
+  const tenantId = user.tenantId;
+  const userRole = user.role;
+  
+  // Add custom claims to JWT
+  event.response.claimsOverrideDetails = {
+    claimsToAddOrOverride: {
+      'custom:tenant_id': tenantId.toString(),
+      'custom:role': userRole,
+      'custom:ffc_ids': user.ffcIds.join(',')  // Comma-separated FFC IDs
+    }
+  };
+  
+  return event;
+};
+
+// Backend: Extract tenant from token (no DB lookup needed)
+@Injectable()
+export class AuthGuard {
+  canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest();
+    const token = this.extractToken(request);
+    const decoded = this.jwtService.verify(token);
+    
+    // Tenant ID directly from token - eliminates DB call
+    request.tenantId = parseInt(decoded['custom:tenant_id']);
+    request.userRole = decoded['custom:role'];
+    request.ffcIds = decoded['custom:ffc_ids'].split(',');
+    
+    return true;
+  }
+}
+```
+
+### Authentication Flow
+
+1. **Login Initiation:**
+   - SPA redirects to `https://api.example.com/auth/login`
+   - Backend generates PKCE challenge and state
+   - Redirects to Cognito Hosted UI
+
+2. **Callback Processing:**
+   - Cognito redirects to API Gateway callback endpoint
+   - Backend exchanges code for tokens
+   - Sets httpOnly cookies and redirects to SPA
+
+3. **Token Management:**
+   ```javascript
+   // Cookie configuration set by NestJS backend
+   id_token:      HttpOnly; Secure; SameSite=Lax; Max-Age=3600
+   access_token:  HttpOnly; Secure; SameSite=Lax; Max-Age=3600
+   refresh_token: HttpOnly; Secure; SameSite=Lax; Max-Age=2592000
+   XSRF-TOKEN:    Secure; SameSite=Lax; // Not HttpOnly for CSRF
+   ```
+
+### API Gateway Integration
+
+**Configuration:**
+- Proxy `/auth/*` and `/api/*` to NestJS backend
+- Forward cookies and headers untouched
+- CORS configuration with credentials support
+- Optional Cognito Authorizer for pre-validation
+
+**Auth Routes:**
+```typescript
+GET  /auth/login     // Initiate OAuth flow
+GET  /auth/callback  // Handle Cognito callback
+POST /auth/refresh   // Refresh tokens
+POST /auth/logout    // Clear cookies, optional GlobalSignOut
+GET  /me            // Get current user info
+```
+
+### Frontend Integration with Amplify
+
+**Amplify's Role:**
+- **Hosting & CI/CD:** Amplify hosts the React SPA and provides automated deployments
+- **Auth Orchestration:** Amplify libraries handle OAuth flow redirects (but tokens never touch JavaScript)
+- **No Token Storage:** Unlike typical Amplify auth, tokens are stored in httpOnly cookies only
+- **UX Helpers:** Amplify provides UI components for login/logout buttons
+
+**Amplify Configuration:**
+```typescript
+// Amplify config for Cognito (without token storage)
+import { Amplify } from 'aws-amplify';
+
+Amplify.configure({
+  Auth: {
+    region: 'us-west-2',
+    userPoolId: 'us-west-2_xxxxx',
+    userPoolWebClientId: 'xxxxx',
+    oauth: {
+      domain: 'your-pool-domain.auth.us-west-2.amazoncognito.com',
+      scope: ['openid', 'email', 'profile'],
+      redirectSignIn: 'https://api.example.com/auth/callback',
+      redirectSignOut: 'https://app.example.com/',
+      responseType: 'code' // Authorization Code flow
+    }
+  }
+});
+```
+
+**API Calls with Credentials:**
+```typescript
+// All API calls include cookies automatically (not using Amplify API)
+fetch('https://api.example.com/api/assets', {
+  method: 'GET',
+  credentials: 'include',
+  headers: {
+    'X-XSRF-TOKEN': getCsrfToken() // From XSRF-TOKEN cookie
+  }
+});
+```
+
+**Login/Logout Flow:**
+```typescript
+// Login button redirects to backend auth endpoint
+const handleLogin = () => {
+  window.location.href = 'https://api.example.com/auth/login';
+};
+
+// Logout clears cookies via backend
+const handleLogout = () => {
+  window.location.href = 'https://api.example.com/auth/logout';
+};
+```
+
+### Security Best Practices
+
+1. **Token Security:**
+   - Tokens never stored in localStorage/sessionStorage
+   - httpOnly cookies prevent XSS attacks
+   - CSRF protection via XSRF-TOKEN
+   - Short token lifetimes (1 hour)
+
+2. **JWT Validation:**
+   - Backend validates all tokens using Cognito JWKS
+   - Verify `iss`, `aud`, `token_use`, and `exp`
+   - Automatic refresh on expiration
+
+3. **Session Management:**
+   - RLS context set after authentication
+   - Session cleared on logout
+   - Tenant isolation enforced
 
 ## Data Models
 
@@ -840,35 +1205,84 @@ apps/web/src/
 
 ### State Management Architecture
 
-#### Zustand Store Pattern
-```typescript
-// stores/assetStore.ts - Domain-specific store
-import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
+#### Clear Separation: React Query for Server State, Zustand for UI State
 
-interface AssetState {
-  assets: Asset[];
-  selectedAsset: Asset | null;
-  filters: AssetFilters;
-  isLoading: boolean;
-  error: string | null;
+**React Query - Server State Only:**
+```typescript
+// hooks/useAssets.ts - Server state via React Query
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// Fetch assets - NO Zustand sync
+export const useAssets = () => {
+  return useQuery({
+    queryKey: ['assets'],
+    queryFn: fetchAssets,
+    staleTime: 5 * 60 * 1000,  // 5 minutes
+    cacheTime: 10 * 60 * 1000,  // 10 minutes
+  });
+};
+
+// Optimistic update example (fixed from feedback)
+export const useCreateAsset = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: createAsset,
+    onMutate: async (newAsset) => {
+      // Cancel in-flight queries
+      await queryClient.cancelQueries(['assets']);
+      
+      // Snapshot for rollback
+      const previousAssets = queryClient.getQueryData(['assets']);
+      
+      // TRUE optimistic update - happens before server response
+      queryClient.setQueryData(['assets'], (old: Asset[]) => [
+        ...old,
+        { ...newAsset, id: `temp-${Date.now()}`, status: 'creating' }
+      ]);
+      
+      return { previousAssets };
+    },
+    onError: (err, newAsset, context) => {
+      // Rollback on error
+      queryClient.setQueryData(['assets'], context.previousAssets);
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries(['assets']);
+    }
+  });
+};
+```
+
+**Zustand - UI State Only (NO Server Data):**
+```typescript
+// stores/uiStore.ts - UI state only
+import { create } from 'zustand';
+
+interface UIState {
+  // UI-only state
+  selectedAssetId: string | null;
+  viewMode: 'grid' | 'list' | 'table';
+  sidebarOpen: boolean;
+  filterPanelOpen: boolean;
+  activeFilters: FilterOptions;
   
   // Actions
-  setAssets: (assets: Asset[]) => void;
-  selectAsset: (id: string) => void;
-  updateAsset: (id: string, updates: Partial<Asset>) => void;
-  deleteAsset: (id: string) => void;
-  setFilters: (filters: AssetFilters) => void;
-  reset: () => void;
+  selectAsset: (id: string | null) => void;
+  setViewMode: (mode: 'grid' | 'list' | 'table') => void;
+  toggleSidebar: () => void;
+  setFilters: (filters: FilterOptions) => void;
 }
 
-export const useAssetStore = create<AssetState>()(
-  devtools(
-    persist(
-      immer((set) => ({
-        assets: [],
-        selectedAsset: null,
+// Production-safe store (no devtools in prod)
+export const useUIStore = import.meta.env.PROD
+  ? create<UIState>((set) => ({
+      selectedAssetId: null,
+      viewMode: 'grid',
+      sidebarOpen: true,
+      filterPanelOpen: false,
+      activeFilters: {},
         filters: {},
         isLoading: false,
         error: null,
@@ -1151,6 +1565,198 @@ apiClient.interceptors.response.use(
 
 export default apiClient;
 ```
+
+## Message Queue Architecture (AWS SQS)
+
+### SQS Configuration
+
+**Queue Settings:**
+```typescript
+const queueConfig = {
+  // Message handling
+  VisibilityTimeout: 300,           // 5 minutes for processing
+  MessageRetentionPeriod: 1209600,  // 14 days max retention
+  ReceiveMessageWaitTime: 20,       // Long polling
+  MaximumMessageSize: 262144,       // 256 KB
+  
+  // Dead Letter Queue
+  RedrivePolicy: {
+    deadLetterTargetArn: 'arn:aws:sqs:us-west-1:xxx:dlq',
+    maxReceiveCount: 3              // 3 attempts before DLQ
+  }
+};
+```
+
+**CloudWatch Monitoring:**
+```typescript
+const alarms = {
+  QueueDepth: { 
+    threshold: 1000, 
+    action: 'scale-workers' 
+  },
+  OldestMessage: { 
+    threshold: 3600,  // 1 hour
+    action: 'alert' 
+  },
+  DLQMessages: { 
+    threshold: 1, 
+    action: 'immediate-alert' 
+  }
+};
+```
+
+### Idempotent Message Processing
+
+**Implementation Pattern:**
+```typescript
+@Injectable()
+export class IdempotencyService {
+  constructor(
+    private readonly redis: Redis,
+    private readonly lockService: LockService
+  ) {}
+
+  async processMessage<T>(
+    messageId: string,
+    handler: () => Promise<T>
+  ): Promise<T | null> {
+    // Check if already processed
+    const processed = await this.redis.get(`processed:${messageId}`);
+    if (processed) return null;
+    
+    // Acquire distributed lock
+    const lock = await this.lockService.acquire(`lock:${messageId}`, 30000);
+    if (!lock) return null;
+    
+    try {
+      // Process message
+      const result = await handler();
+      
+      // Mark as processed (TTL = message retention)
+      await this.redis.setex(`processed:${messageId}`, 1209600, '1');
+      
+      return result;
+    } finally {
+      await lock.release();
+    }
+  }
+}
+
+// Usage in message handlers
+@Injectable()
+export class StripeWebhookHandler {
+  async handleWebhook(message: SQSMessage) {
+    const event = JSON.parse(message.Body) as Stripe.Event;
+    
+    return this.idempotencyService.processMessage(
+      event.id,
+      async () => {
+        // Process only once, even if webhook delivered multiple times
+        switch (event.type) {
+          case 'payment_intent.succeeded':
+            await this.handlePaymentSuccess(event);
+            break;
+          // ... other event types
+        }
+      }
+    );
+  }
+}
+```
+
+**Use Cases:**
+- Stripe webhook processing
+- Document processing completion
+- Integration sync completion
+- Email/SMS notifications
+
+## Translation System (Simple English/Spanish)
+
+### Implementation Approach
+
+**Not Full i18n:** Simple translation for US market only
+
+```typescript
+// shared/translations/index.ts
+export const translations = {
+  en: {
+    common: {
+      save: 'Save',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      confirm: 'Confirm'
+    },
+    errors: {
+      ASSET_NOT_FOUND: 'Asset not found',
+      INSUFFICIENT_PERMISSIONS: 'Insufficient permissions',
+      PAYMENT_FAILED: 'Payment failed'
+    },
+    assets: {
+      title: 'Assets',
+      addNew: 'Add New Asset',
+      types: {
+        real_estate: 'Real Estate',
+        vehicle: 'Vehicle',
+        financial_account: 'Financial Account'
+      }
+    }
+  },
+  es: {
+    common: {
+      save: 'Guardar',
+      cancel: 'Cancelar',
+      delete: 'Eliminar',
+      confirm: 'Confirmar'
+    },
+    errors: {
+      ASSET_NOT_FOUND: 'Activo no encontrado',
+      INSUFFICIENT_PERMISSIONS: 'Permisos insuficientes',
+      PAYMENT_FAILED: 'Pago fallido'
+    },
+    assets: {
+      title: 'Activos',
+      addNew: 'Agregar Nuevo Activo',
+      types: {
+        real_estate: 'Bienes Raíces',
+        vehicle: 'Vehículo',
+        financial_account: 'Cuenta Financiera'
+      }
+    }
+  }
+};
+
+// Simple hook - no heavy i18n library
+export const useTranslation = () => {
+  const language = useAppStore(state => state.language);
+  const t = (key: string): string => {
+    const keys = key.split('.');
+    let value: any = translations[language];
+    for (const k of keys) {
+      value = value?.[k];
+    }
+    return value || key;
+  };
+  return { t, language };
+};
+
+// Usage
+const AssetList = () => {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <h1>{t('assets.title')}</h1>
+      <button>{t('assets.addNew')}</button>
+    </div>
+  );
+};
+```
+
+**Scope Limitations:**
+- No date/time formatting localization
+- No number/currency formatting localization  
+- No pluralization rules
+- No RTL support
+- US market only (English/Spanish)
 
 ## Backend Architecture
 

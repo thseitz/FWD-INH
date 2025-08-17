@@ -13,16 +13,28 @@
 
 ## Overview
 
-The Forward Inheritance Platform implements **20+ integration procedures** that connect with external services including Quillt for financial data, Stripe for payments, real estate valuation services, Builder.io for content management, and translation services. These procedures provide secure, audited integration capabilities with comprehensive error handling and retry mechanisms.
+The Forward Inheritance Platform's integration operations have been largely converted from stored procedures to individual SQL queries, with complex synchronization procedures retained. These operations connect with external services including Quillt for financial data, Stripe for payments, real estate valuation services, Builder.io for content management, and translation services.
+
+### Migration Status
+- **Converted to SQL**: 15 of 18 procedures (83%)
+- **Kept as Procedures**: 3 (complex synchronization logic)
+- **Total SQL Files**: 30+
 
 ### Integration Categories
-- **Stripe Payment Integration**: 6 procedures for payment processing and webhooks
-- **Quillt Financial Integration**: 4 procedures for financial account synchronization
-- **Real Estate Services**: 2 procedures for property data synchronization
-- **Advisor Management**: 2 procedures for professional service provider management
-- **Builder.io CMS**: 3 procedures for content management
-- **Translation Services**: 2 procedures for multi-language support
-- **System Monitoring**: 2 procedures for health checks and error recovery
+- **Stripe Payment Integration**: Mostly converted to SQL (1 kept)
+  - `call_sp_process_stripe_webhook.sql` - Complex webhook routing (KEPT)
+  - Payment status updates converted to SQL
+- **Quillt Financial Integration**: Mostly converted (1 kept)
+  - `call_sp_sync_quillt_data.sql` - Complex sync logic (KEPT)
+  - Configuration and validation converted to SQL
+- **Real Estate Services**: Mostly converted (1 kept)
+  - `call_sp_sync_real_estate_data.sql` - Multi-provider sync (KEPT)
+  - History queries converted to SQL
+- **Advisor Management**: Fully converted to SQL
+- **Builder.io CMS**: Mostly converted (1 kept)
+  - `call_sp_refresh_builder_content.sql` - Content sync (KEPT)
+- **Translation Services**: Fully converted to SQL
+- **System Monitoring**: Fully converted to SQL
 
 ### Key Integration Features
 - **Secure Credential Storage**: Encrypted storage of API keys and tokens
@@ -34,16 +46,25 @@ The Forward Inheritance Platform implements **20+ integration procedures** that 
 ## Stripe Payment Integration
 
 ### Overview
-The Stripe integration handles all payment processing, subscription management, and financial webhook events. The system uses asynchronous webhook processing to ensure reliability and idempotency.
+The Stripe integration operations handle payment processing, subscription management, and financial webhook events. Most operations are converted to SQL, with complex webhook routing retained as a procedure.
 
-### sp_process_stripe_webhook
-Processes incoming Stripe webhook events asynchronously.
+### sp_process_stripe_webhook (Kept as Procedure)
+Processes incoming Stripe webhook events with dynamic routing.
 
-**Purpose**: Handle payment events from Stripe with idempotent processing
-**Parameters**:
-- `p_stripe_event_id` (VARCHAR): Unique Stripe event identifier
-- `p_event_type` (VARCHAR): Type of Stripe event
-- `p_payload` (JSONB): Complete event payload
+**Wrapper File:** `call_sp_process_stripe_webhook.sql`
+```sql
+-- Wrapper for complex webhook processing
+-- $1: stripe_event_id (text)
+-- $2: event_type (text)
+-- $3: payload (jsonb)
+CALL sp_process_stripe_webhook($1, $2, $3);
+```
+
+This procedure remains due to:
+- Dynamic event type routing
+- Complex transaction management
+- Multiple handler invocation
+- Idempotency enforcement
 
 **Key Features**:
 - Idempotent processing prevents duplicate handling
@@ -51,8 +72,36 @@ Processes incoming Stripe webhook events asynchronously.
 - Complete error tracking
 - Automatic status updates
 
-### sp_handle_payment_success
-Processes successful payment events from Stripe.
+### Payment Status Operations (Converted)
+
+**update_payment_succeeded.sql** (from sp_handle_payment_success)
+```sql
+-- Updates payment status to succeeded
+-- $1: stripe_payment_intent_id (text)
+-- $2: processed_at (timestamptz)
+UPDATE payments
+SET 
+    status = 'succeeded',
+    processed_at = $2,
+    updated_at = NOW()
+WHERE stripe_payment_intent_id = $1;
+```
+
+**update_service_purchase_succeeded.sql**
+```sql
+-- Updates service purchase on payment success
+-- $1: payment_id (uuid)
+UPDATE service_purchases
+SET 
+    status = 'completed',
+    delivered_at = NOW()
+WHERE id = (
+    SELECT reference_id 
+    FROM payments 
+    WHERE id = $1 
+    AND payment_type = 'service'
+);
+```
 
 **Purpose**: Update payment records and general ledger on successful payment
 **Parameters**:
@@ -65,8 +114,18 @@ Processes successful payment events from Stripe.
 4. Update service purchase if applicable
 5. Send confirmation notifications
 
-### sp_handle_payment_failure
-Handles failed payment events from Stripe.
+**update_payment_failed.sql** (from sp_handle_payment_failure)
+```sql
+-- Updates payment status to failed
+-- $1: stripe_payment_intent_id (text)
+-- $2: failure_reason (text)
+UPDATE payments
+SET 
+    status = 'failed',
+    failure_reason = $2,
+    updated_at = NOW()
+WHERE stripe_payment_intent_id = $1;
+```
 
 **Purpose**: Update records and notify users of payment failures
 **Parameters**:

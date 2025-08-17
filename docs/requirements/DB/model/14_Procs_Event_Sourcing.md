@@ -12,7 +12,12 @@
 
 ## Overview
 
-The event sourcing procedures provide a foundation for implementing event-driven architecture within the Forward Inheritance Platform. These procedures enable capturing all changes as immutable events, reconstructing state from events, and maintaining eventual consistency across the system.
+The event sourcing operations have been mostly converted from stored procedures to individual SQL queries, with one complex procedure retained for projection rebuilding. These operations enable capturing all changes as immutable events, reconstructing state from events, and maintaining eventual consistency across the system.
+
+### Migration Status
+- **Converted to SQL**: 3 of 4 procedures (75%)
+- **Kept as Procedure**: 1 (sp_rebuild_projection - complex dynamic SQL)
+- **Total SQL Files**: 6
 
 ### Core Concepts
 - **Event Store**: Immutable log of all domain events
@@ -29,10 +34,53 @@ The event sourcing procedures provide a foundation for implementing event-driven
 
 ## Event Store Management
 
-### sp_append_event
+### Event Append Operations (Converted from sp_append_event)
+
+**append_event.sql**
 Appends a new event to the event store.
 
 ```sql
+-- Appends event to store
+-- $1: tenant_id (integer)
+-- $2: aggregate_id (uuid)
+-- $3: aggregate_type (text)
+-- $4: event_type (text)
+-- $5: event_data (jsonb)
+-- $6: user_id (uuid)
+-- $7: metadata (jsonb)
+-- $8: version (integer)
+INSERT INTO event_store (
+    tenant_id,
+    aggregate_id,
+    aggregate_type,
+    event_type,
+    event_data,
+    metadata,
+    version,
+    user_id,
+    created_at
+) VALUES (
+    $1, $2, $3, $4, $5, 
+    $7 || jsonb_build_object('timestamp', NOW(), 'user_id', $6),
+    $8, $6, NOW()
+)
+RETURNING id;
+```
+
+**get_next_event_version.sql**
+```sql
+-- Gets next version number for aggregate
+-- $1: aggregate_id (uuid)
+SELECT COALESCE(MAX(version), 0) + 1 as next_version
+FROM event_store
+WHERE aggregate_id = $1;
+```
+
+**Original sp_append_event (Now Converted):**
+```sql
+-- This procedure has been converted to two SQL files:
+-- 1. get_next_event_version.sql - Get version number
+-- 2. append_event.sql - Insert event
 CREATE OR REPLACE PROCEDURE sp_append_event(
     p_tenant_id INTEGER,
     p_aggregate_id UUID,

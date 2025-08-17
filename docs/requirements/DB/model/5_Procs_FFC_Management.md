@@ -11,20 +11,87 @@
 
 ## Overview
 
-The FFC (Forward Family Circle) management procedures handle the creation, modification, and management of family circles within the Forward Inheritance Platform. These procedures work with the multi-tenant architecture to ensure proper data isolation while enabling family collaboration.
+The FFC (Forward Family Circle) management operations have been modernized from stored procedures to individual SQL queries using pgTyped and Slonik. These operations handle the creation, modification, and management of family circles within the Forward Inheritance Platform.
+
+### Migration Status
+- **Converted to SQL**: 4 of 5 procedures (80%)
+- **Kept as Procedure**: 1 (sp_create_ffc_with_subscription - complex business logic)
+- **Total SQL Files**: 5
 
 ### Core Components
-- **FFC Creation**: `sp_create_ffc` - Creates new family circles
-- **Member Management**: `sp_add_persona_to_ffc`, `sp_update_ffc_member_role`, `sp_remove_ffc_member`
-- **Reporting**: `sp_get_ffc_summary` - Provides comprehensive FFC statistics
-- **Access Control**: `is_ffc_member` - Validates membership for security
+- **FFC Creation**: 
+  - `create_ffc_step1.sql` - Creates new family circle
+  - `create_ffc_step2.sql` - Adds owner as member
+  - `call_sp_create_ffc_with_subscription.sql` - Wrapper for complex FFC with subscription
+- **Member Management**: 
+  - `add_persona_to_ffc.sql` - Add persona to FFC
+  - `update_ffc_member_role.sql` - Update member role
+  - `remove_ffc_member.sql` - Remove member from FFC
+- **Reporting**: `get_ffc_summary.sql` - Provides comprehensive FFC statistics
+- **Access Control**: `is_ffc_member.sql` - Validates membership for security
 
 ## FFC Creation and Management
 
-### sp_create_ffc
-Creates a new Forward Family Circle with an owner.
+### create_ffc_step1.sql & create_ffc_step2.sql
+Creates a new Forward Family Circle with an owner (converted from sp_create_ffc).
 
+**Step 1: Create FFC** (`create_ffc_step1.sql`)
 ```sql
+-- Creates a new Forward Family Circle
+-- $1: tenant_id (integer)
+-- $2: name (text)
+-- $3: description (text)
+-- $4: owner_user_id (uuid)
+INSERT INTO fwd_family_circles (
+    tenant_id,
+    owner_user_id,
+    name,
+    description,
+    status
+) VALUES ($1, $4, $2, $3, 'active')
+RETURNING id;
+```
+
+**Step 2: Add Owner as Member** (`create_ffc_step2.sql`)
+```sql
+-- Adds owner as member of the FFC
+-- $1: tenant_id (integer)
+-- $2: ffc_id (uuid)
+-- $3: persona_id (uuid)
+INSERT INTO ffc_personas (
+    tenant_id,
+    ffc_id,
+    persona_id,
+    ffc_role,
+    joined_at
+) VALUES ($1, $2, $3, 'owner', NOW());
+```
+
+### sp_create_ffc_with_subscription (Kept as Procedure)
+Complex procedure that creates FFC with automatic subscription assignment.
+
+**Wrapper File:** `call_sp_create_ffc_with_subscription.sql`
+```sql
+-- Wrapper for complex stored procedure
+-- $1: tenant_id (integer)
+-- $2: name (text)
+-- $3: description (text)
+-- $4: owner_user_id (uuid)
+-- $5: owner_persona_id (uuid)
+CALL sp_create_ffc_with_subscription($1, $2, $3, $4, $5, NULL, NULL);
+```
+
+This procedure remains as a stored procedure due to:
+- Complex multi-table transaction
+- Automatic free plan assignment
+- Duplicate subscription prevention logic
+- Multiple validation steps
+
+**Original sp_create_ffc Implementation (Now Converted):**
+```sql
+-- This procedure has been converted to create_ffc_step1.sql and create_ffc_step2.sql
+-- The original logic is now split into two SQL files for better maintainability
+-- Use the SQL files directly or sp_create_ffc_with_subscription for subscription setup
 CREATE OR REPLACE FUNCTION sp_create_ffc(
     p_tenant_id INTEGER,
     p_owner_user_id UUID,

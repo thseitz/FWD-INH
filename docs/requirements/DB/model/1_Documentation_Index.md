@@ -6,11 +6,16 @@ This comprehensive database documentation suite provides complete coverage of th
 
 ### Documentation Statistics
 - **Total Database Tables**: 70+ (56 original + 14 subscription/payment tables)
-- **Stored Procedures & Functions**: 64+ (50 original + 14 subscription procedures)
+- **Database Operations**: 
+  - **SQL Query Files**: 99 (converted from stored procedures)
+  - **Stored Procedures Kept**: 10 (complex business logic)
+  - **pgTyped Integration**: Compile-time type safety for all queries
+  - **Slonik Runtime**: Production-grade PostgreSQL client
 - **Enum Types**: 71 (59 original + 12 subscription/payment enums)
 - **Integration Points**: 7 external systems (including Stripe)
 - **Security Features**: Multi-factor authentication (AWS Cognito), RBAC, audit logging
 - **Compliance Standards**: SOC 2, GDPR, HIPAA ready
+- **Migration Success**: 84% of procedures converted to type-safe SQL
 
 ## Document Collection
 
@@ -94,6 +99,12 @@ This comprehensive database documentation suite provides complete coverage of th
 **Purpose**: Event-driven architecture with complete audit trails  
 **Key Procedures**: Event append, event replay, snapshot creation, projection rebuilding  
 **Key Features**: Immutable event log, state reconstruction, CQRS support, time travel debugging
+
+### 15. 🚀 [pgTyped & Slonik Implementation](./15_pgTyped_Slonik_Implementation.md)
+**Purpose**: Modern type-safe database operations architecture  
+**Key Content**: Migration summary, configuration, SQL organization, implementation patterns  
+**Migration Stats**: 59 procedures converted (84%), 99 SQL files, 10 complex procedures kept  
+**Key Features**: Compile-time type safety, single source of truth, production-grade runtime client
 
 ## Architecture Highlights
 

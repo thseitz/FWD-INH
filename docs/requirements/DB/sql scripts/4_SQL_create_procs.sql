@@ -83,7 +83,8 @@ BEGIN
     RETURN current_setting('app.current_tenant_id', true)::INTEGER;
 EXCEPTION
     WHEN OTHERS THEN
-        RETURN NULL;
+        -- Default to tenant 1 if not set
+        RETURN 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -2574,6 +2575,7 @@ DECLARE
     v_provider_id UUID;
     v_properties_synced INTEGER := 0;
     v_properties_updated INTEGER := 0;
+    v_property_record RECORD;
 BEGIN
     v_tenant_id := COALESCE(current_tenant_id(), 1);  -- Default to tenant 1 if not set
     v_user_id := COALESCE(p_user_id, current_user_id());
@@ -2608,71 +2610,104 @@ BEGIN
         ) RETURNING id INTO v_provider_id;
     END IF;
     
-    -- Create sync log
-    INSERT INTO real_estate_sync_logs (
-        integration_id,
-        property_id,
-        sync_type,
-        sync_status,
-        initiated_at
-    ) VALUES (
-        v_provider_id,  -- integration_id
-        gen_random_uuid(),  -- property_id (placeholder for batch sync)
-        'valuation',  -- sync_type
-        'in_progress',  -- sync_status
-        NOW()  -- initiated_at
-    ) RETURNING id INTO v_sync_id;
-    
-    -- Simulate sync process
+    -- Process properties based on sync type
     IF p_sync_all THEN
         -- Sync all real estate properties
+        FOR v_property_record IN 
+            SELECT id FROM real_estate 
+            WHERE EXISTS (
+                SELECT 1 FROM assets a 
+                WHERE a.id = real_estate.asset_id 
+                AND a.tenant_id = v_tenant_id
+            )
+        LOOP
+            -- Create sync log for each property
+            INSERT INTO real_estate_sync_logs (
+                integration_id,
+                property_id,
+                sync_type,
+                sync_status,
+                initiated_at,
+                completed_at
+            ) VALUES (
+                v_provider_id,
+                v_property_record.id,  -- Use actual property ID
+                'valuation',
+                'completed',
+                NOW(),
+                NOW()
+            );
+            
+            v_properties_synced := v_properties_synced + 1;
+        END LOOP;
+        
+        -- Update all properties (removed non-existent last_valuation_date)
         UPDATE real_estate SET
-            last_valuation_date = CURRENT_DATE,
-            change_summary = "completed_at" || jsonb_build_object(
-                'last_sync', NOW(),
-                'sync_provider', p_provider
-            ),
             updated_at = NOW()
-        WHERE tenant_id = v_tenant_id;
+        WHERE EXISTS (
+            SELECT 1 FROM assets a 
+            WHERE a.id = real_estate.asset_id 
+            AND a.tenant_id = v_tenant_id
+        );
         
         GET DIAGNOSTICS v_properties_updated = ROW_COUNT;
-        v_properties_synced := v_properties_updated;
-    ELSIF p_property_ids IS NOT NULL THEN
+        
+    ELSIF p_property_ids IS NOT NULL AND array_length(p_property_ids, 1) > 0 THEN
         -- Sync specific properties
+        FOR v_property_record IN 
+            SELECT id FROM real_estate 
+            WHERE id = ANY(p_property_ids)
+            AND EXISTS (
+                SELECT 1 FROM assets a 
+                WHERE a.id = real_estate.asset_id 
+                AND a.tenant_id = v_tenant_id
+            )
+        LOOP
+            -- Create sync log for each property
+            INSERT INTO real_estate_sync_logs (
+                integration_id,
+                property_id,
+                sync_type,
+                sync_status,
+                initiated_at,
+                completed_at
+            ) VALUES (
+                v_provider_id,
+                v_property_record.id,  -- Use actual property ID
+                'valuation',
+                'completed',
+                NOW(),
+                NOW()
+            );
+            
+            v_properties_synced := v_properties_synced + 1;
+        END LOOP;
+        
+        -- Update specific properties (removed non-existent last_valuation_date)
         UPDATE real_estate SET
-            last_valuation_date = CURRENT_DATE,
-            change_summary = "completed_at" || jsonb_build_object(
-                'last_sync', NOW(),
-                'sync_provider', p_provider
-            ),
             updated_at = NOW()
         WHERE id = ANY(p_property_ids)
-        AND tenant_id = v_tenant_id;
+        AND EXISTS (
+            SELECT 1 FROM assets a 
+            WHERE a.id = real_estate.asset_id 
+            AND a.tenant_id = v_tenant_id
+        );
         
         GET DIAGNOSTICS v_properties_updated = ROW_COUNT;
-        v_properties_synced := array_length(p_property_ids, 1);
     END IF;
     
-    -- Update sync log
-    UPDATE real_estate_sync_logs SET
-        sync_status = 'completed',
-        completed_at = NOW(),
-        new_value = jsonb_build_object(
-            'properties_synced', v_properties_synced,
-            'properties_updated', v_properties_updated,
-            'duration_seconds', EXTRACT(EPOCH FROM (NOW() - initiated_at))
-        )
-    WHERE id = v_sync_id;
-    
+    -- Return summary
     RETURN QUERY
     SELECT 
-        v_sync_id,
-        NULL::UUID, -- property_id (NULL for summary row)
+        gen_random_uuid(),  -- sync_id for summary
+        NULL::UUID,  -- property_id (NULL for summary row)
         'completed'::VARCHAR,
         jsonb_build_object(
             'provider', p_provider,
             'sync_type', CASE WHEN p_sync_all THEN 'full' ELSE 'partial' END,
-            'timestamptz', NOW()
+            'properties_synced', v_properties_synced,
+            'properties_updated', v_properties_updated,
+            'timestamp', NOW()
         );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -3677,15 +3712,20 @@ $$;
 
 -- Process Stripe webhook events
 CREATE OR REPLACE PROCEDURE sp_process_stripe_webhook(
-    p_stripe_event_id TEXT,
-    p_event_type TEXT,
+    p_stripe_event_id VARCHAR,
+    p_event_type VARCHAR,
     p_payload JSONB
 )
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
     v_existing_event_id UUID;
     v_event_id UUID;
+    v_tenant_id INTEGER;
 BEGIN
+    -- Get current tenant
+    v_tenant_id := COALESCE(current_tenant_id(), 1);
     -- Check for duplicate event (idempotency)
     SELECT id INTO v_existing_event_id
     FROM stripe_events
@@ -3717,43 +3757,93 @@ BEGIN
     -- Route to appropriate handler based on event type
     CASE p_event_type
         WHEN 'payment_intent.succeeded' THEN
-            CALL sp_handle_payment_succeeded(
-                (p_payload->>'id')::TEXT,
-                (p_payload->'amount')::INTEGER,
-                (p_payload->>'currency')::VARCHAR(3),
-                current_tenant_id()
-            );
+            -- Handle payment succeeded inline
+            UPDATE payments
+            SET status = 'succeeded',
+                processed_at = NOW(),
+                stripe_payment_intent_id = COALESCE(stripe_payment_intent_id, p_payload->>'id'),
+                updated_at = NOW()
+            WHERE stripe_payment_intent_id = p_payload->>'id'
+              AND tenant_id = v_tenant_id;
+            
+            -- Mark event as processed
+            UPDATE stripe_events
+            SET status = 'processed',
+                processed_at = NOW()
+            WHERE id = v_event_id;
         WHEN 'payment_intent.failed' THEN
-            CALL sp_handle_payment_failed(
-                (p_payload->>'id')::TEXT,
-                (p_payload->>'failure_reason')::TEXT,
-                current_tenant_id()
-            );
+            -- Handle payment failed inline
+            UPDATE payments
+            SET status = 'failed',
+                failure_reason = p_payload->>'failure_reason',
+                updated_at = NOW()
+            WHERE stripe_payment_intent_id = p_payload->>'id'
+              AND tenant_id = v_tenant_id;
+            
+            -- Mark event as processed
+            UPDATE stripe_events
+            SET status = 'processed',
+                processed_at = NOW()
+            WHERE id = v_event_id;
         WHEN 'invoice.payment_succeeded' THEN
-            CALL sp_handle_invoice_payment_succeeded(
-                (p_payload->>'invoice_id')::TEXT,
-                (p_payload->'amount_paid')::INTEGER,
-                (p_payload->>'currency')::VARCHAR(3),
-                current_tenant_id()
-            );
+            -- Handle invoice payment succeeded inline
+            UPDATE payments
+            SET status = 'succeeded',
+                processed_at = NOW(),
+                stripe_invoice_id = COALESCE(stripe_invoice_id, p_payload->>'id'),
+                updated_at = NOW()
+            WHERE stripe_invoice_id = p_payload->>'id'
+              AND tenant_id = v_tenant_id;
+            
+            -- Mark event as processed
+            UPDATE stripe_events
+            SET status = 'processed',
+                processed_at = NOW()
+            WHERE id = v_event_id;
         WHEN 'customer.subscription.created' THEN
-            CALL sp_handle_subscription_created(
-                (p_payload->>'subscription_id')::TEXT,
-                (p_payload->>'plan_id')::TEXT,
-                current_tenant_id()
-            );
+            -- Handle subscription created inline
+            UPDATE subscriptions
+            SET stripe_subscription_id = p_payload->>'id',
+                status = 'active',
+                updated_at = NOW()
+            WHERE stripe_customer_id = p_payload->>'customer'
+              AND tenant_id = v_tenant_id;
+            
+            -- Mark event as processed
+            UPDATE stripe_events
+            SET status = 'processed',
+                processed_at = NOW()
+            WHERE id = v_event_id;
         WHEN 'customer.subscription.updated' THEN
-            CALL sp_handle_subscription_updated(
-                (p_payload->>'subscription_id')::TEXT,
-                (p_payload->>'status')::TEXT,
-                current_tenant_id()
-            );
+            -- Handle subscription updated inline
+            UPDATE subscriptions
+            SET status = CASE 
+                    WHEN p_payload->>'status' = 'active' THEN 'active'
+                    WHEN p_payload->>'status' = 'canceled' THEN 'cancelled'
+                    WHEN p_payload->>'status' = 'past_due' THEN 'suspended'
+                    ELSE status
+                END,
+                updated_at = NOW()
+            WHERE stripe_subscription_id = p_payload->>'id';
+            
+            -- Mark event as processed
+            UPDATE stripe_events
+            SET status = 'processed',
+                processed_at = NOW()
+            WHERE id = v_event_id;
         WHEN 'customer.subscription.deleted' THEN
-            CALL sp_handle_subscription_deleted(
-                (p_payload->>'subscription_id')::TEXT,
-                (p_payload->>'canceled_at')::TEXT,
-                current_tenant_id()
-            );
+            -- Handle subscription deleted inline
+            UPDATE subscriptions
+            SET status = 'cancelled',
+                cancelled_at = (p_payload->>'canceled_at')::TIMESTAMP,
+                updated_at = NOW()
+            WHERE stripe_subscription_id = p_payload->>'id';
+            
+            -- Mark event as processed
+            UPDATE stripe_events
+            SET status = 'processed',
+                processed_at = NOW()
+            WHERE id = v_event_id;
         ELSE
             -- Mark as ignored for unsupported event types
             UPDATE stripe_events

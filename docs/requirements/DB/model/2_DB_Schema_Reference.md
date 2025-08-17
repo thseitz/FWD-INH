@@ -17,7 +17,12 @@ The Forward Inheritance Platform database consists of **70+ tables** organized i
 - **Total Tables**: 70+ (including 14 subscription/payment tables)
 - **Enum Types**: 71 (including 12 subscription/payment enums)
 - **Views**: 1 (payment_methods_with_usage for payment protection)
-- **Stored Procedures**: 64+ (including 14 subscription procedures)
+- **Database Operations**:
+  - **SQL Query Files**: 99 (converted from stored procedures)
+  - **Stored Procedures Remaining**: 10 (complex business logic)
+  - **Trigger Functions**: 1 (update_updated_at_column)
+  - **Migration Success Rate**: 84% (59 of 70 procedures converted)
+- **Type Safety**: pgTyped for compile-time validation, Slonik for runtime
 - **Indexes**: 60+ (including composite indexes)
 - **Primary Key Strategy**: INTEGER for tenants (1=Forward, 2-50 for customers), UUID for entities
 

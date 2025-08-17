@@ -109,7 +109,7 @@ Based on market research and industry studies:
 - **Comprehensive asset diversity** including alternative and digital assets
 - **Enhanced security** with mandatory dual-channel verification
 - **Living plans** that evolve with family circumstances
-- **Database-first architecture** - all operations through stored procedures
+- **Type-safe database architecture** - all operations through pgTyped and Slonik
 - **Privacy-first documents** - automatic PII masking for document protection
 - **Multi-language accessibility** - native Spanish support with expansion roadmap for underserved US communities
 
@@ -217,19 +217,19 @@ Based on market research and industry studies:
 
 ### Core Architecture Principles
 
-#### Mandatory Database Access Layer
-**All database operations MUST use stored procedures and functions**:
-- No direct table access from application code
-- All CRUD operations through stored procedures
-- Complex queries through database functions
-- Type-safe operations with pgtyped
-- Comprehensive audit logging at procedure level
+#### Type-Safe Database Access Layer
+**All database operations use pgTyped and Slonik for maximum safety and performance**:
+- Type-safe database operations with compile-time validation
+- pgTyped generates TypeScript types from actual database schema
+- Slonik provides runtime safety with strict parameterization
+- No direct string concatenation of SQL queries
+- Comprehensive audit logging for all operations
 
 **Benefits**:
-1. **Security**: SQL injection prevention, access control
-2. **Performance**: Optimized execution plans, reduced network traffic
-3. **Consistency**: Centralized business rules and validation
-4. **Maintainability**: Database API versioning, easier refactoring
+1. **Security**: SQL injection prevention through parameterized queries
+2. **Type Safety**: Compile-time validation of all database operations
+3. **Performance**: Optimized connection pooling and query execution
+4. **Maintainability**: SQL queries in version-controlled files
 5. **Compliance**: Automatic audit trails and data governance
 
 ### Frontend Technology Stack
@@ -301,14 +301,14 @@ Based on market research and industry studies:
   - Rate limiting with @nestjs/throttler
 - **Database and ORM**
   - PostgreSQL for primary data storage
-  - Slonik for safe PostgreSQL client operations (recommended for stored procedures)
+  - Slonik for safe PostgreSQL client operations with strict parameterization
   - pgtyped for compile-time SQL type safety
   - Database migrations with TypeORM or Prisma CLI
   - Connection pooling with Nest.js database module
   - Multi-tenant context management via interceptors
 - **Business Logic Architecture**
   - Module-based organization by domain (assets, FFCs, personas)
-  - Repository pattern with stored procedure integration
+  - Repository pattern with type-safe SQL queries
   - Service layer with dependency injection
   - Transaction management via Nest.js database module
   - Event-driven architecture with @nestjs/event-emitter
@@ -737,7 +737,7 @@ Based on market research and industry studies:
 **Database Implementation**:
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 1: Marketing Foundation" for complete stored procedure specifications including `capture_marketing_lead` function.
+See architecture.md section "Epic 1: Marketing Foundation" for complete database operation specifications including lead capture functionality.
 
 ### Epic 2: FFC Onboarding Flow with Enhanced Security
 
@@ -760,7 +760,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 1: Marketing
 **Database Implementation**:
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 2: FFC Onboarding" for complete stored procedure specifications including `register_user` and `invite_ffc_member` functions.
+See architecture.md section "Epic 2: FFC Onboarding" for complete database operation specifications including user registration and member invitation functionality.
 
 #### Story 2.2: FFC Creation Wizard
 **As a** verified user  
@@ -788,7 +788,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 2: FFC Onboa
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 2: FFC Onboarding" for complete `invite_ffc_member` stored procedure specification.
+See architecture.md section "Epic 2: FFC Onboarding" for complete member invitation operation specifications.
 
 #### Story 2.4: Phone Verification System
 **As an** invited family member  
@@ -820,7 +820,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 2: FFC Onboa
 
 **Duration**: 4 weeks (Sprints 6-9)
 
-**Database Implementation**: All stored procedures for asset management, document handling, and PII processing are documented in architecture.md section "Epic-Specific Stored Procedures > Epic 3: Asset Management & PII Protection"
+**Database Implementation**: All database operations for asset management, document handling, and PII processing are documented in architecture.md section "Epic 3: Asset Management & PII Protection"
 
 #### Story 3.1: Asset Category Infrastructure
 **As a** system architect  
@@ -849,7 +849,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 2: FFC Onboa
 **Database Implementation**:
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 3: Asset Management" for complete stored procedure specifications including `create_asset_with_ownership` function.
+See architecture.md section "Epic 3: Asset Management" for complete database operation specifications including asset creation with ownership functionality.
 
 #### Story 3.3: Document & Photo Management with PII Protection
 **As an** asset owner  
@@ -974,7 +974,7 @@ This serverless approach ensures scalability, security, and compliance without m
 
 **Duration**: 3 weeks (Sprints 10-12)
 
-**Database Implementation**: All stored procedures for search, reporting, audit trails, integrations, and Quillt API functions are documented in architecture.md section "Epic-Specific Stored Procedures > Epic 4: Reporting, Analytics & Integrations" and "Integration Architecture > Quillt Integration Stored Procedures"
+**Database Implementation**: All database operations for search, reporting, audit trails, integrations, and Quillt API functions are documented in architecture.md section "Epic 4: Reporting, Analytics & Integrations" and "Integration Architecture > Quillt Integration"
 
 #### Story 4.1: Advanced Search & Filtering System
 **As an** FFC member  
@@ -991,7 +991,7 @@ This serverless approach ensures scalability, security, and compliance without m
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Advanced Features" for complete stored procedure specifications including `search_family_assets` function.
+See architecture.md section "Epic 4: Advanced Features" for complete database operation specifications including family asset search functionality.
 
 #### Story 4.2: Comprehensive Reporting & Analytics
 **As an** FFC owner  
@@ -1008,7 +1008,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Advanced 
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Reporting & Analytics" for complete stored procedure specifications including `generate_wealth_report` function.
+See architecture.md section "Epic 4: Reporting & Analytics" for complete database operation specifications including wealth report generation functionality.
 
 #### Story 4.3: Comprehensive Audit Trail System
 **As a** compliance officer  
@@ -1025,7 +1025,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Reporting
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Audit & Compliance" for complete stored procedure specifications including `log_audit_event` function.
+See architecture.md section "Epic 4: Audit & Compliance" for complete database operation specifications including audit event logging functionality.
 
 #### Story 4.4: Bulk Operations & Data Management
 **As an** FFC owner with many assets  
@@ -1042,7 +1042,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Audit & C
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Bulk Operations" for complete stored procedure specifications including `bulk_update_assets` function.
+See architecture.md section "Epic 4: Bulk Operations" for complete database operation specifications including bulk asset update functionality.
 
 #### Story 4.5: Advisor Sponsored Plans
 **As a** financial advisor  
@@ -1085,7 +1085,7 @@ See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Bulk Oper
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Epic-Specific Stored Procedures > Epic 4: Integration Management" for complete stored procedure specifications including `manage_integration` function.
+See architecture.md section "Epic 4: Integration Management" for complete database operation specifications including integration management functionality.
 
 #### Story 4.8: Quillt API Integration for Financial Accounts
 **As an** FFC member  
@@ -1108,7 +1108,7 @@ FFC Member → Quillt Profile → Bank Connection → Multiple Accounts → Forw
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Integration Architecture > Quillt Integration Stored Procedures" for complete stored procedure specifications including `manage_quillt_connection` and `process_quillt_webhook` functions.
+See architecture.md section "Integration Architecture > Quillt Integration" for complete database operation specifications including Quillt connection management and webhook processing functionality.
 
 **Quillt Integration Workflow**:
 1. **Profile Creation**: Map FFC member to Quillt Profile with metadata
@@ -1147,7 +1147,7 @@ See architecture.md section "Integration Architecture > Quillt Integration Store
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Integration Architecture > Real Estate Provider Integration" for complete stored procedure specifications including `manage_real_estate_integration` function.
+See architecture.md section "Integration Architecture > Real Estate Provider Integration" for complete database operation specifications including real estate integration management functionality.
 
 **Provider Research Tasks**:
 1. **API Comparison**: Zillow API vs CoreLogic vs RentSpree vs others

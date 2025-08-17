@@ -5,9 +5,14 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "populate": "tsx populate-database.ts",
-    "test": "tsx test-all-procedures.ts",
-    "populate-and-test": "tsx populate-database.ts && tsx test-all-procedures.ts"
+    "test:1:populate": "tsx 1-populate-database.ts",
+    "test:2:procedures": "tsx 2-test-stored-procedures.ts",
+    "test:3:sql-files": "tsx 3-test-sql-files.ts",
+    "test:suite": "tsx run-all-tests.ts",
+    "test:all": "npm run test:1:populate && npm run test:2:procedures && npm run test:3:sql-files",
+    "test": "npm run test:suite",
+    "populate": "tsx 1-populate-database.ts",
+    "test:old": "tsx test-all-procedures.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",

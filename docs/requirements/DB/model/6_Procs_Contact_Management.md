@@ -10,7 +10,12 @@
 
 ## Overview
 
-The contact management procedures handle the association of email addresses and phone numbers with personas in the Forward Inheritance Platform. These procedures work with the normalized contact information architecture that eliminates data duplication while maintaining flexibility for multiple usage contexts.
+The contact management operations have been fully converted from stored procedures to individual SQL queries using pgTyped and Slonik. These operations handle the association of email addresses and phone numbers with personas in the Forward Inheritance Platform.
+
+### Migration Status
+- **Converted to SQL**: 2 of 2 procedures (100%)
+- **Total SQL Files**: 6 (3 for email, 3 for phone)
+- **Pattern**: Each procedure split into logical steps for better control
 
 ### Architecture Benefits
 - **Single Source of Truth**: One record per unique email/phone
@@ -20,10 +25,71 @@ The contact management procedures handle the association of email addresses and 
 
 ## Email Management
 
-### sp_add_email_to_persona
+### Email Operations (Converted from sp_add_email_to_persona)
 Associates an email address with a persona, creating the email record if needed.
 
+**Step 1: Create Email if Not Exists** (`create_email_if_not_exists.sql`)
 ```sql
+-- Creates or retrieves an email address record
+-- $1: tenant_id (integer)
+-- $2: email_address (text)
+-- $3: email_type (email_type_enum)
+-- $4: is_verified (boolean)
+INSERT INTO email_address (
+    tenant_id,
+    email_address,
+    email_type,
+    is_verified,
+    status
+) VALUES ($1, lower($2), $3, $4, 'active')
+ON CONFLICT (tenant_id, email_address) 
+DO UPDATE SET updated_at = NOW()
+RETURNING id;
+```
+
+**Step 2: Link Email to Persona** (`link_email_to_persona.sql`)
+```sql
+-- Links email to persona with usage context
+-- $1: tenant_id (integer)
+-- $2: persona_id (uuid)
+-- $3: email_id (uuid)
+-- $4: usage_type (email_usage_type_enum)
+-- $5: is_primary (boolean)
+INSERT INTO usage_email (
+    tenant_id,
+    entity_type,
+    entity_id,
+    email_id,
+    usage_type,
+    is_primary
+) VALUES ($1, 'persona', $2, $3, $4, $5)
+ON CONFLICT (entity_type, entity_id, email_id) 
+DO UPDATE SET 
+    usage_type = EXCLUDED.usage_type,
+    is_primary = EXCLUDED.is_primary;
+```
+
+**Step 3: Manage Primary Email** (`unset_other_primary_emails.sql`)
+```sql
+-- Ensures only one primary email per persona
+-- $1: tenant_id (integer)
+-- $2: persona_id (uuid)
+-- $3: email_id (uuid)
+UPDATE usage_email
+SET is_primary = FALSE
+WHERE tenant_id = $1
+  AND entity_type = 'persona'
+  AND entity_id = $2
+  AND email_id != $3
+  AND is_primary = TRUE;
+```
+
+**Original sp_add_email_to_persona (Now Converted):**
+```sql
+-- This procedure has been converted to three SQL files:
+-- 1. create_email_if_not_exists.sql
+-- 2. link_email_to_persona.sql
+-- 3. unset_other_primary_emails.sql
 CREATE OR REPLACE FUNCTION sp_add_email_to_persona(
     p_persona_id UUID,
     p_email TEXT,

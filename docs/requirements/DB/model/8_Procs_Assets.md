@@ -12,20 +12,36 @@
 
 ## Overview
 
-The Asset Management system provides **8 core stored procedures** that handle all asset-related operations in the Forward Inheritance Platform. These procedures enforce business rules, maintain data integrity, and provide secure access to asset information across all 15 asset tables.
+The Asset Management system has been modernized with most operations converted from stored procedures to individual SQL queries using pgTyped and Slonik. These operations handle all asset-related functionality across all 15 asset tables.
 
-### Asset Management Procedures
-1. **sp_create_asset** - Create new assets with ownership assignment
-2. **sp_update_asset** - Update asset information and metadata
-3. **sp_delete_asset** - Soft or hard delete assets with ownership cleanup
-4. **sp_transfer_asset_ownership** - Transfer ownership between personas
-5. **sp_update_asset_value** - Update asset valuation with history tracking
-6. **sp_get_asset_details** - Retrieve complete asset information
-7. **sp_search_assets** - Search and filter assets with pagination
-8. **sp_assign_asset_to_persona** - Link assets to personas with ownership details
+### Migration Status
+- **Converted to SQL**: 9 of 10 procedures (90%)
+- **Kept as Procedure**: 1 (sp_create_asset - complex validation logic)
+- **Total SQL Files**: 15
+
+### Asset Management Operations
+1. **sp_create_asset** - KEPT AS PROCEDURE (complex business logic)
+   - Wrapper: `call_sp_create_asset.sql`
+2. **update_asset_details.sql** - Update asset information (from sp_update_asset)
+3. **soft_delete_asset.sql** - Soft delete assets (from sp_delete_asset)
+4. **Transfer ownership** (from sp_transfer_asset_ownership):
+   - `get_asset_ownership.sql` - Check current ownership
+   - `transfer_ownership_remove_source.sql` - Remove from source
+   - `transfer_ownership_reduce_source.sql` - Reduce percentage
+   - `transfer_ownership_add_target.sql` - Add to target
+5. **update_asset_value.sql** - Update valuation (from sp_update_asset_value)
+6. **get_asset_details.sql** - Retrieve asset info (from sp_get_asset_details)
+7. **search_assets.sql** - Search and filter (from sp_search_assets)
+8. **Assign to persona** (from sp_assign_asset_to_persona):
+   - `assign_asset_to_persona_upsert.sql` - Link assets
+   - `check_asset_ownership_total.sql` - Validate percentages
+   - `unset_other_primary_owners.sql` - Manage primary ownership
+9. **get_asset_categories.sql** - List categories
+10. **create_asset_category.sql** - Create new category
 
 ### Key Design Principles
-- **Database-First**: All business logic implemented in stored procedures
+- **Type-Safe Operations**: pgTyped provides compile-time validation
+- **Single Source of Truth**: Each query in one `.sql` file
 - **Audit Trail**: Complete logging of all asset operations in audit_log table
 - **Tenant Isolation**: All operations scoped to current tenant
 - **Ownership Validation**: Strict validation of ownership percentages (max 100% total)
@@ -33,9 +49,69 @@ The Asset Management system provides **8 core stored procedures** that handle al
 
 ## Asset CRUD Operations
 
-### sp_create_asset
-Creates a new asset with automatic ownership assignment to the creating persona.
+### sp_create_asset (Kept as Procedure)
+Creates a new asset with automatic ownership assignment. This remains as a stored procedure due to complex validation logic.
 
+**Wrapper File:** `call_sp_create_asset.sql`
+```sql
+-- Wrapper for complex stored procedure
+-- $1: tenant_id (integer)
+-- $2: owner_persona_id (uuid)
+-- $3: asset_type (asset_type_enum)
+-- $4: name (text)
+-- $5: description (text)
+-- $6: ownership_percentage (decimal)
+-- $7: created_by_user_id (uuid)
+SELECT * FROM sp_create_asset($1, $2, $3, $4, $5, $6, $7);
+```
+
+This procedure remains due to:
+- Category lookup and validation
+- Ownership percentage validation
+- Multi-table transactional insert
+- Automatic audit logging
+
+### update_asset_details.sql (Converted from sp_update_asset)
+Update asset information and metadata.
+
+```sql
+-- Updates asset details
+-- $1: asset_id (uuid)
+-- $2: name (text)
+-- $3: description (text)
+-- $4: estimated_value (decimal)
+-- $5: status (status_enum)
+-- $6: metadata (jsonb)
+-- $7: updated_by (uuid)
+UPDATE assets
+SET 
+    name = COALESCE($2, name),
+    description = COALESCE($3, description),
+    estimated_value = COALESCE($4, estimated_value),
+    status = COALESCE($5, status),
+    tags = COALESCE($6, tags),
+    updated_by = $7,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+```
+
+### soft_delete_asset.sql (Converted from sp_delete_asset)
+Soft delete an asset by setting status.
+
+```sql
+-- Soft deletes an asset
+-- $1: asset_id (uuid)
+-- $2: deleted_by (uuid)
+UPDATE assets
+SET 
+    status = 'deleted',
+    updated_by = $2,
+    updated_at = NOW()
+WHERE id = $1;
+```
+
+**Original sp_create_asset Implementation:**
 ```sql
 CREATE OR REPLACE FUNCTION sp_create_asset(
     p_tenant_id INTEGER,

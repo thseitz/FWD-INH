@@ -11,13 +11,18 @@
 
 ## Overview
 
-The Forward Inheritance Platform implements **8 security and compliance procedures** that handle audit logging, PII detection, compliance reporting, and session management. Authentication is handled by AWS Cognito, with the database maintaining session context and audit trails.
+The Forward Inheritance Platform's security and compliance operations have been fully converted from stored procedures to individual SQL queries using pgTyped and Slonik. Authentication is handled by AWS Cognito, with the database maintaining session context and audit trails.
 
-### Security Procedure Categories
-- **Session Management**: 2 procedures for RLS session context
-- **Audit & Compliance**: 3 procedures for logging and compliance reporting
-- **PII Processing**: 2 procedures for privacy compliance
-- **System Configuration**: 1 procedure for system settings management
+### Migration Status
+- **Converted to SQL**: 8 of 8 procedures (100%)
+- **Total SQL Files**: 11 (including multi-file conversions)
+- **Pattern**: All security operations now type-safe SQL
+
+### Security Operation Categories
+- **Session Management**: 2 SQL files for RLS session context
+- **Audit & Compliance**: 5 SQL files for logging and reporting
+- **PII Processing**: 3 SQL files for privacy compliance
+- **System Configuration**: 1 SQL file for settings management
 
 ### Key Security Features
 - **AWS Cognito Integration**: Authentication handled externally by AWS Cognito
@@ -26,12 +31,23 @@ The Forward Inheritance Platform implements **8 security and compliance procedur
 - **PII Detection**: Automated PII detection and masking capabilities
 - **Compliance Reporting**: SOC 2 and regulatory compliance support
 
-## Session Management Procedures
+## Session Management Operations
 
-### sp_set_session_context
+### set_session_context.sql (Converted from sp_set_session_context)
 Sets the current session context for Row-Level Security enforcement.
 
 ```sql
+-- Sets session context for RLS
+-- $1: user_id (uuid)
+-- $2: tenant_id (integer)
+SELECT 
+    set_config('app.current_user_id', $1::TEXT, false),
+    set_config('app.current_tenant_id', $2::TEXT, false);
+```
+
+**Original sp_set_session_context (Now Converted):**
+```sql
+-- This procedure has been converted to set_session_context.sql
 CREATE OR REPLACE FUNCTION sp_set_session_context(
     p_user_id UUID,
     p_tenant_id INTEGER
@@ -49,10 +65,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 - Sets database session context for the authenticated user
 - Enables Row-Level Security policies to filter data
 
-### sp_clear_session_context
+### clear_session_context.sql (Converted from sp_clear_session_context)
 Clears the session context when user logs out or session expires.
 
 ```sql
+-- Clears session context
+-- No parameters
+SELECT 
+    set_config('app.current_user_id', NULL, false),
+    set_config('app.current_tenant_id', NULL, false);
+```
+
+**Original sp_clear_session_context (Now Converted):**
+```sql
+-- This procedure has been converted to clear_session_context.sql
 CREATE OR REPLACE FUNCTION sp_clear_session_context() 
 RETURNS VOID AS $$
 BEGIN
@@ -63,9 +89,9 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-## Audit & Compliance Procedures
+## Audit & Compliance Operations
 
-### sp_log_audit_event
+### log_audit_event.sql (Converted from sp_log_audit_event)
 Central audit logging procedure for all system actions.
 
 ```sql

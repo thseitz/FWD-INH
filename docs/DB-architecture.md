@@ -49,15 +49,14 @@
    - [Unique Constraint Indexes](#unique-constraint-indexes)
 7. [Views](#views)
    - [Payment Management Views](#payment-management-views)
-8. [Stored Procedures](#stored-procedures)
-   - [Authentication Procedures](#authentication-procedures)
-   - [Asset Management Procedures](#asset-management-procedures)
-   - [Subscription Management Procedures](#subscription-management-procedures)
-   - [Security and Compliance Procedures](#security-and-compliance-procedures)
-   - [Integration Procedures](#integration-procedures)
-8. [Helper Functions](#helper-functions)
-9. [Row-Level Security (RLS) Policies](#row-level-security-rls-policies)
-10. [Data Population and Test Data](#data-population-and-test-data)
+8. [Database Operations Architecture](#database-operations-architecture)
+   - [pgTyped Integration](#pgtyped-integration)
+   - [Slonik Runtime Client](#slonik-runtime-client)
+   - [SQL Query Organization](#sql-query-organization)
+   - [Remaining Stored Procedures](#remaining-stored-procedures)
+9. [Helper Functions](#helper-functions)
+10. [Row-Level Security (RLS) Policies](#row-level-security-rls-policies)
+11. [Data Population and Test Data](#data-population-and-test-data)
 
 ---
 
@@ -1447,28 +1446,143 @@ FROM payment_methods pm;
 - `sp_check_payment_method_usage()` - Function to verify if payment method can be deleted
 - `sp_delete_payment_method()` - Procedure that safely deletes unused payment methods
 
-## Stored Procedures
+## Database Operations Architecture
 
-The database includes 65+ comprehensive stored procedures organized into the following categories:
+### Overview
 
-### Core Procedures (42)
+The database operations have been modernized from a stored procedure-centric approach to a hybrid architecture leveraging:
+- **pgTyped** for compile-time SQL type safety
+- **Slonik** for runtime PostgreSQL client operations
+- **Single source of truth** - Each query lives in one `.sql` file
 
-#### RLS Helper Functions (3)
-- `current_user_id()` RETURNS UUID - Get current user's ID from session context
-- `current_tenant_id()` RETURNS INTEGER - Get current tenant ID from session context
-- `is_ffc_member(p_ffc_id UUID, p_user_id UUID DEFAULT current_user_id())` RETURNS BOOLEAN - Check if user is member of an FFC
+This migration converted 59 of 70 stored procedures (84%) to individual SQL queries, improving maintainability, type safety, and enabling better version control.
 
-#### User Management (2)
-- `sp_create_user_from_cognito(p_tenant_id INTEGER, p_cognito_user_id TEXT, p_cognito_username TEXT, p_email TEXT, p_phone VARCHAR(20), p_first_name TEXT, p_last_name TEXT, p_email_verified BOOLEAN DEFAULT FALSE, p_phone_verified BOOLEAN DEFAULT FALSE, p_country_code VARCHAR(5) DEFAULT '+1')` RETURNS TABLE (user_id UUID, persona_id UUID, email_id UUID, phone_id UUID) - Create user from Cognito registration
-- `sp_update_user_profile(p_user_id UUID, p_first_name TEXT, p_last_name TEXT, p_display_name TEXT, p_profile_picture_url TEXT, p_preferred_language CHAR(2), p_timezone VARCHAR(50))` RETURNS BOOLEAN - Update user profile information
+### pgTyped Integration
 
-#### FFC Management (4)
-- `sp_create_ffc(p_tenant_id INTEGER, p_owner_user_id UUID, p_name TEXT, p_description TEXT DEFAULT NULL)` RETURNS UUID - Create a new FFC and add owner as member
-- `sp_add_persona_to_ffc(p_tenant_id INTEGER, p_ffc_id UUID, p_persona_id UUID, p_role ffc_role_enum, p_added_by UUID)` RETURNS BOOLEAN - Add persona to FFC with specified role
-- `sp_update_ffc_member_role(p_ffc_id UUID, p_persona_id UUID, p_new_role ffc_role_enum, p_updated_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Update member's role within FFC
-- `sp_remove_ffc_member(p_ffc_id UUID, p_persona_id UUID, p_removed_by UUID DEFAULT NULL, p_reason TEXT DEFAULT NULL)` RETURNS BOOLEAN - Remove member from FFC
+pgTyped provides compile-time type safety by:
+- Introspecting the live PostgreSQL schema
+- Generating TypeScript types from `.sql` files
+- Ensuring query parameters and return types match the database schema
+- Preventing runtime SQL errors through build-time validation
 
-#### Asset Management (8)
+### Slonik Runtime Client
+
+Slonik serves as the production-grade runtime client providing:
+- Connection pooling with configurable limits
+- Strict SQL parameterization preventing injection attacks
+- Query logging and performance monitoring
+- Automatic retry logic for transient failures
+- Statement timeout enforcement
+
+### SQL Query Organization
+
+#### Converted Operations (99 SQL files)
+
+The following categories of operations have been converted from stored procedures to individual SQL queries:
+
+**Authentication & Session (5 files)**
+- `current_user_id.sql` - Get current user's ID from session context
+- `current_tenant_id.sql` - Get current tenant ID from session context
+- `is_ffc_member.sql` - Check if user is member of an FFC
+- `set_session_context.sql` - Set user and tenant context
+- `clear_session_context.sql` - Clear session context
+
+**User Management (1 file)**
+- `update_user_profile.sql` - Update user profile information
+
+**FFC Management (5 files)**
+- `create_ffc_step1.sql` - Create new FFC
+- `create_ffc_step2.sql` - Add owner as member
+- `add_persona_to_ffc.sql` - Add persona to FFC
+- `update_ffc_member_role.sql` - Update member role
+- `remove_ffc_member.sql` - Remove member from FFC
+
+**Asset Management (15 files)**
+- `get_asset_details.sql` - Retrieve asset information
+- `search_assets.sql` - Search with filters
+- `update_asset_details.sql` - Update asset properties
+- `soft_delete_asset.sql` - Soft delete asset
+- `update_asset_value.sql` - Update valuation
+- `get_asset_ownership.sql` - Get ownership details
+- `transfer_ownership_*.sql` (3 files) - Transfer operations
+- `assign_asset_to_persona_upsert.sql` - Link assets
+- `check_asset_ownership_total.sql` - Validate percentages
+- `unset_other_primary_owners.sql` - Manage primary ownership
+- `get_asset_categories.sql` - List categories
+- `create_asset_category.sql` - Create new category
+
+**Contact Management (6 files)**
+- `create_email_if_not_exists.sql` - Create email record
+- `link_email_to_persona.sql` - Link email to persona
+- `unset_other_primary_emails.sql` - Manage primary emails
+- `create_phone_if_not_exists.sql` - Create phone record
+- `link_phone_to_persona.sql` - Link phone to persona
+- `unset_other_primary_phones.sql` - Manage primary phones
+
+**Subscription & Payment (20 files)**
+- `calculate_seat_availability.sql` - Check available seats
+- `get_subscription_*.sql` (5 files) - Subscription queries
+- `cancel_subscription.sql` - Cancel subscription
+- `suspend_subscription_seats.sql` - Suspend seats
+- `update_subscription_*.sql` (2 files) - Update subscription
+- `record_subscription_transition.sql` - Log plan changes
+- `create_invoice_payment.sql` - Record payments
+- `update_payment_*.sql` (2 files) - Payment status
+- `check_payment_method_*.sql` (2 files) - Payment validation
+- `delete_payment_method.sql` - Remove payment method
+- `create_ledger_entry.sql` - Bookkeeping entries
+
+**Audit & Compliance (5 files)**
+- `log_audit_event.sql` - Log audit events
+- `create_audit_event.sql` - Create audit records
+- `get_audit_trail.sql` - Retrieve audit history
+- `compliance_report_stats.sql` - Generate statistics
+- `compliance_report_user_activity.sql` - User activity reports
+
+**Event Sourcing (6 files)**
+- `append_event.sql` - Add events to store
+- `get_next_event_version.sql` - Version management
+- `replay_events.sql` - Event replay
+- `create_snapshot.sql` - Create snapshots
+- `get_current_event_version.sql` - Current version
+- `cleanup_old_snapshots.sql` - Maintenance
+
+**Integration Operations (30+ files)**
+- PII Management (3 files)
+- Quillt Integration (4 files)
+- Real Estate Integration (3 files)
+- Builder.io Integration (3 files)
+- Advisor Companies (3 files)
+- Translation Management (3 files)
+- System Configuration (1 file)
+- Health Checks (3 files)
+- Retry Logic (3 files)
+
+### Remaining Stored Procedures
+
+The following 10 complex procedures remain as stored procedures with pgTyped-compatible wrapper files:
+
+#### Complex Business Logic Procedures (10)
+
+These procedures contain complex business logic, multi-step transactions, or dynamic SQL that are best kept as stored procedures:
+
+1. **sp_create_user_from_cognito** - Complex user creation with multi-table inserts
+   - Wrapper: `call_sp_create_user_from_cognito.sql`
+   
+2. **sp_create_asset** - Asset creation with category validation and ownership setup
+   - Wrapper: `call_sp_create_asset.sql`
+
+3. **sp_create_ffc_with_subscription** - FFC creation with automatic subscription setup
+   - Wrapper: `call_sp_create_ffc_with_subscription.sql`
+   
+4. **sp_process_seat_invitation** - Complex invitation processing with validation
+   - Wrapper: `call_sp_process_seat_invitation.sql`
+
+5. **sp_purchase_service** - Service purchase with payment processing
+   - Wrapper: `call_sp_purchase_service.sql`
+   
+6. **sp_process_stripe_webhook** - Webhook processing with dynamic event routing
+   - Wrapper: `call_sp_process_stripe_webhook.sql`
 - `sp_create_asset(p_tenant_id INTEGER, p_owner_persona_id UUID, p_asset_type asset_type_enum, p_name TEXT, p_description TEXT, p_ownership_percentage DECIMAL(5,2) DEFAULT 100.00, p_created_by_user_id UUID DEFAULT NULL)` RETURNS UUID - Create new asset
 - `sp_update_asset(p_asset_id UUID, p_name TEXT DEFAULT NULL, p_description TEXT DEFAULT NULL, p_estimated_value DECIMAL(15,2) DEFAULT NULL, p_status status_enum DEFAULT NULL, p_metadata JSONB DEFAULT NULL, p_updated_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Update existing asset properties
 - `sp_delete_asset(p_asset_id UUID, p_deleted_by UUID DEFAULT NULL, p_hard_delete BOOLEAN DEFAULT FALSE)` RETURNS BOOLEAN - Delete asset (soft or hard delete)
@@ -1478,14 +1592,20 @@ The database includes 65+ comprehensive stored procedures organized into the fol
 - `sp_search_assets(p_ffc_id UUID DEFAULT NULL, p_category_code VARCHAR(50) DEFAULT NULL, p_owner_persona_id UUID DEFAULT NULL, p_status status_enum DEFAULT NULL, p_min_value DECIMAL(15,2) DEFAULT NULL, p_max_value DECIMAL(15,2) DEFAULT NULL, p_search_term TEXT DEFAULT NULL, p_limit INTEGER DEFAULT 100, p_offset INTEGER DEFAULT 0)` RETURNS TABLE - Search assets with filters
 - `sp_assign_asset_to_persona(p_asset_id UUID, p_persona_id UUID, p_ownership_type ownership_type_enum DEFAULT 'owner', p_ownership_percentage DECIMAL(5,2) DEFAULT 100.00, p_is_primary BOOLEAN DEFAULT FALSE, p_assigned_by UUID DEFAULT NULL)` RETURNS BOOLEAN - Link assets to personas
 
-#### Contact Management (2)
+7. **sp_rebuild_projection** - Event sourcing projection rebuilding
+   - Wrapper: `call_sp_rebuild_projection.sql`
 - `sp_add_email_to_persona(p_persona_id UUID, p_email TEXT, p_usage_type email_usage_type_enum DEFAULT 'personal', p_is_primary BOOLEAN DEFAULT FALSE, p_added_by UUID DEFAULT NULL)` RETURNS UUID - Add email to persona
 - `sp_add_phone_to_persona(p_persona_id UUID, p_phone VARCHAR(20), p_country_code VARCHAR(5) DEFAULT '+1', p_usage_type phone_usage_type_enum DEFAULT 'primary', p_is_primary BOOLEAN DEFAULT FALSE, p_added_by UUID DEFAULT NULL)` RETURNS UUID - Add phone to persona
 
-#### Invitation Management (1)
+8. **sp_sync_quillt_data** - Complex financial data synchronization
+   - Wrapper: `call_sp_sync_quillt_data.sql`
 - `sp_create_invitation(p_tenant_id INTEGER, p_ffc_id UUID, p_phone_number VARCHAR(20), p_role ffc_role_enum, p_invited_by UUID, p_persona_first_name TEXT, p_persona_last_name TEXT)` RETURNS UUID - Create FFC invitation
 
-#### Subscription Management (18)
+9. **sp_sync_real_estate_data** - Property data synchronization with multiple providers
+   - Wrapper: `call_sp_sync_real_estate_data.sql`
+   
+10. **sp_refresh_builder_content** - CMS content synchronization
+    - Wrapper: `call_sp_refresh_builder_content.sql`
 - `sp_create_ffc_with_subscription(p_tenant_id INTEGER, p_name TEXT, p_description TEXT, p_owner_user_id UUID, p_owner_persona_id UUID, OUT p_ffc_id UUID, OUT p_subscription_id UUID)` - Create FFC with automatic free plan assignment (prevents duplicate active subscriptions)
 - `sp_process_seat_invitation(p_invitation_id UUID, p_subscription_id UUID, p_persona_id UUID, p_seat_type seat_type_enum DEFAULT 'pro')` - Process seat invitation after approval (checks for existing assignments)
 - `sp_purchase_service(p_tenant_id INTEGER, p_service_id UUID, p_ffc_id UUID, p_purchaser_user_id UUID, p_payment_method_id UUID, p_stripe_payment_intent_id TEXT, OUT p_purchase_id UUID, OUT p_payment_id UUID)` - Purchase one-time service by service ID
@@ -1506,7 +1626,19 @@ The database includes 65+ comprehensive stored procedures organized into the fol
 - `sp_get_subscription_details(p_ffc_id UUID)` RETURNS TABLE - Get detailed subscription information with seat counts
 - `sp_create_ledger_entry(p_tenant_id INTEGER, p_transaction_type transaction_type_enum, p_account_type ledger_account_type_enum, p_amount DECIMAL(10,2), p_reference_type VARCHAR(50), p_reference_id UUID, p_description TEXT, p_stripe_reference VARCHAR(255) DEFAULT NULL)` - Create general ledger entry
 
-#### Audit & Compliance (4)
+### Query File Naming Conventions
+
+SQL files follow a consistent naming pattern for maintainability:
+- **Actions**: `create_`, `update_`, `delete_`, `get_`, `check_`, `validate_`
+- **Entities**: Singular form (e.g., `asset`, `subscription`, `payment`)
+- **Modifiers**: Descriptive suffixes (e.g., `_if_not_exists`, `_with_usage`)
+
+### Transaction Management
+
+Complex operations that previously relied on stored procedure transactions are now handled through:
+- Slonik's transaction management
+- Explicit BEGIN/COMMIT in SQL files where needed
+- Application-level transaction coordination in NestJS services
 - `sp_log_audit_event(p_action VARCHAR(50), p_entity_type VARCHAR(50), p_entity_id UUID, p_entity_name TEXT DEFAULT NULL, p_old_values JSONB DEFAULT NULL, p_new_values JSONB DEFAULT NULL, p_metadata JSONB DEFAULT '{}', p_user_id UUID DEFAULT NULL)` RETURNS UUID - Log audit events
 - `sp_create_audit_event(p_event_type TEXT, p_event_category VARCHAR(50), p_description TEXT, p_risk_level VARCHAR(20) DEFAULT 'low', p_compliance_framework VARCHAR(50) DEFAULT 'SOC2', p_metadata JSONB DEFAULT '{}', p_user_id UUID DEFAULT NULL)` RETURNS UUID - Create audit events
 - `sp_get_audit_trail(p_entity_type VARCHAR(50) DEFAULT NULL, p_entity_id UUID DEFAULT NULL, p_user_id UUID DEFAULT NULL, p_action VARCHAR(50) DEFAULT NULL, p_start_date timestamptz DEFAULT NULL, p_end_date timestamptz DEFAULT NULL, p_limit INTEGER DEFAULT 100, p_offset INTEGER DEFAULT 0)` RETURNS TABLE - Retrieve audit history
@@ -1522,7 +1654,22 @@ The database includes 65+ comprehensive stored procedures organized into the fol
 #### Utility Functions (1)
 - `update_updated_at_column()` RETURNS TRIGGER - Trigger function to update timestamps
 
-### Event Sourcing Procedures (4)
+### Migration Statistics
+
+- **Total Procedures**: 70
+- **Converted to SQL**: 59 (84%)
+- **Kept as Procedures**: 10 (14%)
+- **Trigger Functions**: 1 (2%)
+- **Total SQL Files**: 109 (99 conversions + 10 wrappers)
+
+### Benefits of the New Architecture
+
+1. **Type Safety**: Compile-time validation prevents runtime SQL errors
+2. **Version Control**: Individual SQL files enable better change tracking
+3. **Testing**: Easier to test individual queries in isolation
+4. **Performance**: Query optimization is more transparent
+5. **Maintenance**: Simpler to update and debug individual operations
+6. **Documentation**: SQL files can include inline documentation
 
 #### Event Store Management
 - `sp_append_event(p_tenant_id INTEGER, p_aggregate_id UUID, p_aggregate_type TEXT, p_event_type TEXT, p_event_data JSONB, p_event_metadata JSONB DEFAULT NULL, p_user_id UUID DEFAULT NULL)` RETURNS UUID - Append event to store
@@ -1530,41 +1677,25 @@ The database includes 65+ comprehensive stored procedures organized into the fol
 - `sp_create_snapshot(p_tenant_id INTEGER, p_aggregate_id UUID, p_aggregate_type TEXT, p_snapshot_data JSONB)` RETURNS UUID - Create snapshot of aggregate state
 - `sp_rebuild_projection(p_tenant_id INTEGER, p_projection_name TEXT, p_aggregate_id UUID DEFAULT NULL)` RETURNS VOID - Rebuild projection from event stream
 
-### Integration Procedures (18+)
+### Trigger Functions
 
-#### PII Management (2)
+The following trigger function remains unchanged as it must be a database function:
+
+- `update_updated_at_column()` - Automatically updates `updated_at` timestamp on row modifications
 - `sp_detect_pii(p_text TEXT, p_context TEXT DEFAULT 'general', p_user_id UUID DEFAULT NULL)` RETURNS TABLE (detected BOOLEAN, pii_types JSONB, confidence_score DECIMAL, masked_text TEXT, detection_details JSONB) - Detect PII in text with masking
 - `sp_update_pii_job_status(p_job_id UUID, p_status VARCHAR(20), p_processed_records INTEGER DEFAULT NULL, p_pii_found_count INTEGER DEFAULT NULL, p_error_message TEXT DEFAULT NULL, p_results JSONB DEFAULT NULL)` RETURNS BOOLEAN - Update PII processing job status
 
-#### Quillt Integration (4)
-- `sp_configure_quillt_integration(p_user_id UUID, p_access_token TEXT, p_refresh_token TEXT DEFAULT NULL, p_environment VARCHAR(20) DEFAULT 'production', p_auto_sync BOOLEAN DEFAULT TRUE, p_sync_frequency INTEGER DEFAULT 24, p_metadata JSONB DEFAULT '{}')` RETURNS UUID - Configure Quillt integration
-- `sp_sync_quillt_data(p_user_id UUID, p_sync_type VARCHAR(50) DEFAULT 'full', p_data_categories JSONB DEFAULT '["accounts", "transactions", "documents"]')` RETURNS TABLE - Synchronize financial account data
-- `sp_validate_quillt_credentials(p_user_id UUID, p_access_token TEXT DEFAULT NULL)` RETURNS TABLE (is_valid BOOLEAN, expires_at timestamptz, validation_details JSONB) - Validate API credentials
-- `sp_get_quillt_sync_status(p_user_id UUID, p_days_back INTEGER DEFAULT 7)` RETURNS TABLE - Get sync status
+### SQL File Location
 
-#### Real Estate Integration (2)
-- `sp_sync_real_estate_data(p_provider VARCHAR(50) DEFAULT 'zillow', p_property_ids UUID[] DEFAULT NULL, p_sync_all BOOLEAN DEFAULT FALSE, p_user_id UUID DEFAULT NULL)` RETURNS TABLE - Sync property valuations
-- `sp_get_real_estate_sync_history(p_provider VARCHAR(50) DEFAULT NULL, p_days_back INTEGER DEFAULT 30, p_limit INTEGER DEFAULT 100)` RETURNS TABLE - Retrieve sync history
+All converted SQL files are located in:
+```
+/docs/requirements/DB/sql scripts/5_SQL_files/
+```
 
-#### Advisor Companies (2)
-- `sp_manage_advisor_company(p_action VARCHAR(20), p_company_id UUID DEFAULT NULL, p_company_name TEXT DEFAULT NULL, p_company_type VARCHAR(50) DEFAULT NULL, p_contact_email TEXT DEFAULT NULL, p_contact_phone VARCHAR(20) DEFAULT NULL, p_website TEXT DEFAULT NULL, p_address TEXT DEFAULT NULL, p_metadata JSONB DEFAULT '{}', p_user_id UUID DEFAULT NULL)` RETURNS TABLE - Manage advisor companies
-- `sp_get_advisor_companies(p_company_type VARCHAR(50) DEFAULT NULL, p_is_active BOOLEAN DEFAULT TRUE, p_search_term TEXT DEFAULT NULL, p_limit INTEGER DEFAULT 100, p_offset INTEGER DEFAULT 0)` RETURNS TABLE - Search advisor companies
-
-#### Integration Health (2)
-- `sp_check_integration_health(p_integration_type VARCHAR(50) DEFAULT NULL)` RETURNS TABLE - Monitor integration health for all integration types
-- `sp_retry_failed_integration(p_integration_type VARCHAR(50), p_integration_id UUID, p_retry_count INTEGER DEFAULT 1, p_user_id UUID DEFAULT NULL)` RETURNS TABLE - Retry failed integrations
-
-#### Builder.io Integration (3)
-- `sp_configure_builder_io(p_api_key TEXT, p_space_id TEXT, p_environment VARCHAR(20) DEFAULT 'production', p_model_names JSONB DEFAULT '["page", "section", "component"]', p_webhook_url TEXT DEFAULT NULL, p_user_id UUID DEFAULT NULL)` RETURNS UUID - Configure Builder.io integration
-- `sp_refresh_builder_content(p_space_id TEXT, p_model_name VARCHAR(50) DEFAULT NULL, p_content_ids TEXT[] DEFAULT NULL)` RETURNS TABLE - Refresh content from Builder.io
-- `sp_get_builder_content_status(p_space_id TEXT DEFAULT NULL)` RETURNS TABLE - Get content sync status
-
-#### Translation Management (2)
-- `sp_manage_translation(p_action VARCHAR(20), p_translation_id UUID DEFAULT NULL, p_entity_type VARCHAR(50) DEFAULT NULL, p_entity_id TEXT DEFAULT NULL, p_field_name TEXT DEFAULT NULL, p_language_code CHAR(2) DEFAULT NULL, p_translated_value TEXT DEFAULT NULL, p_is_verified BOOLEAN DEFAULT FALSE, p_user_id UUID DEFAULT NULL)` RETURNS UUID - Manage translations
-- `sp_get_translations(p_entity_type VARCHAR(50) DEFAULT NULL, p_entity_id TEXT DEFAULT NULL, p_language_code CHAR(2) DEFAULT NULL, p_only_verified BOOLEAN DEFAULT FALSE)` RETURNS TABLE - Retrieve translations
-
-#### System Configuration (1)
-- `sp_update_system_configuration(p_config_key TEXT, p_config_value JSONB, p_config_category VARCHAR(50) DEFAULT 'general', p_description TEXT DEFAULT NULL, p_user_id UUID DEFAULT NULL)` RETURNS BOOLEAN - Update system settings
+This directory contains:
+- 99 converted query files
+- 10 procedure wrapper files
+- `COMPLETE_70_PROCEDURE_MAPPING.md` - Complete mapping documentation
 
 ## Helper Functions
 
