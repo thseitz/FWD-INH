@@ -788,6 +788,10 @@ CREATE INDEX idx_ffc_invitations_ffc_id ON ffc_invitations(ffc_id);
 -- No direct owner_id column on assets table
 CREATE INDEX idx_asset_persona_asset_id ON asset_persona(asset_id);
 CREATE INDEX idx_asset_persona_persona_id ON asset_persona(persona_id);
+
+-- Add unique constraint for asset_persona to support ON CONFLICT in transfer_ownership_add_target.sql
+ALTER TABLE asset_persona ADD CONSTRAINT uk_asset_persona_asset_persona UNIQUE (asset_id, persona_id);
+
 CREATE INDEX idx_document_metadata_media_storage_id ON document_metadata(media_storage_id);
 
 -- Contact relationship indexes

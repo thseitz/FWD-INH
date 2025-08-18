@@ -1,3 +1,4 @@
+
 DROP DATABASE IF EXISTS fwd_db;
 CREATE DATABASE fwd_db
     WITH 

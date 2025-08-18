@@ -2519,7 +2519,7 @@ CREATE TABLE builder_io_integrations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
-    CONSTRAINT unique_builder_integration UNIQUE (tenant_id)
+    CONSTRAINT unique_builder_integration UNIQUE (tenant_id, space_id)
 );
 
 -- Table 53: quillt_integrations
