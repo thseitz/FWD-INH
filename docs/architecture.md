@@ -6,6 +6,390 @@
 |------|---------|-------------|--------|
 | 2025-08-01 | 1.0 | Initial fullstack architecture document | |
 
+## Table of Contents
+
+### 📋 Architecture Decisions
+- [Architecture Decision Records (ADRs)](#architecture-decision-records-adrs)
+  - [ADR-001: Nest.js over Express](#adr-001-nestjs-over-express-for-backend-framework)
+  - [ADR-002: pgTyped + Slonik Database Access](#adr-002-pgtyped--slonik-for-database-access)
+  - [ADR-003: AWS Cognito Authentication](#adr-003-aws-cognito-for-authentication)
+  - [ADR-004: Progressive Caching Strategy](#adr-004-progressive-caching-strategy-in-memory-first)
+  - [ADR-005: Monorepo with Nx](#adr-005-monorepo-with-nx)
+  - [ADR-006: AWS Step Functions](#adr-006-aws-step-functions-for-document-processing)
+
+### 🏗️ Architecture Foundation
+- [Introduction](#introduction)
+- [High Level Architecture](#high-level-architecture)
+  - [Technical Summary](#technical-summary)
+  - [Platform and Infrastructure Choice](#platform-and-infrastructure-choice)
+  - [Repository Structure](#repository-structure)
+  - [High Level Architecture Diagram](#high-level-architecture-diagram)
+  - [Architectural Patterns](#architectural-patterns)
+
+### 🔧 Technology Stack
+- [Tech Stack](#tech-stack)
+  - [Technology Stack Table](#technology-stack-table)
+
+### 🗄️ Data & Database
+- [Database Access Architecture (pgTyped + Slonik)](#database-access-architecture-pgtyped--slonik)
+  - [pgTyped Configuration](#pgtyped-configuration)
+  - [Slonik Runtime Client](#slonik-runtime-client)
+  - [SQL Query Organization](#sql-query-organization)
+- [Data Models](#data-models)
+  - [Core Entities](#core-entities)
+  - [Subscription & Payment Entities](#subscription--payment-entities)
+  - [Complete Example: RealEstateAsset](#complete-example-realestateasset)
+  - [Other Asset Type Examples](#other-asset-type-examples-key-fields-only)
+- [Database Schema](#database-schema)
+
+### 🔐 Security & Authentication
+- [Authentication Architecture (AWS Cognito + API Gateway)](#authentication-architecture-aws-cognito--api-gateway)
+  - [Cognito Configuration](#cognito-configuration)
+  - [Authentication Flow](#authentication-flow)
+  - [API Gateway Integration](#api-gateway-integration)
+  - [Frontend Integration with Amplify](#frontend-integration-with-amplify)
+  - [Security Best Practices](#security-best-practices)
+
+### 🌐 Frontend Architecture
+- [Frontend Architecture](#frontend-architecture)
+  - [Component Architecture Overview](#component-architecture-overview)
+  - [State Management Architecture](#state-management-architecture)
+  - [Component Patterns](#component-patterns)
+  - [Routing Architecture](#routing-architecture)
+  - [API Service Layer](#api-service-layer)
+
+### ⚙️ Backend Architecture
+- [Backend Architecture](#backend-architecture)
+  - [Nest.js Module Architecture](#nestjs-module-architecture)
+  - [NestJS Controller Implementation](#nestjs-controller-implementation)
+  - [AWS Step Functions Document Processing](#aws-step-functions-document-processing)
+  - [Database Architecture with Nest.js](#database-architecture-with-nestjs)
+  - [Authentication and Authorization Guards](#authentication-and-authorization-guards)
+  - [AWS Cognito Authentication Flows](#aws-cognito-authentication-flows)
+  - [Progressive Caching Strategy](#progressive-caching-strategy-cost-optimized)
+  - [Real-Time WebSocket Layer](#real-time-websocket-layer-with-socketio)
+  - [API Gateway Pattern Implementation](#api-gateway-pattern-implementation)
+  - [Event Sourcing Architecture](#event-sourcing-architecture-postgresql-based)
+  - [Queue Processing with AWS SQS](#queue-processing-with-aws-sqs)
+
+### 🔄 Communication & Integration
+- [Real-time Communication Architecture (WebSockets)](#real-time-communication-architecture-websockets)
+  - [WebSocket Implementation](#websocket-implementation)
+  - [Frontend WebSocket Hook](#frontend-websocket-hook)
+  - [Why WebSockets over SSE](#why-websockets-over-sse)
+- [Message Queue Architecture (AWS SQS)](#message-queue-architecture-aws-sqs)
+  - [SQS Configuration](#sqs-configuration)
+  - [Idempotent Message Processing](#idempotent-message-processing)
+- [External APIs](#external-apis)
+  - [Twilio API](#twilio-api)
+  - [SendGrid API](#sendgrid-api)
+  - [Quillt API](#quillt-api)
+  - [HEI API (Home Equity Investment)](#hei-api-home-equity-investment)
+  - [Real Estate Valuation API](#real-estate-valuation-api-phase-2---provider-tbd)
+  - [Vanta API](#vanta-api)
+  - [AWS Services (Native Integration)](#aws-services-native-integration)
+
+### 📋 API & Workflows
+- [API Specification](#api-specification)
+  - [REST API Specification](#rest-api-specification)
+- [Components](#components)
+  - [Frontend Components](#frontend-components)
+  - [Backend Components](#backend-components)
+  - [Shared Components](#shared-components)
+- [Core Workflows](#core-workflows)
+
+### 🚀 Development & Deployment
+- [Unified Project Structure](#unified-project-structure)
+- [Development Workflow](#development-workflow)
+  - [Local Development Setup](#local-development-setup)
+  - [Environment Configuration](#environment-configuration)
+  - [Development Patterns](#development-patterns)
+- [Deployment Architecture](#deployment-architecture)
+  - [Deployment Strategy](#deployment-strategy)
+  - [CI/CD Pipeline](#cicd-pipeline)
+  - [Environments](#environments)
+  - [Infrastructure as Code](#infrastructure-as-code)
+
+### 💰 Cost & Performance
+- [Cost Optimization Strategy](#cost-optimization-strategy)
+  - [Progressive Infrastructure Scaling](#progressive-infrastructure-scaling)
+  - [Cost Comparison: Traditional vs Optimized](#cost-comparison-traditional-vs-optimized)
+  - [Key Cost Optimization Principles](#key-cost-optimization-principles)
+  - [Break-Even Analysis](#break-even-analysis)
+- [Security and Performance](#security-and-performance)
+  - [Security Requirements](#security-requirements)
+  - [Performance Optimization](#performance-optimization)
+  - [Security Monitoring](#security-monitoring)
+
+### 🧪 Testing & Quality
+- [Testing Strategy](#testing-strategy)
+  - [Testing Pyramid](#testing-pyramid)
+  - [Test Organization](#test-organization)
+  - [Test Configuration](#test-configuration)
+  - [Test Examples](#test-examples)
+  - [Test Data Management](#test-data-management)
+  - [Continuous Integration Testing](#continuous-integration-testing)
+- [Coding Standards](#coding-standards)
+  - [Critical Fullstack Rules](#critical-fullstack-rules)
+  - [Naming Conventions](#naming-conventions)
+  - [File Organization Standards](#file-organization-standards)
+  - [Code Quality Standards](#code-quality-standards)
+  - [Documentation Standards (JSDoc)](#documentation-standards-jsdoc)
+  - [Git Commit Standards](#git-commit-standards)
+  - [Code Review Checklist](#code-review-checklist)
+
+### 🚨 Error Handling & Monitoring
+- [Error Handling Strategy](#error-handling-strategy)
+  - [Error Flow](#error-flow)
+  - [Error Response Format](#error-response-format)
+  - [Error Codes and Categories](#error-codes-and-categories)
+  - [Frontend Error Handling](#frontend-error-handling)
+  - [Backend Error Handling](#backend-error-handling)
+  - [Error Recovery Strategies](#error-recovery-strategies)
+  - [Error Monitoring and Alerting](#error-monitoring-and-alerting)
+- [Monitoring and Observability](#monitoring-and-observability)
+  - [Monitoring Stack](#monitoring-stack)
+  - [Key Metrics](#key-metrics)
+  - [Distributed Tracing](#distributed-tracing)
+  - [Logging Strategy](#logging-strategy)
+  - [Alerting Rules](#alerting-rules)
+  - [Custom Dashboards](#custom-dashboards)
+  - [Health Checks](#health-checks)
+  - [SLIs, SLOs, and SLAs](#slis-slos-and-slas)
+
+### 📚 Quick Reference
+- [Quick Reference Guide](#-quick-reference-guide)
+  - [Essential Commands](#-essential-commands)
+  - [Environment Variables Reference](#-environment-variables-reference)
+  - [Architecture Patterns Quick Reference](#-architecture-patterns-quick-reference)
+  - [Troubleshooting Guide](#-troubleshooting-guide)
+  - [Decision Trees](#-decision-trees)
+
+### 📋 Requirements Traceability
+- [PRD Requirements Traceability Matrix](#-prd-requirements-traceability-matrix)
+  - [Core Business Requirements Implementation](#core-business-requirements-implementation)
+  - [Technical Requirements Implementation](#technical-requirements-implementation)
+  - [Security & Compliance Requirements](#security--compliance-requirements)
+  - [Performance & Scale Requirements](#performance--scale-requirements)
+  - [Feature Coverage Matrix](#feature-coverage-matrix)
+
+### 🌍 Additional Considerations
+- [Translation System (Simple English/Spanish)](#translation-system-simple-englishspanish)
+  - [Implementation Approach](#implementation-approach)
+- [Internationalization (i18n) Strategy](#internationalization-i18n-strategy)
+  - [Language Support](#language-support)
+  - [Implementation Approach](#implementation-approach-1)
+- [Accessibility (a11y) Requirements](#accessibility-a11y-requirements)
+  - [WCAG 2.1 Level AA Compliance](#wcag-21-level-aa-compliance)
+- [SEO Optimization for Public Pages](#seo-optimization-for-public-pages)
+- [Analytics and Tracking Implementation](#analytics-and-tracking-implementation)
+- [Backup and Disaster Recovery](#backup-and-disaster-recovery)
+- [Data Retention Policies](#data-retention-policies)
+- [GDPR/CCPA Compliance Measures](#gdprccpa-compliance-measures)
+- [Vanta Integration for SOC 2 Compliance](#vanta-integration-for-soc-2-compliance)
+
+### 🔮 Future Architecture
+- [Microservices Architecture (Future Decomposition)](#microservices-architecture-future-decomposition)
+  - [Overview](#overview-1)
+  - [Service Boundaries](#service-boundaries)
+  - [Inter-Service Communication](#inter-service-communication)
+  - [Data Management Strategy](#data-management-strategy)
+  - [Migration Strategy](#migration-strategy)
+  - [Service Governance](#service-governance)
+  - [Cost Optimization](#cost-optimization)
+
+---
+
+## Architecture Decision Records (ADRs)
+
+This section documents key architectural decisions made for the Forward Inheritance Platform, providing context, alternatives considered, and rationale for choices.
+
+### ADR-001: Nest.js over Express for Backend Framework
+
+**Status:** ✅ Accepted  
+**Date:** 2025-08-01  
+**Context:** Need enterprise-grade Node.js backend framework
+
+**Decision:** Use Nest.js instead of Express.js
+
+**Rationale:**
+- **Enterprise Structure**: Built-in dependency injection, modular architecture, and decorators
+- **TypeScript First**: Native TypeScript support with compile-time safety
+- **Scalability**: Guards, interceptors, and pipes provide clean separation of concerns
+- **Testing**: Built-in testing utilities and mocking support
+- **Maintainability**: Opinionated structure reduces decision fatigue
+
+**Alternatives Considered:**
+- **Express.js**: Too minimal, requires significant boilerplate for enterprise features
+- **Fastify**: Better performance but less mature ecosystem
+- **Koa.js**: Smaller but lacks built-in structure for large applications
+
+**Consequences:**
+- ✅ Faster development with built-in patterns
+- ✅ Better code organization and testability  
+- ✅ Strong ecosystem and community support
+- ⚠️ Steeper learning curve for developers new to decorators
+- ⚠️ Slightly higher memory overhead than Express
+
+**Referenced In:** [Backend Architecture](#backend-architecture), [Nest.js Module Architecture](#nestjs-module-architecture)
+
+---
+
+### ADR-002: pgTyped + Slonik for Database Access
+
+**Status:** ✅ Accepted  
+**Date:** 2025-08-01  
+**Context:** Need type-safe database operations with SQL flexibility
+
+**Decision:** Use pgTyped for compile-time types + Slonik for runtime execution
+
+**Rationale:**
+- **Type Safety**: Compile-time validation prevents SQL/TypeScript mismatches
+- **SQL Control**: Write raw SQL instead of ORM abstractions
+- **Performance**: Direct SQL queries without ORM overhead
+- **Version Control**: SQL files can be version controlled and code reviewed
+- **Testing**: Individual queries can be unit tested
+
+**Alternatives Considered:**
+- **Prisma**: Good TypeScript support but limited SQL flexibility
+- **TypeORM**: Heavy ORM overhead, complex migrations
+- **Knex.js**: Query builder but no compile-time type safety
+- **Raw pg**: No type safety, high boilerplate
+
+**Consequences:**
+- ✅ Maximum type safety with SQL flexibility
+- ✅ Better performance than ORMs
+- ✅ Clear separation of concerns
+- ⚠️ Requires PostgreSQL-specific knowledge
+- ⚠️ Setup complexity higher than simple ORMs
+
+**Referenced In:** [Database Access Architecture](#database-access-architecture-pgtyped--slonik), [Tech Stack](#tech-stack)
+
+---
+
+### ADR-003: AWS Cognito for Authentication
+
+**Status:** ✅ Accepted  
+**Date:** 2025-08-01  
+**Context:** Need enterprise authentication with compliance features
+
+**Decision:** Use AWS Cognito with Authorization Code Grant + PKCE flow
+
+**Rationale:**
+- **Security**: Industry-standard OAuth 2.0 with PKCE for SPAs
+- **Compliance**: Built-in SOC 2, GDPR compliance features
+- **Scalability**: Managed service handles millions of users
+- **Integration**: Native AWS ecosystem integration
+- **Features**: MFA, password policies, user pools out of the box
+
+**Alternatives Considered:**
+- **Auth0**: Similar features but higher cost at scale
+- **Firebase Auth**: Google ecosystem lock-in
+- **Custom JWT**: High security implementation burden
+- **Passport.js**: DIY approach with maintenance overhead
+
+**Consequences:**
+- ✅ Enterprise-grade security and compliance
+- ✅ Reduced implementation and maintenance overhead
+- ✅ Built-in MFA and advanced security features
+- ⚠️ AWS vendor lock-in
+- ⚠️ Less customization than custom solutions
+
+**Referenced In:** [Authentication Architecture](#authentication-architecture-aws-cognito--api-gateway), [Security Best Practices](#security-best-practices)
+
+---
+
+### ADR-004: Progressive Caching Strategy (In-Memory First)
+
+**Status:** ✅ Accepted  
+**Date:** 2025-08-01  
+**Context:** Need cost-effective caching for multi-tenant SaaS
+
+**Decision:** Start with in-memory caching, progressively add Redis when needed
+
+**Rationale:**
+- **Cost Optimization**: In-memory caching costs $0 vs $200-500/month for Redis
+- **Simplicity**: No additional infrastructure for MVP
+- **Performance**: In-memory access is faster than network calls
+- **Scalability Path**: Clear migration path to distributed caching
+
+**Alternatives Considered:**
+- **Redis from Day 1**: Higher cost, over-engineering for early stage
+- **DynamoDB**: Higher latency, more complex
+- **No caching**: Poor performance for frequently accessed data
+
+**Consequences:**
+- ✅ Significant cost savings during MVP phase
+- ✅ Simpler deployment and monitoring
+- ✅ Better performance for single-instance scenarios
+- ⚠️ Requires sticky sessions for consistency
+- ⚠️ Migration needed when scaling beyond single instance
+
+**Referenced In:** [Progressive Caching Strategy](#progressive-caching-strategy-cost-optimized), [Cost Optimization Strategy](#cost-optimization-strategy)
+
+---
+
+### ADR-005: Monorepo with Nx
+
+**Status:** ✅ Accepted  
+**Date:** 2025-08-01  
+**Context:** Need to manage fullstack TypeScript codebase efficiently
+
+**Decision:** Use Nx monorepo with shared packages approach
+
+**Rationale:**
+- **Code Sharing**: Share types, utilities between frontend/backend
+- **Build Optimization**: Advanced caching and dependency graphs
+- **Developer Experience**: Single repo, unified tooling
+- **Scaling**: Better than multi-repo for coordinated changes
+
+**Alternatives Considered:**
+- **Multi-repo**: Coordination overhead, dependency management complexity
+- **Lerna**: Less advanced than Nx for TypeScript projects
+- **Yarn Workspaces**: Basic monorepo, lacks advanced features
+- **Rush**: Microsoft tool, less community adoption
+
+**Consequences:**
+- ✅ Improved developer productivity
+- ✅ Better code sharing and consistency
+- ✅ Advanced build optimization
+- ⚠️ Learning curve for Nx-specific concepts
+- ⚠️ Repo size grows larger than multi-repo
+
+**Referenced In:** [Repository Structure](#repository-structure), [Unified Project Structure](#unified-project-structure)
+
+---
+
+### ADR-006: AWS Step Functions for Document Processing
+
+**Status:** ✅ Accepted  
+**Date:** 2025-08-01  
+**Context:** Need reliable document processing with PII detection
+
+**Decision:** Use AWS Step Functions to orchestrate document processing pipeline
+
+**Rationale:**
+- **Reliability**: Built-in retry, error handling, and state management
+- **Scalability**: Serverless, handles variable document processing loads
+- **Monitoring**: Native CloudWatch integration for observability
+- **Compliance**: AWS services provide SOC 2 compliance foundation
+
+**Alternatives Considered:**
+- **Queue-based processing**: More complex error handling and state management
+- **Synchronous processing**: Blocks user requests, poor UX
+- **Custom orchestration**: High development and maintenance overhead
+
+**Consequences:**
+- ✅ Reliable document processing with automatic retries
+- ✅ Serverless cost model - pay only for usage
+- ✅ Built-in monitoring and error handling
+- ⚠️ AWS vendor lock-in for workflow orchestration
+- ⚠️ Learning curve for Step Functions state machine design
+
+**Referenced In:** [AWS Step Functions Document Processing](#aws-step-functions-document-processing), [Tech Stack](#tech-stack)
+
+---
+
 ## Introduction
 
 This document outlines the complete fullstack architecture for Forward Inheritance Platform, including backend systems, frontend implementation, and their integration. It serves as the single source of truth for AI-driven development, ensuring consistency across the entire technology stack.
@@ -29,7 +413,45 @@ Based on review of the PRD and existing documentation, this is a **Greenfield pr
 
 ### Technical Summary
 
-The Forward Inheritance Platform employs a multi-tenant SaaS architecture with a React/TypeScript frontend deployed via AWS Amplify for streamlined CI/CD, communicating through RESTful APIs with a Nest.js backend running on containerized AWS infrastructure (Fargate/ECS). The backend leverages Nest.js's modular architecture with dependency injection, guards for multi-tenant isolation, and interceptors for cross-cutting concerns. Database access uses pgTyped for compile-time SQL type safety and Slonik for runtime execution, with 84% of stored procedures converted to individual SQL queries (99 files). Authentication is handled via AWS Cognito with secure httpOnly cookies, using Authorization Code Grant with PKCE flow through API Gateway. The platform includes a comprehensive subscription and payment system with Stripe integration, supporting free plans with automatic assignment, paid subscriptions with seat management, and one-time service purchases. For document processing, AWS Step Functions orchestrates a serverless pipeline using S3, Lambda, and Comprehend for PII detection and masking, while AWS SQS handles application-level async tasks including Stripe webhook processing. The platform integrates with external services including Stripe for payments, Twilio for SMS, SendGrid for email, Quillt for financial aggregation, and Vanta for SOC 2 compliance. This architecture achieves enterprise-grade security, scalability for millions of families, and maintainable code through Nest.js's structured approach.
+#### Core Architecture
+The Forward Inheritance Platform employs a **multi-tenant SaaS architecture** with:
+- **Frontend**: React/TypeScript deployed via AWS Amplify for streamlined CI/CD
+- **Backend**: Nest.js running on containerized AWS infrastructure (Fargate/ECS)
+- **Communication**: RESTful APIs with real-time WebSocket support
+- **Architecture Pattern**: Modular design with dependency injection, guards for multi-tenant isolation, and interceptors for cross-cutting concerns
+
+#### Database Strategy
+- **Type Safety**: pgTyped for compile-time SQL type safety + Slonik for runtime execution
+- **Query Optimization**: 84% of stored procedures converted to individual SQL queries (99 files)
+- **Database**: PostgreSQL with comprehensive schema design (72+ tables)
+
+#### Authentication & Security
+- **Authentication**: AWS Cognito with secure httpOnly cookies
+- **Flow**: Authorization Code Grant with PKCE through API Gateway
+- **Isolation**: Multi-tenant data segregation at database level
+
+#### Payment & Subscription System
+- **Payment Provider**: Stripe integration with webhook processing
+- **Plan Types**: Free plans (automatic assignment), paid subscriptions with seat management, one-time services
+- **Architecture**: Queue-based processing for reliability and idempotency
+
+#### Document Processing Pipeline
+- **Orchestration**: AWS Step Functions for serverless document workflows
+- **PII Protection**: S3 + Lambda + Comprehend for automatic detection and masking
+- **Storage**: Dual storage strategy (original + masked versions)
+
+#### Async Processing
+- **Queue System**: AWS SQS for application-level async tasks
+- **Use Cases**: Stripe webhook processing, notifications, background operations
+
+#### External Integrations
+- **Payments**: Stripe for all payment processing
+- **Communications**: Twilio (SMS), SendGrid (email)
+- **Financial Data**: Quillt API for bank account aggregation
+- **Compliance**: Vanta for SOC 2 compliance automation
+
+#### Scale & Performance
+This architecture achieves **enterprise-grade security**, **scalability for millions of families**, and **maintainable code** through Nest.js's structured approach with clear separation of concerns.
 
 ### Platform and Infrastructure Choice
 
@@ -132,22 +554,47 @@ graph TB
 
 ### Architectural Patterns
 
-- **Type-Safe Database Operations:** pgTyped for compile-time SQL validation, Slonik for runtime execution with 99 SQL query files - _Rationale:_ Prevents SQL injection through parameterization, compile-time type safety, better version control and testing of individual queries
-- **Modular Architecture with Nest.js:** Domain-driven modules with dependency injection, guards, and interceptors - _Rationale:_ Enterprise-grade structure, testability, and clear separation of concerns
-- **Business Logic in Application Layer:** Nest.js services handle all business rules, validations, and orchestration - _Rationale:_ Keeps business logic testable, maintainable, and independent of database implementation
-- **Multi-Tenant Isolation:** Tenant ID-based data segregation at database level - _Rationale:_ Complete data isolation for different white lable B2B partners, while maintaining single codebase
-- **Component-Based UI:** Reusable React components with TypeScript and shadcn/ui - _Rationale:_ Consistency across UI, type safety, and faster development
-- **Repository Pattern:** Abstract database access through typed stored procedure calls - _Rationale:_ Type-safe database operations with pgtyped, easier testing
-- **API Gateway Pattern:** Centralized entry point for all backend services - _Rationale:_ Unified authentication, rate limiting, and monitoring
-- **Event-Driven Processing:** Lambda functions for async operations like PII masking - _Rationale:_ Scalable processing without blocking main application flow
-- **Dual-Identity System:** Separate users (authentication) from personas (business entities) - _Rationale:_ Enables complex family relationships and proxy management
-- **Subscription-First Architecture:** Automatic free plan assignment on FFC creation - _Rationale:_ Zero payment barrier for users, seamless upgrade path
-- **Asynchronous Payment Processing:** Webhook-based Stripe integration via queues - _Rationale:_ Reliability, idempotency, and system resilience
-- **Dynamic UI Configuration:** Plan-based UI visibility stored in database - _Rationale:_ Flexibility without code changes, A/B testing capability
+- **Type-Safe Database Operations:** pgTyped for compile-time SQL validation, Slonik for runtime execution with 99 SQL query files - _Rationale:_ Prevents SQL injection through parameterization, compile-time type safety, better version control and testing of individual queries  
+  → _See: [Database Access Architecture](#database-access-architecture-pgtyped--slonik)_
 
-## Tech Stack
+- **Modular Architecture with Nest.js:** Domain-driven modules with dependency injection, guards, and interceptors - _Rationale:_ Enterprise-grade structure, testability, and clear separation of concerns  
+  → _See: [Nest.js Module Architecture](#nestjs-module-architecture)_
 
-This is the DEFINITIVE technology selection for the entire Forward Inheritance Platform. All development must use these exact versions.
+- **Business Logic in Application Layer:** Nest.js services handle all business rules, validations, and orchestration - _Rationale:_ Keeps business logic testable, maintainable, and independent of database implementation  
+  → _See: [Backend Architecture](#backend-architecture)_
+
+- **Multi-Tenant Isolation:** Tenant ID-based data segregation at database level - _Rationale:_ Complete data isolation for different white lable B2B partners, while maintaining single codebase  
+  → _See: [Authentication and Authorization Guards](#authentication-and-authorization-guards)_
+
+- **Component-Based UI:** Reusable React components with TypeScript and shadcn/ui - _Rationale:_ Consistency across UI, type safety, and faster development  
+  → _See: [Frontend Architecture](#frontend-architecture), [Component Patterns](#component-patterns)_
+
+- **Repository Pattern:** Abstract database access through typed stored procedure calls - _Rationale:_ Type-safe database operations with pgtyped, easier testing  
+  → _See: [Database Architecture with Nest.js](#database-architecture-with-nestjs)_
+
+- **API Gateway Pattern:** Centralized entry point for all backend services - _Rationale:_ Unified authentication, rate limiting, and monitoring  
+  → _See: [API Gateway Pattern Implementation](#api-gateway-pattern-implementation)_
+
+- **Event-Driven Processing:** Lambda functions for async operations like PII masking - _Rationale:_ Scalable processing without blocking main application flow  
+  → _See: [AWS Step Functions Document Processing](#aws-step-functions-document-processing)_
+
+- **Dual-Identity System:** Separate users (authentication) from personas (business entities) - _Rationale:_ Enables complex family relationships and proxy management  
+  → _See: [Data Models](#data-models), [Core Entities](#core-entities)_
+
+- **Subscription-First Architecture:** Automatic free plan assignment on FFC creation - _Rationale:_ Zero payment barrier for users, seamless upgrade path  
+  → _See: [Subscription & Payment Entities](#subscription--payment-entities)_
+
+- **Asynchronous Payment Processing:** Webhook-based Stripe integration via queues - _Rationale:_ Reliability, idempotency, and system resilience  
+  → _See: [Queue Processing with AWS SQS](#queue-processing-with-aws-sqs)_
+
+- **Dynamic UI Configuration:** Plan-based UI visibility stored in database - _Rationale:_ Flexibility without code changes, A/B testing capability  
+  → _See: [State Management Architecture](#state-management-architecture)_
+
+## 🔧 Tech Stack
+
+> **⚠️ DEFINITIVE SELECTION**: This is the official technology selection for the entire Forward Inheritance Platform. All development must use these exact versions.
+
+**Related ADRs:** [ADR-001: Nest.js](#adr-001-nestjs-over-express-for-backend-framework) | [ADR-002: pgTyped + Slonik](#adr-002-pgtyped--slonik-for-database-access) | [ADR-005: Monorepo](#adr-005-monorepo-with-nx)
 
 ### Technology Stack Table
 
@@ -183,9 +630,19 @@ This is the DEFINITIVE technology selection for the entire Forward Inheritance P
 | Queue Management | AWS SQS | - | Application task queue | Configured with DLQ, monitoring, idempotent handlers. Used for notifications, Stripe webhooks, async tasks |
 | Workflow Orchestration | AWS Step Functions | - | Document processing | Serverless orchestration for PII detection pipeline |
 
-## Database Access Architecture (pgTyped + Slonik)
+## 🗄️ Database Access Architecture (pgTyped + Slonik)
 
-The platform uses a modern type-safe approach for database operations, with 84% of stored procedures converted to individual SQL queries.
+> **🎯 Core Strategy**: Type-safe database operations with 84% of stored procedures converted to individual SQL queries for better version control and testing.
+
+**📋 Related ADR:** [ADR-002: pgTyped + Slonik for Database Access](#adr-002-pgtyped--slonik-for-database-access)
+
+**🔗 Related Sections:**
+- 📊 [Database Schema](#database-schema) - Complete database design
+- 🏗️ [Data Models](#data-models) - TypeScript interfaces matching the schema
+- ⚙️ [Database Architecture with Nest.js](#database-architecture-with-nestjs) - Backend integration
+- 🧪 [Test Data Management](#test-data-management) - Testing strategies
+
+---
 
 ### pgTyped Configuration
 
@@ -216,7 +673,10 @@ pgTyped provides compile-time type safety by introspecting the live PostgreSQL s
 
 Slonik provides a production-grade PostgreSQL client with connection pooling, strict parameterization, and monitoring.
 
-**Connection Configuration with Timeout Protection:**
+#### Connection Configuration with Timeout Protection
+
+This configuration establishes a production-ready connection pool with comprehensive timeout protections to prevent database resource exhaustion:
+
 ```typescript
 import { createPool } from 'slonik';
 
@@ -243,7 +703,17 @@ await slonikPool.query(sql`
 `);
 ```
 
-**Service Pattern:**
+**Key Features:**
+- **Connection Pooling**: 2-10 connections for optimal resource usage
+- **Timeout Protection**: Multiple timeout layers prevent hanging queries
+- **Production Safety**: Statement and lock timeouts protect database performance
+- **Resource Management**: Automatic connection cleanup and monitoring
+```
+
+#### Service Pattern Integration
+
+This example shows how NestJS services integrate pgTyped types with Slonik for type-safe database operations:
+
 ```typescript
 // NestJS service using pgTyped types and Slonik
 async getUserById(params: GetUserByIdParams): Promise<GetUserByIdRow | null> {
@@ -252,6 +722,12 @@ async getUserById(params: GetUserByIdParams): Promise<GetUserByIdRow | null> {
   return result.rows[0] as GetUserByIdRow;
 }
 ```
+
+**Type Safety Benefits:**
+- `GetUserByIdParams` - Auto-generated from SQL parameter types
+- `GetUserByIdRow` - Auto-generated from SQL result types  
+- Compile-time validation prevents type mismatches
+- IDE autocomplete for all database operations
 
 ### SQL Query Organization
 
@@ -334,15 +810,212 @@ export class EventsGateway {
 - Asset valuation updates
 
 ### Frontend WebSocket Hook
+
+#### Production-Ready WebSocket Hook Implementation
+
 ```typescript
-const useWebSocket = () => {
-  const socket = useRef<Socket>();
-  
+// hooks/useWebSocket.ts - Complete WebSocket management
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { toast } from '@/components/ui/use-toast';
+
+interface WebSocketState {
+  connected: boolean;
+  error: string | null;
+  reconnectAttempts: number;
+}
+
+interface UseWebSocketReturn {
+  socket: Socket | null;
+  state: WebSocketState;
+  joinFFCRoom: (ffcId: string) => void;
+  leaveFFCRoom: (ffcId: string) => void;
+  sendMessage: (event: string, data: any) => void;
+  disconnect: () => void;
+}
+
+export const useWebSocket = (): UseWebSocketReturn => {
+  const socketRef = useRef<Socket | null>(null);
+  const { user, isAuthenticated } = useAuthContext();
+  const [state, setState] = useState<WebSocketState>({
+    connected: false,
+    error: null,
+    reconnectAttempts: 0
+  });
+
+  const updateState = useCallback((updates: Partial<WebSocketState>) => {
+    setState(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  // Initialize WebSocket connection
   useEffect(() => {
-    socket.current = io(process.env.REACT_APP_WS_URL, {
+    if (!isAuthenticated || !user) return;
+
+    const socket = io(process.env.REACT_APP_WS_URL!, {
       withCredentials: true,
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      timeout: 10000,
+      retries: 3,
+      auth: {
+        userId: user.id,
+        tenantId: user.tenantId
+      }
     });
+
+    socketRef.current = socket;
+
+    // Connection event handlers
+    socket.on('connect', () => {
+      console.log('✅ WebSocket connected:', socket.id);
+      updateState({ connected: true, error: null, reconnectAttempts: 0 });
+      toast({
+        title: "Connected",
+        description: "Real-time updates enabled",
+        duration: 2000
+      });
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('❌ WebSocket disconnected:', reason);
+      updateState({ connected: false });
+      
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect - don't auto-reconnect
+        toast({
+          title: "Connection Lost",
+          description: "Server disconnected the session",
+          variant: "destructive"
+        });
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('🔥 WebSocket connection error:', error);
+      updateState({ 
+        error: error.message,
+        reconnectAttempts: prev => prev.reconnectAttempts + 1
+      });
+      
+      if (state.reconnectAttempts > 3) {
+        toast({
+          title: "Connection Failed",
+          description: "Unable to establish real-time connection",
+          variant: "destructive"
+        });
+      }
+    });
+
+    // FFC-specific event handlers
+    socket.on('ffc_member_added', (data: { ffcId: string; member: any }) => {
+      toast({
+        title: "New Member",
+        description: `${data.member.firstName} joined your family circle`,
+      });
+      // Trigger React Query refetch
+      queryClient.invalidateQueries(['ffc', data.ffcId, 'members']);
+    });
+
+    socket.on('asset_updated', (data: { assetId: string; ffcId: string }) => {
+      toast({
+        title: "Asset Updated",
+        description: "Family asset information has been updated",
+      });
+      queryClient.invalidateQueries(['assets', data.ffcId]);
+    });
+
+    socket.on('document_processed', (data: { 
+      documentId: string; 
+      status: 'completed' | 'failed';
+      piiDetected: boolean;
+    }) => {
+      const message = data.status === 'completed' 
+        ? `Document processed${data.piiDetected ? ' (PII detected and masked)' : ''}`
+        : 'Document processing failed';
+        
+      toast({
+        title: "Document Processing",
+        description: message,
+        variant: data.status === 'failed' ? 'destructive' : 'default'
+      });
+      
+      queryClient.invalidateQueries(['documents', data.documentId]);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [isAuthenticated, user, updateState]);
+
+  // Room management functions
+  const joinFFCRoom = useCallback((ffcId: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('join_ffc_room', { ffcId });
+      console.log(`📍 Joined FFC room: ${ffcId}`);
+    }
+  }, []);
+
+  const leaveFFCRoom = useCallback((ffcId: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('leave_ffc_room', { ffcId });
+      console.log(`🚪 Left FFC room: ${ffcId}`);
+    }
+  }, []);
+
+  // Generic message sender
+  const sendMessage = useCallback((event: string, data: any) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit(event, data);
+    } else {
+      console.warn('⚠️ Cannot send message: WebSocket not connected');
+    }
+  }, []);
+
+  // Manual disconnect
+  const disconnect = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+      updateState({ connected: false, error: null });
+    }
+  }, [updateState]);
+
+  return {
+    socket: socketRef.current,
+    state,
+    joinFFCRoom,
+    leaveFFCRoom,
+    sendMessage,
+    disconnect
+  };
+};
+
+// Usage in FFC component
+const FFCDashboard: React.FC<{ ffcId: string }> = ({ ffcId }) => {
+  const { joinFFCRoom, leaveFFCRoom, state } = useWebSocket();
+
+  useEffect(() => {
+    joinFFCRoom(ffcId);
+    return () => leaveFFCRoom(ffcId);
+  }, [ffcId, joinFFCRoom, leaveFFCRoom]);
+
+  return (
+    <div className="ffc-dashboard">
+      <div className="flex items-center gap-2 mb-4">
+        <div className={`w-2 h-2 rounded-full ${
+          state.connected ? 'bg-green-500' : 'bg-red-500'
+        }`} />
+        <span className="text-sm text-muted-foreground">
+          {state.connected ? 'Real-time updates active' : 'Offline mode'}
+        </span>
+      </div>
+      
+      {/* Dashboard content */}
+    </div>
+  );
+};
 
     // FFC messaging listeners
     socket.current.on('ffc:new-message', (message) => {
@@ -367,9 +1040,18 @@ const useWebSocket = () => {
 - **Reliability:** Socket.io handles reconnection, fallback to polling
 - **Room Support:** Built-in room/namespace management for FFCs
 
-## Authentication Architecture (AWS Cognito + API Gateway)
+## 🔐 Authentication Architecture (AWS Cognito + API Gateway)
 
-The platform uses AWS Cognito with secure httpOnly cookies for authentication, ensuring tokens never reach JavaScript code.
+> **🛡️ Security First**: AWS Cognito with secure httpOnly cookies ensures tokens never reach JavaScript code, preventing XSS token theft.
+
+**📋 Related ADR:** [ADR-003: AWS Cognito for Authentication](#adr-003-aws-cognito-for-authentication)
+
+**🔗 Related Sections:**
+- 🔒 [Security Best Practices](#security-best-practices) - Implementation guidelines
+- ⚙️ [Authentication and Authorization Guards](#authentication-and-authorization-guards) - Backend enforcement
+- 🌐 [Frontend Integration with Amplify](#frontend-integration-with-amplify) - Client-side integration
+
+---
 
 ### Cognito Configuration
 
@@ -422,6 +1104,96 @@ export class AuthGuard {
 ```
 
 ### Authentication Flow
+
+#### Complete Authentication Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant U as User Browser
+    participant R as React SPA
+    participant AG as API Gateway
+    participant N as Nest.js Backend
+    participant C as AWS Cognito
+    participant DB as PostgreSQL
+
+    Note over U,DB: User Login Flow
+    
+    U->>R: Click "Login" button
+    R->>AG: GET /auth/login
+    AG->>N: Forward request
+    
+    Note over N: Generate PKCE challenge
+    N->>N: Generate code_verifier & code_challenge
+    N->>N: Generate state parameter
+    N->>DB: Store PKCE session data
+    
+    N->>AG: Redirect to Cognito URL
+    AG->>R: 302 Redirect
+    R->>U: Browser redirect
+    U->>C: Navigate to Cognito Hosted UI
+    
+    Note over U,C: User Authentication
+    U->>C: Enter credentials
+    C->>C: Validate credentials
+    C->>U: Redirect with auth code
+    
+    Note over U,N: Token Exchange
+    U->>AG: GET /auth/callback?code=xxx&state=yyy
+    AG->>N: Forward callback
+    N->>DB: Validate state parameter
+    N->>C: POST /oauth2/token (with PKCE)
+    C->>N: Return access_token + id_token
+    
+    Note over N: Set Secure Cookies
+    N->>N: Validate JWT tokens
+    N->>N: Extract user info
+    N->>DB: Set RLS context (tenant_id)
+    N->>AG: Set httpOnly cookies + redirect
+    AG->>R: 302 to React SPA
+    R->>U: User authenticated
+```
+
+#### Token Refresh Flow
+
+```mermaid
+sequenceDiagram
+    participant R as React SPA
+    participant AG as API Gateway  
+    participant N as Nest.js Backend
+    participant C as AWS Cognito
+
+    Note over R,C: Automatic Token Refresh
+    
+    R->>AG: API request with expired token
+    AG->>N: Forward request
+    N->>N: Validate JWT (expired)
+    N->>C: POST /oauth2/token (refresh_token)
+    C->>N: New access_token + id_token
+    N->>N: Update httpOnly cookies
+    N->>AG: Return data + new cookies
+    AG->>R: Success response
+    
+    Note over R: Transparent to user - no re-login required
+```
+
+#### Multi-Tenant Security Context
+
+```mermaid
+flowchart TD
+    A[API Request] --> B{Valid JWT?}
+    B -->|No| C[Return 401]
+    B -->|Yes| D[Extract tenant_id from JWT]
+    D --> E[Set PostgreSQL RLS Context]
+    E --> F[Execute Database Query]
+    F --> G{Data belongs to tenant?}
+    G -->|No| H[Empty Result Set]
+    G -->|Yes| I[Return Data]
+    
+    style E fill:#f9f,stroke:#333,stroke-width:2px
+    style G fill:#bbf,stroke:#333,stroke-width:2px
+```
+
+**Authentication Flow Steps:**
 
 1. **Login Initiation:**
    - SPA redirects to `https://api.example.com/auth/login`
@@ -1093,7 +1865,17 @@ Key stored procedures handle:
 
 **Note**: The complete schema with all 72 tables and 69 stored procedures is documented in `DB-architecture.md`.
 
-## Frontend Architecture
+## 🌐 Frontend Architecture
+
+> **🎯 Core Strategy**: Feature-based architecture with clear separation of concerns, type safety, and reusable components for optimal developer experience and maintainability.
+
+**🔗 Related Sections:**
+- 🔧 [Tech Stack](#tech-stack) - Frontend technology choices
+- 🏗️ [Component Patterns](#component-patterns) - Detailed component guidelines
+- 🔄 [State Management Architecture](#state-management-architecture) - Client state management
+- 🧪 [Testing Strategy](#testing-strategy) - Frontend testing approaches
+
+---
 
 ### Component Architecture Overview
 
@@ -1758,7 +2540,19 @@ const AssetList = () => {
 - No RTL support
 - US market only (English/Spanish)
 
-## Backend Architecture
+## ⚙️ Backend Architecture
+
+> **🎯 Core Strategy**: Nest.js modular architecture with domain-driven design, dependency injection, and comprehensive guard/interceptor system for enterprise-grade backend services.
+
+**📋 Related ADRs:** [ADR-001: Nest.js over Express](#adr-001-nestjs-over-express-for-backend-framework) | [ADR-002: Database Access](#adr-002-pgtyped--slonik-for-database-access)
+
+**🔗 Related Sections:**
+- 🗄️ [Database Access Architecture](#database-access-architecture-pgtyped--slonik) - Database integration
+- 🔐 [Authentication and Authorization Guards](#authentication-and-authorization-guards) - Security implementation
+- 🔄 [Real-Time WebSocket Layer](#real-time-websocket-layer-with-socketio) - Real-time features
+- 📨 [Queue Processing with AWS SQS](#queue-processing-with-aws-sqs) - Async processing
+
+---
 
 ### Nest.js Module Architecture
 ```typescript
@@ -1788,8 +2582,10 @@ src/
 
 ### NestJS Controller Implementation
 
+#### Complete Production-Ready Controller Example
+
 ```typescript
-// ffcs.controller.ts - Proper NestJS controller with decorators
+// ffcs.controller.ts - Enterprise-grade NestJS controller
 import {
   Controller,
   Get,
@@ -1807,21 +2603,439 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  UnprocessableEntityException
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { 
+  ApiTags, 
+  ApiOperation, 
+  ApiResponse, 
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+  ApiBody
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantIsolationGuard } from '../common/guards/tenant-isolation.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { FFCMembershipGuard } from './guards/ffc-membership.guard';
 import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 import { LoggingInterceptor } from '../common/interceptors/logging.interceptor';
+import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FFCService } from './ffc.service';
 import { CreateFFCDto } from './dto/create-ffc.dto';
 import { UpdateFFCDto } from './dto/update-ffc.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { FFCQueryDto } from './dto/ffc-query.dto';
 import { User } from '../users/entities/user.entity';
 import { FFC } from './entities/ffc.entity';
+import { FFCMember } from './entities/ffc-member.entity';
+
+@ApiTags('Forward Family Circles')
+@ApiBearerAuth()
+@Controller('api/v1/ffcs')
+@UseGuards(JwtAuthGuard, TenantIsolationGuard)
+@UseInterceptors(LoggingInterceptor, TransformInterceptor)
+export class FFCController {
+  private readonly logger = new Logger(FFCController.name);
+
+  constructor(private readonly ffcService: FFCService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ 
+    summary: 'Create new Forward Family Circle',
+    description: 'Creates a new FFC with the current user as owner and automatically assigns free plan'
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'FFC created successfully',
+    type: FFC
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid FFC data provided'
+  })
+  @ApiResponse({ 
+    status: 409, 
+    description: 'FFC with this name already exists for user'
+  })
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async createFFC(
+    @Body() createFFCDto: CreateFFCDto,
+    @CurrentUser() user: User
+  ): Promise<FFC> {
+    try {
+      this.logger.log(`Creating FFC for user ${user.id}: ${createFFCDto.name}`);
+      
+      // Check if user already has an FFC with this name
+      const existingFFC = await this.ffcService.findByNameAndOwner(
+        createFFCDto.name, 
+        user.id
+      );
+      
+      if (existingFFC) {
+        throw new BadRequestException('FFC with this name already exists');
+      }
+
+      const ffc = await this.ffcService.create({
+        ...createFFCDto,
+        ownerUserId: user.id,
+        tenantId: user.tenantId
+      });
+
+      this.logger.log(`FFC created successfully: ${ffc.id}`);
+      return ffc;
+    } catch (error) {
+      this.logger.error(`Failed to create FFC: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Get()
+  @ApiOperation({ 
+    summary: 'Get user\'s FFCs',
+    description: 'Retrieves all FFCs where user is owner or member with pagination and filtering'
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by FFC name' })
+  @ApiQuery({ name: 'role', required: false, enum: ['owner', 'member'], description: 'Filter by user role' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'FFCs retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: { type: 'array', items: { $ref: '#/components/schemas/FFC' } },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' },
+        totalPages: { type: 'number' }
+      }
+    }
+  })
+  @UseInterceptors(CacheInterceptor)
+  async getUserFFCs(
+    @Query() query: FFCQueryDto,
+    @CurrentUser() user: User
+  ) {
+    try {
+      this.logger.log(`Fetching FFCs for user ${user.id}`);
+      
+      const result = await this.ffcService.findUserFFCs(user.id, {
+        page: query.page || 1,
+        limit: Math.min(query.limit || 10, 100),
+        search: query.search,
+        role: query.role
+      });
+
+      return {
+        data: result.ffcs,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: Math.ceil(result.total / result.limit)
+      };
+    } catch (error) {
+      this.logger.error(`Failed to fetch user FFCs: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Get(':ffcId')
+  @ApiOperation({ 
+    summary: 'Get FFC details',
+    description: 'Retrieves detailed information about a specific FFC'
+  })
+  @ApiParam({ name: 'ffcId', type: 'string', format: 'uuid', description: 'FFC unique identifier' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'FFC details retrieved successfully',
+    type: FFC
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'FFC not found'
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'User not member of this FFC'
+  })
+  @UseGuards(FFCMembershipGuard)
+  @UseInterceptors(CacheInterceptor)
+  async getFFCById(
+    @Param('ffcId', ParseUUIDPipe) ffcId: string,
+    @CurrentUser() user: User
+  ): Promise<FFC> {
+    try {
+      this.logger.log(`Fetching FFC ${ffcId} for user ${user.id}`);
+      
+      const ffc = await this.ffcService.findByIdWithDetails(ffcId);
+      
+      if (!ffc) {
+        throw new NotFoundException('FFC not found');
+      }
+
+      return ffc;
+    } catch (error) {
+      this.logger.error(`Failed to fetch FFC ${ffcId}: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Put(':ffcId')
+  @ApiOperation({ 
+    summary: 'Update FFC',
+    description: 'Updates FFC information (owner only)'
+  })
+  @ApiParam({ name: 'ffcId', type: 'string', format: 'uuid' })
+  @ApiBody({ type: UpdateFFCDto })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'FFC updated successfully',
+    type: FFC
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Only FFC owner can update'
+  })
+  @Roles('ffc_owner')
+  @UseGuards(FFCMembershipGuard, RolesGuard)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async updateFFC(
+    @Param('ffcId', ParseUUIDPipe) ffcId: string,
+    @Body() updateFFCDto: UpdateFFCDto,
+    @CurrentUser() user: User
+  ): Promise<FFC> {
+    try {
+      this.logger.log(`Updating FFC ${ffcId} by user ${user.id}`);
+      
+      const updatedFFC = await this.ffcService.update(ffcId, updateFFCDto);
+      
+      this.logger.log(`FFC ${ffcId} updated successfully`);
+      return updatedFFC;
+    } catch (error) {
+      this.logger.error(`Failed to update FFC ${ffcId}: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Post(':ffcId/members/invite')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ 
+    summary: 'Invite member to FFC',
+    description: 'Sends invitation with dual-channel verification (email + SMS)'
+  })
+  @ApiParam({ name: 'ffcId', type: 'string', format: 'uuid' })
+  @ApiBody({ type: InviteMemberDto })
+  @ApiResponse({ 
+    status: 202, 
+    description: 'Invitation sent successfully'
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid invitation data or user already invited'
+  })
+  @Roles('ffc_owner', 'ffc_admin')
+  @UseGuards(FFCMembershipGuard, RolesGuard)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async inviteMember(
+    @Param('ffcId', ParseUUIDPipe) ffcId: string,
+    @Body() inviteMemberDto: InviteMemberDto,
+    @CurrentUser() user: User
+  ): Promise<{ message: string; invitationId: string }> {
+    try {
+      this.logger.log(`Inviting member to FFC ${ffcId} by user ${user.id}`);
+      
+      // Validate email format and phone number
+      if (!this.isValidEmail(inviteMemberDto.email)) {
+        throw new BadRequestException('Invalid email format');
+      }
+      
+      if (!this.isValidPhoneNumber(inviteMemberDto.phoneNumber)) {
+        throw new BadRequestException('Invalid phone number format');
+      }
+
+      // Check if user is already a member or has pending invitation
+      const existingMember = await this.ffcService.findMemberByEmail(
+        ffcId, 
+        inviteMemberDto.email
+      );
+      
+      if (existingMember) {
+        throw new BadRequestException('User is already a member or has pending invitation');
+      }
+
+      const invitation = await this.ffcService.inviteMember(ffcId, {
+        ...inviteMemberDto,
+        invitedByUserId: user.id
+      });
+
+      this.logger.log(`Invitation sent successfully: ${invitation.id}`);
+      
+      return {
+        message: 'Invitation sent successfully. The user will receive email and SMS verification.',
+        invitationId: invitation.id
+      };
+    } catch (error) {
+      this.logger.error(`Failed to invite member to FFC ${ffcId}: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Get(':ffcId/members')
+  @ApiOperation({ 
+    summary: 'Get FFC members',
+    description: 'Retrieves all members of the FFC with their roles and status'
+  })
+  @ApiParam({ name: 'ffcId', type: 'string', format: 'uuid' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'FFC members retrieved successfully',
+    type: [FFCMember]
+  })
+  @UseGuards(FFCMembershipGuard)
+  @UseInterceptors(CacheInterceptor)
+  async getFFCMembers(
+    @Param('ffcId', ParseUUIDPipe) ffcId: string,
+    @CurrentUser() user: User
+  ): Promise<FFCMember[]> {
+    try {
+      this.logger.log(`Fetching members for FFC ${ffcId}`);
+      
+      const members = await this.ffcService.getMembers(ffcId);
+      
+      return members;
+    } catch (error) {
+      this.logger.error(`Failed to fetch FFC members: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Delete(':ffcId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ 
+    summary: 'Delete FFC',
+    description: 'Permanently deletes FFC and all associated data (owner only)'
+  })
+  @ApiParam({ name: 'ffcId', type: 'string', format: 'uuid' })
+  @ApiResponse({ 
+    status: 204, 
+    description: 'FFC deleted successfully'
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Only FFC owner can delete'
+  })
+  @Roles('ffc_owner')
+  @UseGuards(FFCMembershipGuard, RolesGuard)
+  async deleteFFC(
+    @Param('ffcId', ParseUUIDPipe) ffcId: string,
+    @CurrentUser() user: User
+  ): Promise<void> {
+    try {
+      this.logger.log(`Deleting FFC ${ffcId} by owner ${user.id}`);
+      
+      // Verify FFC has no active subscriptions or assets
+      const canDelete = await this.ffcService.canDelete(ffcId);
+      
+      if (!canDelete.allowed) {
+        throw new UnprocessableEntityException(
+          `Cannot delete FFC: ${canDelete.reason}`
+        );
+      }
+
+      await this.ffcService.delete(ffcId);
+      
+      this.logger.log(`FFC ${ffcId} deleted successfully`);
+    } catch (error) {
+      this.logger.error(`Failed to delete FFC ${ffcId}: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Utility methods
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  private isValidPhoneNumber(phone: string): boolean {
+    // US phone number validation
+    const phoneRegex = /^\+1[2-9]\d{2}[2-9]\d{2}\d{4}$/;
+    return phoneRegex.test(phone);
+  }
+}
+
+// Supporting DTOs and Guards
+
+// dto/create-ffc.dto.ts
+import { IsString, IsOptional, IsNotEmpty, MaxLength, IsUrl } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class CreateFFCDto {
+  @ApiProperty({ 
+    description: 'Forward Family Circle name',
+    example: 'Smith Family Heritage',
+    maxLength: 100
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ 
+    description: 'Family description',
+    example: 'Our family\'s inheritance and legacy planning circle',
+    required: false,
+    maxLength: 500
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  description?: string;
+
+  @ApiProperty({ 
+    description: 'Family photo URL',
+    example: 'https://s3.amazonaws.com/fwd-photos/smith-family.jpg',
+    required: false
+  })
+  @IsUrl()
+  @IsOptional()
+  familyPhotoUrl?: string;
+}
+
+// guards/ffc-membership.guard.ts
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { FFCService } from '../ffc.service';
+
+@Injectable()
+export class FFCMembershipGuard implements CanActivate {
+  constructor(private ffcService: FFCService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    const ffcId = request.params.ffcId;
+
+    if (!ffcId || !user) {
+      throw new ForbiddenException('Invalid request context');
+    }
+
+    const isMember = await this.ffcService.isUserMember(ffcId, user.id);
+    
+    if (!isMember) {
+      throw new ForbiddenException('User is not a member of this FFC');
+    }
+
+    return true;
+  }
+}
 
 @ApiTags('FFCs')
 @ApiBearerAuth()
@@ -1996,6 +3210,116 @@ export class FFCService {
 ```
 
 ### AWS Step Functions Document Processing
+
+#### Document Processing Pipeline Overview
+
+```mermaid
+flowchart TD
+    A[User Uploads Document] --> B[Store in S3 Original Bucket]
+    B --> C[Trigger Step Function]
+    C --> D[Validate Document]
+    D --> E{Valid Document?}
+    E -->|No| F[Return Error]
+    E -->|Yes| G[Extract Text with Textract]
+    G --> H[Detect PII with Comprehend]
+    H --> I{PII Found?}
+    I -->|No| J[Copy to Processed Bucket]
+    I -->|Yes| K[Mask PII Content]
+    K --> L[Generate Masked Version]
+    L --> M[Store Both Versions]
+    M --> N[Update Database Records]
+    J --> N
+    N --> O[Send Completion Notification]
+    
+    style A fill:#e1f5fe
+    style H fill:#fff3e0
+    style K fill:#ffebee
+    style N fill:#e8f5e8
+```
+
+#### Detailed Step Function State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> ValidateDocument
+    ValidateDocument --> CheckFileType
+    
+    CheckFileType --> TextractDocument: PDF/Image
+    CheckFileType --> DirectPIIDetection: Text File
+    CheckFileType --> UnsupportedFormat: Other
+    
+    TextractDocument --> ComprehendPII
+    DirectPIIDetection --> ComprehendPII
+    UnsupportedFormat --> Failed
+    
+    ComprehendPII --> AnalyzePII
+    AnalyzePII --> HasPII: PII Detected
+    AnalyzePII --> NoPII: Clean Document
+    
+    HasPII --> MaskPII
+    MaskPII --> GenerateRedacted
+    GenerateRedacted --> StoreBothVersions
+    
+    NoPII --> StoreSingleVersion
+    
+    StoreBothVersions --> UpdateDatabase
+    StoreSingleVersion --> UpdateDatabase
+    UpdateDatabase --> NotifyCompletion
+    NotifyCompletion --> [*]
+    
+    Failed --> NotifyError
+    NotifyError --> [*]
+```
+
+#### PII Detection and Masking Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant S3 as S3 Storage
+    participant SF as Step Functions
+    participant T as Textract
+    participant C as Comprehend
+    participant L as Lambda
+    participant DB as Database
+    participant SQS as Notification Queue
+
+    Note over U,SQS: Document Upload & Processing
+    
+    U->>S3: Upload document
+    S3->>SF: Trigger Step Function
+    
+    Note over SF: Document Validation
+    SF->>S3: Validate file exists
+    SF->>SF: Check file type/size
+    
+    Note over SF,T: Text Extraction
+    SF->>T: Extract text from document
+    T->>SF: Return extracted text
+    
+    Note over SF,C: PII Detection
+    SF->>C: Analyze text for PII
+    C->>SF: Return PII entities
+    
+    alt PII Found
+        Note over SF,L: PII Masking
+        SF->>L: Invoke masking function
+        L->>L: Replace PII with tokens
+        L->>S3: Store masked document
+        L->>S3: Store original (encrypted)
+        L->>SF: Return success
+    else No PII
+        SF->>S3: Store document (encrypted)
+    end
+    
+    Note over SF,DB: Update Records
+    SF->>DB: Update asset document status
+    SF->>SQS: Send completion notification
+    SQS->>U: Notify processing complete
+```
+
+**Step Function Definition:**
+
 ```json
 {
   "Comment": "PII Detection and Document Encryption Pipeline",
@@ -4619,7 +5943,25 @@ targetConnectionsPercent: 80
 - JWT token anomalies
 - Geographic access anomalies
 
-## Testing Strategy
+## 🧪 Testing Strategy
+
+> **🎯 Core Strategy**: Comprehensive testing pyramid with emphasis on unit tests, strategic integration tests, and focused E2E coverage for critical user workflows.
+
+**🔗 Related Sections:**
+- 🔧 [Tech Stack](#tech-stack) - Testing tools and frameworks
+- 📚 [Quick Reference Guide](#-quick-reference-guide) - Testing commands
+- 🏗️ [Architecture Patterns](#architectural-patterns) - Testable design patterns
+- 💰 [Cost Optimization Strategy](#cost-optimization-strategy) - Test infrastructure costs
+
+**🚀 Quick Commands:**
+```bash
+npm run test              # Run all tests
+npm run test:unit         # Unit tests only
+npm run test:e2e          # E2E tests only
+npm run test:coverage     # Generate coverage report
+```
+
+---
 
 ### Testing Pyramid
 
@@ -7044,7 +8386,701 @@ SLAs:
     low: 3_business_days
 ```
 
-## Additional Considerations
+## 📚 Quick Reference Guide
+
+### 🚀 Essential Commands
+
+#### Development Commands
+```bash
+# Start local development
+npm run dev                    # Start both frontend and backend
+npm run dev:frontend           # Start React app only  
+npm run dev:backend           # Start Nest.js server only
+
+# Database operations
+npm run db:migrate            # Run database migrations
+npm run db:types              # Generate pgTyped types
+npm run db:seed               # Seed development data
+npm run db:reset              # Reset database (dev only)
+
+# Testing
+npm run test                  # Run all tests
+npm run test:unit             # Unit tests only
+npm run test:e2e              # E2E tests only
+npm run test:coverage         # Generate coverage report
+
+# Build and deployment
+npm run build                 # Build for production
+npm run deploy:staging        # Deploy to staging
+npm run deploy:production     # Deploy to production
+```
+
+#### Database Commands
+```bash
+# pgTyped operations
+npx pgtyped -c pgtyped.config.json    # Generate types
+npx pgtyped -w                         # Watch mode
+
+# PostgreSQL direct access
+psql -h localhost -d fwd_db -U fwd_user
+```
+
+### 🔧 Environment Variables Reference
+
+#### Required Environment Variables
+| Variable | Purpose | Example | Environment |
+|----------|---------|---------|-------------|
+| `DATABASE_URL` | PostgreSQL connection | `postgresql://user:pass@localhost:5432/fwd_db` | All |
+| `AWS_REGION` | AWS services region | `us-west-1` | All |
+| `COGNITO_USER_POOL_ID` | Authentication | `us-west-1_abc123` | All |
+| `COGNITO_CLIENT_ID` | Client application | `1234567890abcdef` | All |
+| `STRIPE_SECRET_KEY` | Payment processing | `sk_test_...` | All |
+| `TWILIO_ACCOUNT_SID` | SMS service | `AC1234...` | All |
+| `SENDGRID_API_KEY` | Email service | `SG.abc...` | All |
+
+#### Optional Environment Variables
+| Variable | Purpose | Default | Notes |
+|----------|---------|---------|-------|
+| `PORT` | Backend server port | `3001` | Development only |
+| `NODE_ENV` | Environment mode | `development` | Auto-set in deployments |
+| `LOG_LEVEL` | Logging verbosity | `info` | Use `debug` for development |
+| `CACHE_TTL` | Cache timeout (seconds) | `300` | In-memory cache duration |
+
+### 🏗️ Architecture Patterns Quick Reference
+
+#### Database Query Patterns
+```typescript
+// Type-safe query with pgTyped
+async getUserById(id: string): Promise<User | null> {
+  const query = sql.type(getUserByIdQuery)`
+    SELECT * FROM users WHERE id = ${id}
+  `;
+  const result = await this.pool.one(query);
+  return result.rows[0] || null;
+}
+
+// Multi-tenant query pattern
+async getAssetsByFFC(ffcId: string, tenantId: number): Promise<Asset[]> {
+  return this.pool.any(sql.type(getAssetsByFFCQuery)`
+    SELECT * FROM assets 
+    WHERE ffc_id = ${ffcId} 
+    AND tenant_id = ${tenantId}
+  `);
+}
+```
+
+#### Error Handling Patterns
+```typescript
+// Service layer error handling
+async createAsset(data: CreateAssetDto): Promise<Asset> {
+  try {
+    return await this.assetRepository.create(data);
+  } catch (error) {
+    if (error.code === '23505') { // Unique violation
+      throw new ConflictException('Asset already exists');
+    }
+    throw new InternalServerErrorException('Failed to create asset');
+  }
+}
+
+// Controller error handling
+@Post('assets')
+async createAsset(@Body() data: CreateAssetDto) {
+  try {
+    return await this.assetService.createAsset(data);
+  } catch (error) {
+    this.logger.error('Asset creation failed', error.stack);
+    throw error; // Re-throw for global exception filter
+  }
+}
+```
+
+#### Authentication Guard Patterns
+```typescript
+// Multi-tenant isolation guard
+@Injectable()
+export class TenantGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    const tenantId = request.params.tenantId;
+    
+    return user.tenantId === parseInt(tenantId);
+  }
+}
+
+// FFC membership guard
+@UseGuards(FFCMembershipGuard)
+@Get('ffc/:ffcId/assets')
+async getFFCAssets(@Param('ffcId') ffcId: string) {
+  // User membership verified by guard
+}
+```
+
+### 🔍 Troubleshooting Guide
+
+#### Common Development Issues
+
+**Database Connection Issues**
+```bash
+# Check PostgreSQL service
+sudo systemctl status postgresql
+
+# Test connection
+psql -h localhost -p 5432 -U fwd_user -d fwd_db
+
+# Reset connection pool
+# Restart backend service
+```
+
+**pgTyped Type Generation Issues**
+```bash
+# Ensure database is running and accessible
+npm run db:types
+
+# If types are stale, regenerate
+rm -rf src/generated/db-types
+npm run db:types
+```
+
+**Authentication Issues**
+```bash
+# Verify Cognito configuration
+aws cognito-idp describe-user-pool --user-pool-id YOUR_POOL_ID
+
+# Check environment variables
+echo $COGNITO_USER_POOL_ID
+echo $COGNITO_CLIENT_ID
+```
+
+**Build Issues**
+```bash
+# Clear all caches
+npm run clean
+npm install
+npm run build
+
+# Check for TypeScript errors
+npx tsc --noEmit
+```
+
+#### Performance Debugging
+
+**Database Query Performance**
+```sql
+-- Enable query timing
+\timing
+
+-- Analyze slow queries
+EXPLAIN (ANALYZE, BUFFERS) SELECT ...;
+
+-- Check active connections
+SELECT count(*) FROM pg_stat_activity;
+```
+
+**Memory Usage**
+```bash
+# Check Node.js memory usage
+node --max-old-space-size=4096 dist/main.js
+
+# Monitor memory in production
+pm2 monit
+```
+
+#### Advanced Troubleshooting Scenarios
+
+**Nest.js Application Issues**
+```bash
+# Service dependency injection errors
+npm run build  # Check for circular dependencies
+npm run lint   # Check for decorator issues
+
+# Module import errors
+# Check @Module() imports array
+# Verify all services are in providers array
+# Check file paths in imports
+
+# Guard/Interceptor not working
+# Verify @UseGuards() or @UseInterceptors() decorators
+# Check execution context in guards
+# Verify return values match expected types
+```
+
+**WebSocket Connection Issues**
+```bash
+# Socket.io connection failures
+# Check CORS configuration in Nest.js
+# Verify client/server Socket.io versions match
+# Test with simple socket.io client
+
+# Real-time updates not working
+# Check room subscription logic
+# Verify user authentication in socket middleware
+# Test with socket.io admin UI
+```
+
+**AWS Services Debugging**
+```bash
+# Step Functions execution failures
+aws stepfunctions describe-execution --execution-arn "arn:aws:..."
+aws stepfunctions get-execution-history --execution-arn "arn:aws:..."
+
+# Cognito authentication issues
+aws cognito-idp admin-get-user --user-pool-id "pool-id" --username "user"
+aws cognito-idp describe-user-pool-client --user-pool-id "pool" --client-id "client"
+
+# SQS message processing issues
+aws sqs get-queue-attributes --queue-url "url" --attribute-names All
+aws sqs receive-message --queue-url "url" --max-number-of-messages 10
+```
+
+**Frontend Debugging**
+```bash
+# React component rendering issues
+# Check React DevTools for component state
+# Verify props are being passed correctly
+# Check for key prop warnings in console
+
+# State management debugging
+# Use Zustand DevTools
+# Check React Query DevTools for cache status
+# Verify WebSocket connection status
+
+# Build/Bundle issues
+npm run analyze  # Analyze bundle size
+# Check for circular imports
+# Verify all dependencies are installed
+```
+
+**Performance Troubleshooting**
+```typescript
+// Database query performance
+// Add query timing to Slonik
+const pool = createPool(connectionString, {
+  interceptors: [
+    createQueryLoggingInterceptor(),
+    createBenchmarkingInterceptor()
+  ]
+});
+
+// API response time debugging
+// Add timing middleware to Nest.js
+@Injectable()
+export class TimingInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const start = Date.now();
+    return next.handle().pipe(
+      tap(() => {
+        const duration = Date.now() - start;
+        console.log(`${context.getHandler().name}: ${duration}ms`);
+      })
+    );
+  }
+}
+```
+
+**Production Issues Debugging**
+
+**High Memory Usage**
+```bash
+# Node.js memory debugging
+node --inspect dist/main.js
+# Connect Chrome DevTools for heap snapshots
+
+# PostgreSQL memory analysis
+SELECT * FROM pg_stat_activity WHERE state = 'active';
+SELECT query, mean_time, calls FROM pg_stat_statements 
+ORDER BY mean_time DESC LIMIT 10;
+```
+
+**High CPU Usage**
+```bash
+# Profile Node.js application
+node --prof dist/main.js
+node --prof-process isolate-*.log > processed.txt
+
+# Database query analysis
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) your_slow_query;
+```
+
+**Container Issues**
+```bash
+# ECS task debugging
+aws ecs describe-tasks --cluster cluster-name --tasks task-arn
+
+# Docker container logs
+aws logs get-log-events --log-group-name "/ecs/fwd-backend" 
+--log-stream-name "stream-name"
+
+# Resource utilization
+aws cloudwatch get-metric-statistics --namespace "AWS/ECS" 
+--metric-name CPUUtilization --dimensions Name=ServiceName,Value=fwd-backend
+```
+
+**Common Error Patterns and Solutions**
+
+| Error Pattern | Likely Cause | Solution |
+|---------------|--------------|----------|
+| `Cannot read property 'id' of undefined` | Missing null checks | Add optional chaining: `user?.id` |
+| `Connection terminated unexpectedly` | Database connection pool exhausted | Check pool configuration, add connection limits |
+| `401 Unauthorized` | Token expired or invalid | Implement token refresh logic |
+| `403 Forbidden` | Missing permissions | Check user roles and guards |
+| `500 Internal Server Error` | Unhandled exception | Add proper error handling and logging |
+| `CORS error` | Cross-origin request blocked | Configure CORS in API Gateway and Nest.js |
+| `WebSocket connection failed` | Authentication or network issue | Check socket middleware and client configuration |
+| `PII processing timeout` | Large document or AWS service limit | Increase timeout, implement chunking |
+
+**Emergency Response Procedures**
+
+**Database Connection Loss**
+1. Check RDS instance status in AWS Console
+2. Verify security group configuration
+3. Check connection pool settings
+4. Restart application if needed
+5. Monitor CloudWatch metrics
+
+**Authentication Service Down**
+1. Check AWS Cognito service status
+2. Verify user pool configuration
+3. Test with AWS CLI commands
+4. Check API Gateway integration
+5. Implement graceful degradation
+
+**High Error Rate**
+1. Check application logs in CloudWatch
+2. Verify database performance metrics
+3. Check external service dependencies
+4. Review recent deployments
+5. Scale resources if needed
+
+### 📊 Decision Trees
+
+#### When to Use Different Caching Strategies
+```
+Start: Need caching?
+├─ Yes: Single instance deployment?
+│  ├─ Yes: Use in-memory caching → Cost: $0
+│  └─ No: Multiple instances?
+│     ├─ Yes: Use Redis → Cost: $200-500/month
+│     └─ No: Consider DynamoDB → Cost: Pay per use
+└─ No: Direct database access
+```
+
+#### Database Query Strategy Selection
+```
+Start: Need database access?
+├─ Simple CRUD: Use typed queries with pgTyped
+├─ Complex business logic: Use stored procedures
+├─ Reporting/Analytics: Use direct SQL with aggregations
+└─ Cross-entity operations: Use transactions with Slonik
+```
+
+#### Error Handling Strategy Selection
+```
+Start: Error occurred?
+├─ Client error (4xx): 
+│  ├─ Validation: Return detailed field errors
+│  ├─ Authentication: Return 401 with refresh instructions
+│  └─ Authorization: Return 403 with permission context
+├─ Server error (5xx):
+│  ├─ Database: Log details, return generic message
+│  ├─ External API: Implement retry with backoff
+│  └─ Unknown: Log full stack, alert monitoring
+└─ Success: Return data with proper status codes
+```
+
+#### API Design Pattern Selection
+```
+Start: Building new API endpoint?
+├─ Data retrieval only?
+│  ├─ Simple entity: GET /entities/:id
+│  ├─ Collection with filters: GET /entities?filter=value
+│  ├─ Complex search: POST /entities/search
+│  └─ Real-time updates: WebSocket subscription
+├─ Data modification?
+│  ├─ Create: POST /entities
+│  ├─ Full update: PUT /entities/:id
+│  ├─ Partial update: PATCH /entities/:id
+│  └─ Delete: DELETE /entities/:id
+├─ Bulk operations?
+│  ├─ Batch create: POST /entities/batch
+│  ├─ Batch update: PATCH /entities/batch
+│  └─ Batch delete: DELETE /entities/batch
+└─ File operations?
+   ├─ Upload: POST /entities/:id/documents
+   ├─ Download: GET /entities/:id/documents/:docId
+   └─ Process: POST /entities/:id/documents/:docId/process
+```
+
+#### State Management Strategy Selection
+```
+Start: Need to manage state?
+├─ Server state (API data)?
+│  ├─ Use React Query/SWR
+│  ├─ Cache with stale-while-revalidate
+│  └─ Optimistic updates for mutations
+├─ Client state (UI only)?
+│  ├─ Component-local: useState/useReducer
+│  ├─ Cross-component: Zustand store
+│  ├─ Form state: React Hook Form
+│  └─ URL state: React Router params/search
+├─ Real-time state?
+│  ├─ WebSocket connection: Custom hook
+│  ├─ Live updates: Socket.io integration
+│  └─ Presence: Real-time user status
+└─ Persistent state?
+   ├─ User preferences: localStorage + Zustand
+   ├─ Session data: sessionStorage
+   └─ Offline data: IndexedDB + service worker
+```
+
+#### Database Schema Design Decisions
+```
+Start: Designing database schema?
+├─ Multi-tenancy approach?
+│  ├─ Row-level security (RLS): Include tenant_id in all tables
+│  ├─ Schema-per-tenant: Separate schemas (not recommended)
+│  └─ Database-per-tenant: Separate databases (complex)
+├─ Relationship type?
+│  ├─ One-to-many: Foreign key with index
+│  ├─ Many-to-many: Junction table with composite index
+│  ├─ One-to-one: Foreign key with unique constraint
+│  └─ Polymorphic: Use type + id columns
+├─ Data type selection?
+│  ├─ JSON data: Use JSONB with GIN indexes
+│  ├─ Large text: TEXT with full-text search
+│  ├─ Money/currency: DECIMAL with precision
+│  ├─ Timestamps: TIMESTAMPTZ with timezone
+│  └─ UUIDs: UUID type with index
+└─ Performance optimization?
+   ├─ Add indexes for WHERE clauses
+   ├─ Composite indexes for multi-column queries
+   ├─ Partial indexes for filtered data
+   └─ Consider materialized views for complex queries
+```
+
+#### Testing Strategy Decision Tree
+```
+Start: What to test?
+├─ Business logic?
+│  ├─ Pure functions: Unit tests (Jest)
+│  ├─ Service classes: Unit tests with mocks
+│  ├─ Database operations: Integration tests
+│  └─ External APIs: Contract tests
+├─ UI components?
+│  ├─ Isolated components: Unit tests (React Testing Library)
+│  ├─ Component interactions: Integration tests
+│  ├─ User workflows: E2E tests (Playwright)
+│  └─ Visual regression: Screenshot tests
+├─ API endpoints?
+│  ├─ Success cases: Integration tests
+│  ├─ Error cases: Unit tests for error handling
+│  ├─ Authentication: Security tests
+│  └─ Performance: Load tests
+└─ System integration?
+   ├─ End-to-end workflows: E2E tests
+   ├─ Data consistency: Database tests
+   ├─ Security: Penetration tests
+   └─ Performance: Stress tests
+```
+
+#### Deployment Strategy Selection
+```
+Start: Ready to deploy?
+├─ Environment type?
+│  ├─ Development: Local Docker + hot reload
+│  ├─ Staging: AWS ECS + real integrations
+│  ├─ Production: AWS ECS + monitoring
+│  └─ Demo: Lightweight ECS setup
+├─ Scaling requirements?
+│  ├─ Low traffic (<1K users): Single ECS task
+│  ├─ Medium traffic (1K-10K): Auto-scaling ECS
+│  ├─ High traffic (10K+): ECS + Redis + CDN
+│  └─ Enterprise: EKS + advanced monitoring
+├─ Database deployment?
+│  ├─ Development: Local PostgreSQL
+│  ├─ Staging: RDS PostgreSQL
+│  ├─ Production: Aurora PostgreSQL
+│  └─ High availability: Aurora Multi-AZ
+└─ Monitoring needs?
+   ├─ Basic: CloudWatch + health checks
+   ├─ Advanced: CloudWatch + Sentry + custom metrics
+   ├─ Enterprise: Full observability stack
+   └─ Compliance: SOC 2 monitoring + Vanta
+```
+
+---
+
+## 📋 PRD Requirements Traceability Matrix
+
+This section maps Product Requirements Document (PRD) requirements to specific architectural implementations, ensuring complete coverage and traceability.
+
+### Core Business Requirements Implementation
+
+#### Forward Family Circles (FFCs) - PRD Section 3.3
+**Requirement**: "Complete FFC onboarding flow with unlimited member invitations"
+
+**Architecture Implementation**:
+- **Database Schema**: Multi-tenant `forward_family_circles` table → [Database Schema](#database-schema)
+- **Authentication**: AWS Cognito user pools with role-based access → [Authentication Architecture](#authentication-architecture-aws-cognito--api-gateway)
+- **Invitation System**: Dual-channel verification (email + SMS) → [External APIs](#external-apis)
+- **Member Management**: Unlimited seats with Free Plan → [Subscription & Payment Entities](#subscription--payment-entities)
+
+**Code Location**: `src/modules/ffc/` in backend, `src/features/ffc/` in frontend
+
+---
+
+#### Asset Management (13 Categories) - PRD Section 3.3
+**Requirement**: "All 13 asset categories implemented from Day 1 with individual ownership rights"
+
+**Architecture Implementation**:
+- **Asset Categories**: Complete type system for all 13 categories → [Data Models](#data-models)
+- **Ownership Model**: Asset-persona direct ownership links → [Complete Example: RealEstateAsset](#complete-example-realestateasset)
+- **Permissions**: Granular asset-level permissions independent of FFC ownership → [Authentication and Authorization Guards](#authentication-and-authorization-guards)
+- **Database Design**: Polymorphic asset tables with category-specific schemas → [Database Schema](#database-schema)
+
+**Code Location**: `src/modules/assets/` in backend, `src/features/assets/` in frontend
+
+---
+
+#### PII Protection & Document Processing - PRD Section 3.3 & Epic 3
+**Requirement**: "AWS Step Functions orchestrates serverless pipeline using S3, Lambda, and Comprehend for PII detection and masking"
+
+**Architecture Implementation**:
+- **Workflow Orchestration**: AWS Step Functions state machine → [AWS Step Functions Document Processing](#aws-step-functions-document-processing)
+- **PII Detection**: AWS Comprehend integration with confidence scoring → [AWS Services (Native Integration)](#aws-services-native-integration)
+- **Dual Storage**: Original encrypted + masked versions → [Document Processing Pipeline](#document-processing-pipeline-overview)
+- **Security**: KMS encryption and access controls → [Security Requirements](#security-requirements)
+
+**Code Location**: `infrastructure/step-functions/` and `src/modules/documents/`
+
+---
+
+#### Subscription & Payment System - PRD Section 2.3
+**Requirement**: "Free Unlimited Plan as default, one-time services, dynamic plan configuration"
+
+**Architecture Implementation**:
+- **Plan Management**: Database-driven plan configuration → [Subscription & Payment Entities](#subscription--payment-entities)
+- **Payment Processing**: Stripe integration with webhook handling → [Queue Processing with AWS SQS](#queue-processing-with-aws-sqs)
+- **Dynamic UI**: Plan-based feature visibility → [State Management Architecture](#state-management-architecture)
+- **Zero Payment Barrier**: Automatic free plan assignment → [Progressive Caching Strategy](#progressive-caching-strategy-cost-optimized)
+
+**Code Location**: `src/modules/subscriptions/` and `src/modules/payments/`
+
+---
+
+### Technical Requirements Implementation
+
+#### Type-Safe Database Operations - PRD Section 5 & ADR-002
+**Requirement**: "Type-safe database architecture with pgTyped and Slonik (84% of stored procedures converted)"
+
+**Architecture Implementation**:
+- **Compile-time Safety**: pgTyped generates TypeScript types from SQL → [Database Access Architecture](#database-access-architecture-pgtyped--slonik)
+- **Runtime Safety**: Slonik with parameterized queries → [Slonik Runtime Client](#slonik-runtime-client)
+- **Query Organization**: 99 SQL files + 10 procedure wrappers → [SQL Query Organization](#sql-query-organization)
+- **Multi-tenant Isolation**: RLS context in every query → [Multi-Tenant Security Context](#multi-tenant-security-context)
+
+**Code Location**: `docs/requirements/DB/sql scripts/5_SQL_files/` and `src/database/`
+
+---
+
+#### Marketing Independence - PRD Section 3.2 & Epic 1
+**Requirement**: "Builder.io CMS integration for marketing team independence"
+
+**Architecture Implementation**:
+- **CMS Integration**: Headless Builder.io for landing pages → [High Level Architecture Diagram](#high-level-architecture-diagram)
+- **CDN Delivery**: CloudFront distribution → [Platform and Infrastructure Choice](#platform-and-infrastructure-choice)
+- **A/B Testing**: Built-in Builder.io capabilities → [Tech Stack](#tech-stack)
+- **SEO Optimization**: Server-side rendering considerations → [SEO Optimization for Public Pages](#seo-optimization-for-public-pages)
+
+**Code Location**: Marketing pages in Builder.io, integration in `apps/web/src/pages/marketing/`
+
+---
+
+#### Multi-Language Support - PRD Epic 5
+**Requirement**: "Native Spanish support with expansion roadmap for underserved US communities"
+
+**Architecture Implementation**:
+- **Translation System**: Simple English/Spanish implementation → [Translation System](#translation-system-simple-englishspanish)
+- **User Preferences**: Language selection storage → [Data Models](#data-models)
+- **Content Management**: Localized email templates → [SendGrid API](#sendgrid-api)
+- **Cultural Adaptations**: Hispanic family structure considerations → [Internationalization Strategy](#internationalization-i18n-strategy)
+
+**Code Location**: `src/i18n/` and `apps/web/src/locales/`
+
+---
+
+### Security & Compliance Requirements
+
+#### SOC 2 Compliance - PRD Epic 6
+**Requirement**: "SOC 2 Type II certification with Vanta integration for automated compliance"
+
+**Architecture Implementation**:
+- **Compliance Automation**: Vanta API integration → [Vanta Integration for SOC 2 Compliance](#vanta-integration-for-soc-2-compliance)
+- **Evidence Collection**: Automated audit trail generation → [Monitoring and Observability](#monitoring-and-observability)
+- **Security Controls**: Comprehensive monitoring and alerting → [Security Monitoring](#security-monitoring)
+- **Access Controls**: Role-based permissions with audit logging → [Authentication and Authorization Guards](#authentication-and-authorization-guards)
+
+**Code Location**: `src/modules/compliance/` and `infrastructure/monitoring/`
+
+---
+
+#### Enhanced Security - PRD Section 3.1
+**Requirement**: "Mandatory dual-channel verification (email + SMS) with owner approval"
+
+**Architecture Implementation**:
+- **Dual Verification**: Email + SMS verification flow → [Twilio API](#twilio-api) + [SendGrid API](#sendgrid-api)
+- **Owner Approval**: Workflow with notification system → [Real-Time WebSocket Layer](#real-time-websocket-layer-with-socketio)
+- **Session Management**: Secure httpOnly cookies → [Security Best Practices](#security-best-practices)
+- **Token Security**: JWT validation with short lifetimes → [Authentication Flow](#authentication-flow)
+
+**Code Location**: `src/modules/verification/` and `src/modules/invitations/`
+
+---
+
+### Performance & Scale Requirements
+
+#### Performance Targets - PRD Section 5.4
+**Requirement**: "API response times p50 < 100ms, p95 < 200ms, support 10,000 concurrent users"
+
+**Architecture Implementation**:
+- **Caching Strategy**: Progressive caching (in-memory → Redis) → [Progressive Caching Strategy](#progressive-caching-strategy-cost-optimized)
+- **Database Optimization**: Indexed queries and connection pooling → [Database Architecture with Nest.js](#database-architecture-with-nestjs)
+- **API Gateway**: Rate limiting and throttling → [API Gateway Pattern Implementation](#api-gateway-pattern-implementation)
+- **Monitoring**: Real-time performance metrics → [Key Metrics](#key-metrics)
+
+**Code Location**: `src/interceptors/caching/` and `infrastructure/monitoring/`
+
+---
+
+#### Cost Optimization - PRD Section 4.3
+**Requirement**: "Progressive infrastructure scaling with cost-effective MVP approach"
+
+**Architecture Implementation**:
+- **Scaling Strategy**: Phase-based infrastructure growth → [Cost Optimization Strategy](#cost-optimization-strategy)
+- **Smart Caching**: In-memory first to minimize AWS costs → [Progressive Infrastructure Scaling](#progressive-infrastructure-scaling)
+- **Serverless Components**: Step Functions and Lambda for variable loads → [AWS Step Functions Document Processing](#aws-step-functions-document-processing)
+- **Resource Monitoring**: Cost tracking and alerts → [Break-Even Analysis](#break-even-analysis)
+
+**Code Location**: `infrastructure/` and cost monitoring in CloudWatch
+
+---
+
+### Feature Coverage Matrix
+
+| PRD Epic | Architecture Section | Implementation Status | Code Location |
+|----------|---------------------|----------------------|---------------|
+| Epic 1: Marketing Foundation | [Builder.io Integration](#high-level-architecture-diagram) | ✅ Specified | Marketing pages + CDN |
+| Epic 2: FFC Onboarding | [Authentication Architecture](#authentication-architecture-aws-cognito--api-gateway) | ✅ Specified | `src/modules/ffc/` |
+| Epic 3: Asset Management | [Data Models](#data-models) | ✅ Specified | `src/modules/assets/` |
+| Epic 4: Advanced Features | [Queue Processing](#queue-processing-with-aws-sqs) | ✅ Specified | `src/modules/integrations/` |
+| Epic 5: Multi-Language | [Translation System](#translation-system-simple-englishspanish) | ✅ Specified | `src/i18n/` |
+| Epic 6: SOC 2 Compliance | [Vanta Integration](#vanta-integration-for-soc-2-compliance) | ✅ Specified | `src/modules/compliance/` |
+| Epic 7: React Performance | [Frontend Architecture](#frontend-architecture) | ✅ Specified | Frontend optimization |
+
+---
+
+## 🌍 Additional Considerations
 
 ### Internationalization (i18n) Strategy
 

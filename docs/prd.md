@@ -6,19 +6,125 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
 
 ## Table of Contents
 
-1. [Project Context](#project-context)
-2. [Strategic Insights](#strategic-insights)
-3. [Phase 1A Scope & Core Features](#phase-1a-scope--core-features)
-4. [Epic Structure & Implementation](#epic-structure--implementation)
-5. [Technical Architecture](#technical-architecture)
-6. [Database Schema](#database-schema)
-7. [Success Metrics](#success-metrics)
-8. [Risk Mitigation](#risk-mitigation)
-9. [Development Phases](#development-phases)
+### 📊 Business Foundation
+- [Project Context](#project-context)
+  - [Vision](#vision)
+  - [Mission](#mission)
+  - [Market Analysis](#market-analysis)
+  - [Competitive Landscape](#competitive-landscape)
+  - [User Research Insights](#user-research-insights)
+- [Strategic Insights](#strategic-insights)
+  - [Target Market](#target-market)
+  - [Business Model](#business-model)
+  - [Core Differentiation](#core-differentiation)
+  - [Scale Target](#scale-target)
 
-## Project Context
+### 🎯 Product Definition
+- [Phase 1A Scope & Core Features](#phase-1a-scope--core-features)
+  - [Phase 1A: True MVP Core](#phase-1a-true-mvc-core-days-1-60)
+  - [Key Features for Launch](#key-features-for-launch)
+  - [Asset Categories (All 13 Types)](#asset-categories-all-13-types)
+  - [Key Permission Model](#key-permission-model)
+  - [Deferred Features](#deferred-to-later-phases)
+- [Epic Structure & Implementation Roadmap](#epic-structure--implementation-roadmap)
+  - [Phase 1A: Foundation](#phase-1a-foundation-days-1-60)
+  - [Phase 1B: Enhancement](#phase-1b-enhancement-days-61-90)
+  - [Phase 2: Enterprise & Compliance](#phase-2-enterprise--compliance-months-4-9)
+  - [Post-MVP: Performance & Scale](#post-mvp-performance--scale-year-1)
 
-Forward is developing a SaaS platform that transforms traditional individual-focused wealth management into collaborative family-centered inheritance planning, providing comprehensive asset management and estate planning collaboration.
+### ⚙️ Technical Specifications
+- [Technical Architecture](#technical-architecture)
+  - [Core Architecture Principles](#core-architecture-principles)
+  - [Frontend Technology Stack](#frontend-technology-stack)
+  - [Backend Technology Stack](#backend-technology-stack)
+  - [AWS Cloud Migration Roadmap](#aws-cloud-migration-roadmap)
+  - [API Management and Security](#api-management-and-security)
+  - [Security and Compliance](#security-and-compliance)
+  - [Performance Requirements](#performance-requirements)
+- [Database Schema](#database-schema)
+  - [Key Components](#key-components)
+  - [Reference Sections](#reference-sections-in-architecturemd)
+
+### 📋 Epic & Feature Requirements
+- [Epic 1: Marketing Foundation & Landing Page](#epic-1-marketing-foundation--landing-page)
+  - [Story 1.1: Builder.io CMS Integration](#story-11-builderio-cms-integration)
+  - [Story 1.2: Landing Page Performance & SEO](#story-12-landing-page-performance--seo)
+  - [Story 1.3: Lead Capture System](#story-13-lead-capture-system)
+- [Epic 2: FFC Onboarding Flow with Enhanced Security](#epic-2-ffc-onboarding-flow-with-enhanced-security)
+  - [Story 2.1: User Registration & Email Verification](#story-21-user-registration--email-verification)
+  - [Story 2.2: FFC Creation Wizard](#story-22-ffc-creation-wizard)
+  - [Story 2.3: Enhanced Member Invitation System](#story-23-enhanced-member-invitation-system)
+  - [Story 2.4: Phone Verification System](#story-24-phone-verification-system)
+  - [Story 2.5: Owner Approval Workflow](#story-25-owner-approval-workflow)
+- [Epic 3: Comprehensive Asset Management System](#epic-3-comprehensive-asset-management-system)
+  - [Story 3.1: Asset Category Infrastructure](#story-31-asset-category-infrastructure)
+  - [Story 3.2: Asset-Persona Ownership Model](#story-32-asset-persona-ownership-model)
+  - [Story 3.3: Document & Photo Management with PII Protection](#story-33-document--photo-management-with-pii-protection)
+  - [Story 3.4: Individual Asset Permissions](#story-34-individual-asset-permissions)
+  - [Story 3.5: Asset Dashboard & Visualization](#story-35-asset-dashboard--visualization)
+  - [Story 3.6: HEI Integration (Read-Only)](#story-36-hei-integration-read-only)
+  - [Story 3.7: Free Plan Onboarding](#story-37-free-plan-onboarding)
+  - [Story 3.8: One-Time Service Purchase](#story-38-one-time-service-purchase)
+  - [Story 3.9: Dynamic UI for Plan Types](#story-39-dynamic-ui-for-plan-types)
+- [Epic 4: Advanced Features & Integrations](#epic-4-advanced-features--integrations)
+  - [Story 4.1: Advanced Search & Filtering System](#story-41-advanced-search--filtering-system)
+  - [Story 4.2: Comprehensive Reporting & Analytics](#story-42-comprehensive-reporting--analytics)
+  - [Story 4.3: Comprehensive Audit Trail System](#story-43-comprehensive-audit-trail-system)
+  - [Story 4.4: Bulk Operations & Data Management](#story-44-bulk-operations--data-management)
+  - [Story 4.5: Advisor Sponsored Plans](#story-45-advisor-sponsored-plans)
+  - [Story 4.6: General Ledger & Financial Tracking](#story-46-general-ledger--financial-tracking)
+  - [Story 4.7: Third-Party Integration Framework](#story-47-third-party-integration-framework)
+  - [Story 4.8: Quillt API Integration for Financial Accounts](#story-48-quillt-api-integration-for-financial-accounts)
+  - [Story 4.9: Real Estate Data Provider Integration](#story-49-real-estate-data-provider-integration)
+  - [Story 4.10: Performance Optimization & Caching](#story-410-performance-optimization--caching)
+- [Epic 5: Multi-Language Support (US Market)](#epic-5-multi-language-support-us-market)
+  - [Story 5.1: Spanish Language Foundation](#story-51-spanish-language-foundation)
+- [Epic 6: SOC 2 Compliance & Trust Management Platform](#epic-6-soc-2-compliance--trust-management-platform)
+  - [Story 6.1: Vanta API Foundation & Authentication](#story-61-vanta-api-foundation--authentication)
+  - [Story 6.2: Automated SOC 2 Evidence Collection](#story-62-automated-soc-2-evidence-collection)
+  - [Story 6.3: Customer-Facing Trust Center](#story-63-customer-facing-trust-center)
+  - [Story 6.4: Continuous Risk Management & Monitoring](#story-64-continuous-risk-management--monitoring)
+  - [Story 6.5: Automated Security Questionnaire Response](#story-65-automated-security-questionnaire-response)
+  - [Story 6.6: Advanced Compliance Analytics & Reporting](#story-66-advanced-compliance-analytics--reporting)
+- [Epic 7: React Performance Optimization & User Experience Enhancement](#epic-7-react-performance-optimization--user-experience-enhancement)
+  - [Story 7.1: Bundle Optimization & Code Splitting](#story-71-bundle-optimization--code-splitting)
+  - [Story 7.2: React Compiler & Rendering Optimization](#story-72-react-compiler--rendering-optimization)
+  - [Story 7.3: Progressive Web App (PWA) Implementation](#story-73-progressive-web-app-pwa-implementation)
+  - [Story 7.4: Image & Document Optimization](#story-74-image--document-optimization)
+  - [Story 7.5: Runtime Performance Monitoring](#story-75-runtime-performance-monitoring)
+  - [Story 7.6: Server-Side Rendering (SSR) Exploration](#story-76-server-side-rendering-ssr-exploration)
+  - [Story 7.7: Accessibility Performance](#story-77-accessibility-performance)
+
+### 📈 Success & Risk Management
+- [Success Metrics](#success-metrics)
+  - [Launch Metrics (Day 1-30)](#launch-metrics-day-1-30)
+  - [Growth Metrics (Day 31-90)](#growth-metrics-day-31-90)
+  - [Subscription & Revenue Metrics](#subscription--revenue-metrics)
+  - [North Star Metric](#north-star-metric)
+  - [Business KPIs](#business-kpis)
+- [Risk Mitigation](#risk-mitigation)
+  - [Risk Scoring Matrix](#risk-scoring-matrix)
+  - [Security Risks](#security-risks)
+  - [Technical Risks](#technical-risks)
+  - [Business Risks](#business-risks)
+  - [Early Warning System](#early-warning-system)
+
+### 🚀 Implementation Planning
+- [Development Phases](#development-phases)
+  - [Phase 1A: Foundation and Core Features](#phase-1a-foundation-and-core-features-days-1-60)
+  - [Phase 1B: Enhancement and Optimization](#phase-1b-enhancement-and-optimization-days-61-120)
+- [Conclusion](#conclusion)
+
+---
+
+## 📊 Project Context
+
+> **🎯 Core Mission**: Transform traditional individual-focused wealth management into collaborative family-centered inheritance planning with comprehensive asset management and estate planning collaboration.
+
+**Related Sections:**
+- 📈 [Strategic Insights](#strategic-insights) - Market positioning and business model
+- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - MVP feature definition
+- ⚙️ [Technical Architecture](#technical-architecture) - Implementation approach
 
 ### Vision
 Create a single source of truth for inheritance planning with collaborative, living plans that evolve with family needs, enabling transparent wealth transfer across generations.
@@ -73,7 +179,16 @@ Based on market research and industry studies:
 7. EstateExec probate statistics, 2023
 8. Williams Group wealth transfer research, 20-year longitudinal study
 
-## Strategic Insights
+## 📈 Strategic Insights
+
+> **🎯 Market Opportunity**: $6.4B TAM with 32M households needing collaborative inheritance planning solutions.
+
+**Related Sections:**
+- 📊 [Project Context](#project-context) - Vision and mission alignment
+- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Strategic feature prioritization
+- 📋 [Success Metrics](#success-metrics) - Business performance targets
+
+---
 
 ### Target Market
 - **Primary**: Mass-affluent/HNW families seeking tax-efficient wealth transfer and collaborative estate planning
@@ -118,7 +233,17 @@ Based on market research and industry studies:
 - Setup, periodic check-ins, life events (births, deaths, marriages, divorces)
 - Seasonal tax planning and annual reviews
 
-## Phase 1A Scope & Core Features
+## 🎯 Phase 1A Scope & Core Features
+
+> **🚀 MVP Goal**: Launch with marketing foundation, complete FFC onboarding, and comprehensive asset management in 60 days.
+
+**Related Sections:**
+- 📋 [Epic Structure](#epic-structure--implementation-roadmap) - Detailed implementation plan
+- ⚙️ [Technical Architecture](#technical-architecture) - Technical implementation approach
+- 📈 [Success Metrics](#success-metrics) - Launch success criteria
+- 🚨 [Risk Mitigation](#risk-mitigation) - Implementation risk management
+
+---
 
 ### **Phase 1A: True MVP Core (Days 1-60)**
 **Goal**: Launch with marketing foundation, complete FFC onboarding, HEI integration, and comprehensive asset management
@@ -213,7 +338,17 @@ Based on market research and industry studies:
 
 ---
 
-## Technical Architecture
+## ⚙️ Technical Architecture
+
+> **🔧 Core Strategy**: Type-safe, secure, and scalable architecture using modern fullstack technologies with emphasis on developer experience and system reliability.
+
+**Related Sections:**
+- 📋 [Epic Requirements](#epic-structure--implementation-roadmap) - Feature-to-tech mapping
+- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Technical implementation priorities
+- 🗄️ [Database Schema](#database-schema) - Data architecture details
+- 📈 [Performance Requirements](#performance-requirements) - Technical success criteria
+
+---
 
 ### Core Architecture Principles
 
@@ -524,7 +659,17 @@ Based on market research and industry studies:
 
 **See architecture.md for complete table definitions, triggers, constraints, and indexes.**
 
-## Success Metrics
+## 📈 Success Metrics
+
+> **🎯 North Star**: Enable 64,000 families to successfully manage their inheritance planning by Year 3, generating $12.8M ARR.
+
+**Related Sections:**
+- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Feature-metric alignment
+- 📈 [Strategic Insights](#strategic-insights) - Business model validation
+- 🚨 [Risk Mitigation](#risk-mitigation) - Risk-metric relationships
+- 📋 [Epic Structure](#epic-structure--implementation-roadmap) - Feature success tracking
+
+---
 
 ### Launch Metrics (Day 1-30)
 - **Registration Completion Rate**: >85%
@@ -690,13 +835,35 @@ Based on market research and industry studies:
 - Failed verification attempts >10% � Security review
 - Asset creation abandonment >30% � UX analysis
 
-## Epic Structure & Implementation
+## 📋 Epic Structure & Implementation
+
+> **🎯 Implementation Strategy**: 7 comprehensive epics delivering complete Forward Inheritance Platform over 18 months, prioritizing security, user experience, and business value.
+
+**Epic Overview & Dependencies:**
+- **Epic 1** → **Epic 2**: Marketing foundation enables user acquisition for FFC onboarding
+- **Epic 2** → **Epic 3**: Secure onboarding enables comprehensive asset management
+- **Epic 3** → **Epic 4**: Asset foundation enables advanced features and integrations
+- **Epic 4** ↔ **Epic 5**: Advanced features support multi-language capabilities
+- **Epic 6**: Compliance runs parallel to ensure enterprise readiness
+- **Epic 7**: Performance optimization enhances all user-facing features
+
+**Related Sections:**
+- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Epic prioritization rationale
+- ⚙️ [Technical Architecture](#technical-architecture) - Technical implementation approach
+- 📈 [Success Metrics](#success-metrics) - Epic success measurement
+- 🚨 [Risk Mitigation](#risk-mitigation) - Epic-specific risk management
+
+---
 
 ### Epic 1: Marketing Foundation & Landing Page
 
-**Goal**: Establish marketing independence through Builder.io CMS integration and high-converting landing pages.
+**Epic Goal**: Establish marketing independence through Builder.io CMS integration and high-converting landing pages.
+
+**Business Value**: Enable marketing team autonomy, reduce developer dependencies, and create measurable lead generation foundation for platform growth.
 
 **Duration**: 2 weeks (Sprints 1-2)
+
+**Strategic Priority**: High - Critical for marketing independence and user acquisition
 
 #### Story 1.1: Builder.io CMS Integration
 **As a** marketing team member  
@@ -710,6 +877,11 @@ Based on market research and industry studies:
 - Content changes reflect in production within 5 minutes
 - A/B testing capabilities enabled
 
+**Related Concepts**:
+- 🔗 [Story 1.3: Lead Capture System](#story-13-lead-capture-system) - Content drives lead generation
+- 🔗 [Epic 2: FFC Onboarding](#epic-2-ffc-onboarding-flow-with-enhanced-security) - Landing pages funnel to onboarding
+- 🔗 [Technical Architecture](#technical-architecture) - Builder.io integration details
+
 #### Story 1.2: Landing Page Performance & SEO
 **As a** visitor  
 **I want** fast-loading, discoverable landing pages  
@@ -721,6 +893,11 @@ Based on market research and industry studies:
 - SEO meta tags and structured data implemented
 - Mobile responsiveness across all devices
 - Analytics tracking configured (Google Analytics, Hotjar)
+
+**Related Concepts**:
+- 🔗 [Success Metrics](#success-metrics) - Performance measurement targets
+- 🔗 [Epic 7: Performance Optimization](#epic-7-performance-optimization-advanced-caching) - Advanced performance enhancements
+- 🔗 [Story 1.3: Lead Capture System](#story-13-lead-capture-system) - Analytics feed conversion tracking
 
 #### Story 1.3: Lead Capture System
 **As a** potential customer  
@@ -734,6 +911,11 @@ Based on market research and industry studies:
 - Automated follow-up email sequence
 - Lead scoring and qualification workflow
 
+**Related Concepts**:
+- 🔗 [Story 2.1: User Registration](#story-21-user-registration--email-verification) - Lead conversion to user accounts
+- 🔗 [Success Metrics](#success-metrics) - Lead conversion tracking
+- 🔗 [Business Model](#business-model) - Lead value and revenue attribution
+
 **Database Implementation**:
 **Database implementation details are documented in architecture.md**
 
@@ -741,9 +923,13 @@ See architecture.md section "Epic 1: Marketing Foundation" for complete database
 
 ### Epic 2: FFC Onboarding Flow with Enhanced Security
 
-**Goal**: Enable secure family circle creation with mandatory dual-channel verification.
+**Epic Goal**: Enable secure family circle creation with mandatory dual-channel verification.
+
+**Business Value**: Establish trust and security foundation, ensuring only verified family members access sensitive financial data while maintaining user-friendly onboarding experience.
 
 **Duration**: 3 weeks (Sprints 3-5)
+
+**Strategic Priority**: Critical - Security foundation for entire platform
 
 #### Story 2.1: User Registration & Email Verification
 **As a** new user  
@@ -756,6 +942,12 @@ See architecture.md section "Epic 1: Marketing Foundation" for complete database
 - Account lockout after 5 failed attempts
 - Password reset functionality
 - Terms of service and privacy policy acceptance
+
+**Related Concepts**:
+- 🔗 [Story 1.3: Lead Capture System](#story-13-lead-capture-system) - Lead to user conversion flow
+- 🔗 [Story 2.4: Phone Verification System](#story-24-phone-verification-system) - Multi-factor authentication
+- 🔗 [Epic 6: Compliance Framework](#epic-6-compliance-framework-gdpr--sox) - Privacy and security requirements
+- 🔗 [Security Considerations](#security-considerations) - Password and authentication standards
 
 **Database Implementation**:
 **Database implementation details are documented in architecture.md**
@@ -774,6 +966,11 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete database opera
 - Initial role assignment (Owner)
 - Success confirmation with next steps
 
+**Related Concepts**:
+- 🔗 [Story 2.3: Enhanced Member Invitation System](#story-23-enhanced-member-invitation-system) - Next step after FFC creation
+- 🔗 [Epic 3: Asset Management](#epic-3-comprehensive-asset-management) - Asset creation follows FFC setup
+- 🔗 [Role-Based Access Controls](#role-based-access-controls) - Owner permissions and responsibilities
+
 #### Story 2.3: Enhanced Member Invitation System
 **As an** FFC owner  
 **I want** to invite family members with dual-channel verification  
@@ -785,6 +982,12 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete database opera
 - Invite expiration after 7 days
 - Role assignment during invitation
 - Owner approval required for all invitations
+
+**Related Concepts**:
+- 🔗 [Story 2.4: Phone Verification System](#story-24-phone-verification-system) - Dual-channel verification details
+- 🔗 [Story 2.5: Owner Approval Workflow](#story-25-owner-approval-workflow) - Approval process specifications
+- 🔗 [Role-Based Access Controls](#role-based-access-controls) - Role assignment implications
+- 🔗 [Security Considerations](#security-considerations) - Invitation security measures
 
 **Database implementation details are documented in architecture.md**
 
@@ -802,6 +1005,12 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete member invitat
 - Maximum 3 verification attempts
 - Fallback to voice call option
 
+**Related Concepts**:
+- 🔗 [Story 2.1: User Registration](#story-21-user-registration--email-verification) - Multi-factor authentication approach
+- 🔗 [Story 2.3: Enhanced Member Invitation System](#story-23-enhanced-member-invitation-system) - Invitation prerequisite
+- 🔗 [Technical Architecture](#technical-architecture) - Twilio integration specifications
+- 🔗 [Security Considerations](#security-considerations) - SMS verification security measures
+
 #### Story 2.5: Owner Approval Workflow
 **As an** FFC owner  
 **I want** to approve member invitations after verification  
@@ -814,11 +1023,21 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete member invitat
 - Member onboarding email after approval
 - Activity log for all approval decisions
 
+**Related Concepts**:
+- 🔗 [Story 2.3: Enhanced Member Invitation System](#story-23-enhanced-member-invitation-system) - Invitation workflow integration
+- 🔗 [Story 2.4: Phone Verification System](#story-24-phone-verification-system) - Verification prerequisite
+- 🔗 [Epic 3: Asset Management](#epic-3-comprehensive-asset-management-system) - Post-approval member capabilities
+- 🔗 [Role-Based Access Controls](#role-based-access-controls) - Owner permission verification
+
 ### Epic 3: Comprehensive Asset Management System
 
-**Goal**: Enable secure tracking and management of all 13 asset categories with document support and PII protection.
+**Epic Goal**: Enable secure tracking and management of all 13 asset categories with document support and PII protection.
+
+**Business Value**: Provide core platform value proposition - comprehensive family wealth tracking with enterprise-grade security and privacy protection, enabling informed financial decision-making.
 
 **Duration**: 4 weeks (Sprints 6-9)
+
+**Strategic Priority**: Critical - Core platform functionality and primary value driver
 
 **Database Implementation**: All database operations for asset management, document handling, and PII processing are documented in architecture.md section "Epic 3: Asset Management & PII Protection"
 
@@ -834,6 +1053,12 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete member invitat
 - Validation rules per asset type
 - Category icons and descriptions
 
+**Related Concepts**:
+- 🔗 [Story 3.2: Asset-Persona Ownership Model](#story-32-asset-persona-ownership-model) - Asset ownership assignment
+- 🔗 [Story 3.5: Asset Dashboard & Visualization](#story-35-asset-dashboard--visualization) - Category-based visualization
+- 🔗 [Asset Categories](#asset-categories) - Complete category definitions
+- 🔗 [Technical Architecture](#technical-architecture) - Database schema specifications
+
 #### Story 3.2: Asset-Persona Ownership Model
 **As an** asset owner  
 **I want** direct ownership tracking  
@@ -845,6 +1070,12 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete member invitat
 - Ownership type classification (direct, trust, beneficiary)
 - Ownership transfer functionality
 - Ownership history tracking
+
+**Related Concepts**:
+- 🔗 [Story 3.1: Asset Category Infrastructure](#story-31-asset-category-infrastructure) - Asset foundation requirements
+- 🔗 [Story 3.4: Individual Asset Permissions](#story-34-individual-asset-permissions) - Ownership-based permission model
+- 🔗 [Epic 4: Integrations](#epic-4-advanced-integrations--financial-data) - Automated ownership updates
+- 🔗 [Role-Based Access Controls](#role-based-access-controls) - Permission inheritance from ownership
 
 **Database Implementation**:
 **Database implementation details are documented in architecture.md**
@@ -864,6 +1095,12 @@ See architecture.md section "Epic 3: Asset Management" for complete database ope
 - Original document encryption in S3
 - Automatic PII detection and masking
 - Separate storage for PII-masked versions
+
+**Related Concepts**:
+- 🔗 [Epic 6: Compliance Framework](#epic-6-compliance-framework-gdpr--sox) - GDPR and data protection requirements
+- 🔗 [Story 3.4: Individual Asset Permissions](#story-34-individual-asset-permissions) - Document access controls
+- 🔗 [Security Considerations](#security-considerations) - Document encryption and access
+- 🔗 [Technical Architecture](#technical-architecture) - AWS PII protection pipeline
 
 **PII Protection System Architecture**:
 **AWS-Native Document Processing Pipeline**
@@ -903,6 +1140,12 @@ This serverless approach ensures scalability, security, and compliance without m
 - Bulk permission management
 - Permission audit trail
 
+**Related Concepts**:
+- 🔗 [Story 3.2: Asset-Persona Ownership Model](#story-32-asset-persona-ownership-model) - Ownership-permission relationship
+- 🔗 [Story 3.3: Document & Photo Management](#story-33-document--photo-management-with-pii-protection) - Document access controls
+- 🔗 [Role-Based Access Controls](#role-based-access-controls) - Permission inheritance structure
+- 🔗 [Epic 6: Compliance Framework](#epic-6-compliance-framework-gdpr--sox) - Privacy compliance requirements
+
 #### Story 3.5: Asset Dashboard & Visualization
 **As an** FFC member  
 **I want** clear visualization of family assets  
@@ -915,6 +1158,12 @@ This serverless approach ensures scalability, security, and compliance without m
 - Filter by ownership, category, value
 - Export capabilities (PDF, Excel)
 - Mobile-responsive design
+
+**Related Concepts**:
+- 🔗 [Story 3.1: Asset Category Infrastructure](#story-31-asset-category-infrastructure) - Category structure foundation
+- 🔗 [Story 3.4: Individual Asset Permissions](#story-34-individual-asset-permissions) - Permission-filtered visualization
+- 🔗 [Epic 7: Performance Optimization](#epic-7-performance-optimization-advanced-caching) - Dashboard performance optimization
+- 🔗 [Success Metrics](#success-metrics) - Dashboard engagement tracking
 
 #### Story 3.6: HEI Integration (Read-Only)
 **As a** family with HEI loans  
@@ -970,9 +1219,18 @@ This serverless approach ensures scalability, security, and compliance without m
 
 ### Epic 4: Advanced Features & Integrations
 
-**Goal**: Enhance platform capabilities with subscription platform, payment processing, advanced search, reporting, audit trails, and third-party integrations.
+**Epic Goal**: Enhance platform capabilities with subscription platform, payment processing, advanced search, reporting, audit trails, and third-party integrations.
+
+**Business Value**: Transform basic asset tracking into powerful business intelligence platform, enabling advanced analytics, compliance reporting, and ecosystem integrations that justify premium pricing.
 
 **Duration**: 3 weeks (Sprints 10-12)
+
+**Strategic Priority**: High - Competitive differentiation and revenue optimization
+
+**Related Sections**:
+- 🔗 [Epic 3: Asset Management](#epic-3-comprehensive-asset-management-system) - Data foundation for advanced features
+- 🔗 [Epic 6: Compliance Framework](#epic-6-compliance-framework-gdpr--sox) - Compliance requirements for audit trails
+- 🔗 [Epic 7: Performance Optimization](#epic-7-performance-optimization-advanced-caching) - Optimization for search and reporting
 
 **Database Implementation**: All database operations for search, reporting, audit trails, integrations, and Quillt API functions are documented in architecture.md section "Epic 4: Reporting, Analytics & Integrations" and "Integration Architecture > Quillt Integration"
 
@@ -1171,11 +1429,13 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 
 ### Epic 5: Multi-Language Support (US Market)
 
-**Goal**: Expand market reach to underserved Spanish-speaking communities in the US with native language support and cultural adaptations.
+**Epic Goal**: Expand market reach to underserved Spanish-speaking communities in the US with native language support and cultural adaptations.
+
+**Business Value**: Access $170M ARR market opportunity with zero direct competition, expanding addressable market by 300% while serving underrepresented communities with critical financial planning needs.
 
 **Duration**: 6 months (Post-MVP, Year 1 expansion)
 
-**Strategic Priority**: High - $170M ARR market opportunity with zero competition
+**Strategic Priority**: High - Significant market expansion with competitive moat
 
 #### Story 5.1: Spanish Language Foundation
 **As a** Spanish-speaking user  
@@ -1215,6 +1475,10 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 **Epic Goal**: Establish enterprise-grade compliance, security transparency, and customer trust through comprehensive Vanta API integration, automated SOC 2 compliance monitoring, and real-time security posture visibility.
 
 **Business Value**: Enable faster enterprise sales cycles, reduce security questionnaire burden by 90%, achieve SOC 2 Type II certification, and build customer trust through transparent security practices.
+
+**Duration**: 4 months (Post-MVP, parallel to growth)
+
+**Strategic Priority**: Critical - Enterprise market access and trust foundation
 
 **Market Impact**: $2.4M+ ARR opportunity from enterprise customers requiring SOC 2 compliance for vendor approval.
 
