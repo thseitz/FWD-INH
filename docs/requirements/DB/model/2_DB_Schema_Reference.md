@@ -14,8 +14,8 @@
 The Forward Inheritance Platform database consists of **70+ tables** organized into logical functional areas. The schema supports multi-tenant architecture, comprehensive asset management, subscription billing, and detailed audit tracking.
 
 ### Key Statistics
-- **Total Tables**: 70+ (including 14 subscription/payment tables)
-- **Enum Types**: 71 (including 12 subscription/payment enums)
+- **Total Tables**: 72+ (including 14 subscription/payment tables, 2 UI collection mask tables)
+- **Enum Types**: 73 (including 12 subscription/payment enums, 2 UI collection mask enums)
 - **Views**: 1 (payment_methods_with_usage for payment protection)
 - **Database Operations**:
   - **SQL Query Files**: 99 (converted from stored procedures)
@@ -269,6 +269,10 @@ erDiagram
 - **persona_relationships**: Family relationship tracking
 - **contact_relationships**: External contact relationships
 
+### 9. UI Collection Mask System (2 tables)
+- **ui_entity**: Maps logical entity codes to physical table names
+- **ui_collection_mask**: Defines UI field configurations for dynamic form generation
+
 ## Enum Definitions
 
 ### Core System Enums
@@ -351,6 +355,15 @@ CREATE TYPE invitation_status_enum AS ENUM ('sent', 'phone_verified', 'accepted'
 
 -- PII processing status
 CREATE TYPE pii_status_enum AS ENUM ('pending', 'processing', 'completed', 'failed');
+```
+
+### UI Collection Mask System
+```sql
+-- Field collection requirements
+CREATE TYPE collection_requirement AS ENUM ('mandatory', 'optional');
+
+-- UI field types for dynamic form generation
+CREATE TYPE ui_field_type AS ENUM ('text', 'int', 'real', 'phone', 'zip', 'email', 'date', 'year', 'currency', 'currency_code', 'enum');
 ```
 
 ## Indexing Strategy
@@ -467,6 +480,18 @@ ALTER TABLE builder_io_integrations ADD CONSTRAINT uq_builder_page UNIQUE (page_
 - Purpose: Active user session management
 - Key Fields: `id` UUID (PK), `user_id` UUID (FK), `session_token`, `expires_at`, `is_active`
 - Relationships: Belongs to users
+
+#### UI Collection Mask System
+
+**ui_entity**
+- Purpose: Maps logical entity codes to physical table names for UI form generation
+- Key Fields: `entity_code` TEXT (PK), `table_name` TEXT (UNIQUE)
+- Relationships: Parent to ui_collection_mask
+
+**ui_collection_mask**
+- Purpose: Defines how database columns should be rendered in UI forms
+- Key Fields: `entity_code` TEXT (FK), `column_name` TEXT, `requirement`, `field_type`, `display_order`, `note`
+- Relationships: References ui_entity(entity_code), enables metadata-driven form generation
 
 ---
 

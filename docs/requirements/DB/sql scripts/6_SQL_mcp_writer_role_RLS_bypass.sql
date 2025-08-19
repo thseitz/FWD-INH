@@ -1,9 +1,0 @@
-CREATE ROLE mcp_writer LOGIN PASSWORD 'FGt!3reGTdt5BG!';
-GRANT CONNECT ON DATABASE fwd_db TO mcp_writer;
-GRANT USAGE ON SCHEMA public TO mcp_writer;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO mcp_writer;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO mcp_writer;
--- Optional (allow DDL like createTable):
-GRANT CREATE ON SCHEMA public TO mcp_writer;
-
-ALTER ROLE mcp_writer BYPASSRLS; -- bypasses RLS

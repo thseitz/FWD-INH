@@ -2243,6 +2243,189 @@ AssetCard.Actions = function Actions({ onEdit, onDelete }: ActionProps) {
 </AssetCard>
 ```
 
+#### Dynamic Form Generation Pattern (UI Collection Mask)
+
+The platform uses a metadata-driven form generation system that dynamically creates forms based on database configuration. For assets, this requires merging two UI collection masks: the base asset mask and the specific asset type mask.
+
+**Core Architecture:**
+```typescript
+// types/uiCollectionMask.ts
+export interface UIEntity {
+  entityCode: string;      // 'ASSETS', 'REAL_ESTATE', 'FINANCIAL_ACCOUNTS', etc.
+  tableName: string;       // 'assets', 'real_estate', 'financial_accounts', etc.
+}
+
+export interface UICollectionMask {
+  entityCode: string;
+  columnName: string;
+  requirement: 'mandatory' | 'optional';
+  fieldType: 'text' | 'int' | 'real' | 'phone' | 'zip' | 'email' | 'date' | 'year' | 'currency' | 'currency_code' | 'enum';
+  displayOrder: number;
+  note?: string;           // Enum choices in pipe-separated format
+}
+
+export interface MergedAssetMask {
+  baseFields: UICollectionMask[];      // From ASSETS entity
+  typeFields: UICollectionMask[];      // From specific asset type entity
+  allFields: UICollectionMask[];       // Merged and sorted by display_order
+  mandatory: UICollectionMask[];
+  optional: UICollectionMask[];
+}
+```
+
+**Asset Form Hook (Merged Masks):**
+```typescript
+// hooks/useAssetForm.ts
+import { useQuery } from '@tanstack/react-query';
+import { uiCollectionMaskService } from '../services/uiCollectionMaskService';
+
+export const useAssetForm = (assetType: string) => {
+  return useQuery({
+    queryKey: ['asset-form-mask', assetType],
+    queryFn: () => uiCollectionMaskService.getAssetFormMask(assetType),
+    staleTime: 10 * 60 * 1000,  // 10 minutes - forms don't change often
+    select: (data: MergedAssetMask) => ({
+      ...data,
+      mandatoryBase: data.baseFields.filter(f => f.requirement === 'mandatory'),
+      mandatoryType: data.typeFields.filter(f => f.requirement === 'mandatory'),
+      optionalBase: data.baseFields.filter(f => f.requirement === 'optional'),
+      optionalType: data.typeFields.filter(f => f.requirement === 'optional')
+    })
+  });
+};
+```
+
+**Service Layer (Single API Call, Two DB Queries):**
+```typescript
+// services/uiCollectionMaskService.ts
+export const uiCollectionMaskService = {
+  // Single API call that internally does two DB queries and merges
+  getAssetFormMask: async (assetType: string): Promise<MergedAssetMask> => {
+    const response = await apiClient.get(`/ui-collection-mask/asset-form/${assetType}`);
+    return response.data;
+  },
+  
+  // For non-asset entities (single mask lookup)
+  getByEntityCode: async (entityCode: string): Promise<UICollectionMask[]> => {
+    const response = await apiClient.get(`/ui-collection-mask/entity/${entityCode}`);
+    return response.data;
+  }
+};
+```
+
+**Backend API Implementation:**
+```typescript
+// Backend: controllers/ui-collection-mask.controller.ts
+@Get('asset-form/:assetType')
+async getAssetFormMask(@Param('assetType') assetType: string): Promise<MergedAssetMask> {
+  // Two database queries in parallel
+  const [baseFields, typeFields] = await Promise.all([
+    this.uiCollectionMaskService.getByEntityCode('ASSETS'),
+    this.uiCollectionMaskService.getByEntityCode(assetType.toUpperCase())
+  ]);
+  
+  // Merge and sort by display_order
+  const allFields = [...baseFields, ...typeFields]
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+  
+  return {
+    baseFields,
+    typeFields, 
+    allFields,
+    mandatory: allFields.filter(f => f.requirement === 'mandatory'),
+    optional: allFields.filter(f => f.requirement === 'optional')
+  };
+}
+```
+
+**Progressive Asset Form Pattern:**
+```typescript
+// components/assets/DynamicAssetForm.tsx
+export function DynamicAssetForm({ assetType }: { assetType: string }) {
+  const { data: maskConfig, isLoading } = useAssetForm(assetType);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  if (isLoading) return <FormSkeleton />;
+  
+  return (
+    <Form>
+      {/* Base Asset Fields (Required) */}
+      <FieldGroup title="Basic Asset Information">
+        {maskConfig.mandatoryBase.map(field => (
+          <DynamicField key={field.columnName} field={field} {...fieldProps} />
+        ))}
+      </FieldGroup>
+      
+      {/* Asset Type Specific Fields (Required) */}
+      {maskConfig.mandatoryType.length > 0 && (
+        <FieldGroup title={`${assetType} Details`}>
+          {maskConfig.mandatoryType.map(field => (
+            <DynamicField key={field.columnName} field={field} {...fieldProps} />
+          ))}
+        </FieldGroup>
+      )}
+      
+      {/* Progressive disclosure for all optional fields */}
+      {(maskConfig.optionalBase.length > 0 || maskConfig.optionalType.length > 0) && (
+        <>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? 'Hide' : 'Show'} Advanced Fields 
+            ({maskConfig.optionalBase.length + maskConfig.optionalType.length})
+          </Button>
+          
+          {showAdvanced && (
+            <>
+              {maskConfig.optionalBase.length > 0 && (
+                <FieldGroup title="Additional Asset Information">
+                  {maskConfig.optionalBase.map(field => (
+                    <DynamicField key={field.columnName} field={field} {...fieldProps} />
+                  ))}
+                </FieldGroup>
+              )}
+              
+              {maskConfig.optionalType.length > 0 && (
+                <FieldGroup title={`Additional ${assetType} Information`}>
+                  {maskConfig.optionalType.map(field => (
+                    <DynamicField key={field.columnName} field={field} {...fieldProps} />
+                  ))}
+                </FieldGroup>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </Form>
+  );
+}
+```
+
+**Database Query Implementation:**
+```sql
+-- Backend: Two queries executed in parallel, then merged
+-- Query 1: Base asset fields
+SELECT column_name, requirement::text, field_type::text, display_order, note 
+FROM ui_collection_mask 
+WHERE entity_code = 'ASSETS' 
+ORDER BY display_order;
+
+-- Query 2: Specific asset type fields  
+SELECT column_name, requirement::text, field_type::text, display_order, note 
+FROM ui_collection_mask 
+WHERE entity_code = $1  -- e.g., 'REAL_ESTATE'
+ORDER BY display_order;
+```
+
+**Benefits:**
+- **Single API Call**: Frontend makes one request, backend handles complexity
+- **Optimized Performance**: Two DB queries run in parallel
+- **Clear Separation**: Base vs type-specific fields are clearly distinguished in UI
+- **Flexible Display**: Can group fields logically (Basic Info vs Real Estate Details)
+- **Type Safety**: Full TypeScript support throughout the chain
+
 ### Routing Architecture
 
 ```typescript

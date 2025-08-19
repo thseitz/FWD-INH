@@ -205,6 +205,12 @@ function generateTestParams(fileName: string, content: string, testData: any): a
         params.push(faker.person.fullName());
       } else if (fileName.includes('builder') && content.includes('p_space_id')) {
         params.push('test_space');  // Use known Builder.io space ID
+      } else if (fileName.includes('ui_mask_by_table_name')) {
+        // UI collection mask query by table name
+        params.push('assets');  // Use known table name
+      } else if (fileName.includes('ui_mask_by_entity_code')) {
+        // UI collection mask query by entity code
+        params.push('ASSETS');  // Use known entity code
       } else {
         params.push(faker.lorem.word());
       }

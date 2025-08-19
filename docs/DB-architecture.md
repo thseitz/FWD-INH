@@ -193,6 +193,10 @@ The database uses the following PostgreSQL extensions:
 - `sync_status_enum`: 'pending', 'in_progress', 'completed', 'failed', 'partial'
 - `webhook_status_enum`: 'pending', 'delivered', 'failed', 'retrying'
 
+### UI Collection Mask Enums
+- `collection_requirement`: 'mandatory', 'optional' - Specifies whether a field is required or optional for collection
+- `ui_field_type`: 'text', 'int', 'real', 'phone', 'zip', 'email', 'date', 'year', 'currency', 'currency_code', 'enum' - Defines how fields should be rendered in the UI
+
 ## Tables (Organized by Category)
 
 ### Core System Tables
@@ -1194,6 +1198,38 @@ Track real estate data synchronization.
 - Status (sync_status, error_message)
 - Timing (initiated_at, completed_at)
 
+### UI Collection Mask Tables
+
+#### ui_entity
+Maps logical entity codes to physical table names for the UI collection mask system.
+
+**Columns:**
+- `entity_code` (TEXT, PRIMARY KEY) - UPPERCASE logical entity identifier (e.g., 'ASSETS', 'DIRECTIVES')
+- `table_name` (TEXT, NOT NULL, UNIQUE) - Physical database table name
+
+**Purpose:**
+Provides an abstraction layer between logical entity names used in the UI and actual database table names, enabling flexible form generation and data collection workflows.
+
+#### ui_collection_mask
+Defines the UI mask configuration for database columns, enabling dynamic form generation in the frontend.
+
+**Columns:**
+- `entity_code` (TEXT, NOT NULL) - Foreign key to ui_entity(entity_code)
+- `column_name` (TEXT, NOT NULL) - Database column name
+- `requirement` (collection_requirement, NOT NULL) - Whether field is 'mandatory' or 'optional'
+- `field_type` (ui_field_type, NOT NULL) - UI field type for rendering
+- `display_order` (INTEGER, NOT NULL) - Order for field display
+- `note` (TEXT) - Additional metadata (e.g., enum choices in pipe-separated format)
+
+**Primary Key:** (entity_code, column_name)
+
+**Constraints:**
+- `ui_collection_mask_order_uniq`: UNIQUE (entity_code, display_order) DEFERRABLE INITIALLY IMMEDIATE
+- `entity_code` → `ui_entity(entity_code)` ON DELETE CASCADE
+
+**Purpose:**
+Enables metadata-driven form generation by defining how database columns should be presented and collected in the UI. Supports 11 field types including text, numeric, date, currency, and enum fields with progressive disclosure (mandatory vs optional).
+
 ## Relationships (Foreign Keys - Deduplicated)
 
 ### Tenant Relationships
@@ -1278,6 +1314,9 @@ Each asset type table has:
 - `quillt_webhook_logs.integration_id` → `quillt_integrations(id)`
 - `real_estate_sync_logs.integration_id` → `real_estate_provider_integrations(id)`
 - `real_estate_sync_logs.property_id` → `real_estate(id)`
+
+### UI Collection Mask Relationships
+- `ui_collection_mask.entity_code` → `ui_entity(entity_code)` ON DELETE CASCADE
 
 ### Self-Referential Relationships
 - `asset_categories.parent_category_id` → `asset_categories(id)`

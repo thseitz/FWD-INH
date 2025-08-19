@@ -310,6 +310,10 @@ CREATE TYPE integration_status_enum AS ENUM ('connected', 'disconnected', 'error
 CREATE TYPE sync_status_enum AS ENUM ('pending', 'in_progress', 'completed', 'failed', 'partial');
 CREATE TYPE webhook_status_enum AS ENUM ('pending', 'delivered', 'failed', 'retrying');
 
+-- UI Collection Mask enums
+CREATE TYPE collection_requirement AS ENUM ('mandatory', 'optional');
+CREATE TYPE ui_field_type AS ENUM ('text','int','real','phone','zip','email','date','year','currency','currency_code','enum');
+
 -- ================================================================
 -- TABLE DEFINITIONS (Without Foreign Key Constraints)
 -- ================================================================
@@ -3165,6 +3169,29 @@ CREATE INDEX idx_general_ledger_reconciled ON general_ledger(reconciled) WHERE r
 -- Stripe events indexes
 CREATE INDEX idx_stripe_events_status ON stripe_events(status) WHERE status IN ('pending', 'processing');
 CREATE INDEX idx_stripe_events_type ON stripe_events(event_type);
+
+-- ================================================================
+-- UI COLLECTION MASK TABLES
+-- ================================================================
+
+-- Entity Table - Maps logical entity codes to physical table names
+CREATE TABLE ui_entity (
+  entity_code   text PRIMARY KEY,    -- short identifier, e.g. 'ASSETS'
+  table_name    text NOT NULL UNIQUE -- actual table name in DB
+);
+
+-- Mask Table - Defines UI mask for columns of a table
+CREATE TABLE ui_collection_mask (
+  entity_code   text NOT NULL REFERENCES ui_entity(entity_code) ON DELETE CASCADE,
+  column_name   text NOT NULL,
+  requirement   collection_requirement NOT NULL,
+  field_type    ui_field_type NOT NULL,
+  display_order int NOT NULL,
+  note          text,
+  PRIMARY KEY (entity_code, column_name),
+  CONSTRAINT ui_collection_mask_order_uniq
+    UNIQUE (entity_code, display_order) DEFERRABLE INITIALLY IMMEDIATE
+);
 
 -- ================================================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS

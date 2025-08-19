@@ -1053,6 +1053,57 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete member invitat
 - Validation rules per asset type
 - Category icons and descriptions
 
+#### UI Collection Mask System Implementation
+
+**As a** user creating or editing assets  
+**I want** intuitive, adaptive forms that show only relevant fields  
+**So that** I can efficiently enter information without being overwhelmed
+
+**Core User Experience**:
+1. **Progressive Disclosure**: Forms start with essential fields, with "Show Advanced Fields" button for optional information
+2. **Smart Field Types**: 11 different field types (text, currency, date, phone, email, etc.) with appropriate validation and UI controls
+3. **Asset Type Adaptation**: Forms automatically combine base asset fields with asset-type-specific fields
+4. **Contextual Help**: Enum fields show dropdown choices, currency fields format automatically, date fields provide calendar pickers
+
+**Dynamic Form Generation Features**:
+- **Metadata-Driven Forms**: All form structures stored in database, enabling updates without code changes
+- **Merged Asset Forms**: Combines base asset fields (name, description) with specific type fields (property address for Real Estate, account type for Financial Accounts)
+- **Field Type Intelligence**: 
+  - `currency` fields auto-format with $ and commas
+  - `phone` fields format with proper country codes  
+  - `enum` fields populate dropdowns from database configuration
+  - `date` and `year` fields provide appropriate pickers
+  - `email` fields include validation and formatting
+- **Progressive Asset Attribute Architecture**: Clear separation between mandatory (always visible) and optional (expandable) field groups
+
+**User Journey Example - Creating Real Estate Asset**:
+1. **Basic Asset Information** (always visible):
+   - Asset name (required)
+   - Description 
+   - Current value (currency field with auto-formatting)
+2. **Real Estate Details** (always visible):
+   - Property type (enum dropdown: Single Family, Condo, etc.)
+   - Property address (text with address validation)
+   - Purchase date (date picker)
+3. **Advanced Fields** (expandable section):
+   - Property use (enum: Primary Residence, Rental, etc.)
+   - Mortgage information
+   - Property tax details
+   - Insurance information
+
+**Technical Implementation Benefits**:
+- **Single API Call**: Frontend requests merged form configuration for any asset type
+- **Type Safety**: Full TypeScript support for all 11 field types
+- **Performance**: Form configurations cached for 10+ minutes, rarely change
+- **Extensibility**: New field types and asset categories added via database configuration
+- **Consistency**: All asset forms follow identical interaction patterns
+
+**Business Value**:
+- **Reduced Development Time**: New asset types require database configuration, not code changes  
+- **Improved User Experience**: Users see only relevant fields, reducing cognitive load
+- **Data Quality**: Appropriate field types ensure proper validation and formatting
+- **Scalability**: Form system adapts to new requirements without UI rewrites
+
 **Related Concepts**:
 - 🔗 [Story 3.2: Asset-Persona Ownership Model](#story-32-asset-persona-ownership-model) - Asset ownership assignment
 - 🔗 [Story 3.5: Asset Dashboard & Visualization](#story-35-asset-dashboard--visualization) - Category-based visualization
