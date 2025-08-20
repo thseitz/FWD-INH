@@ -1,25 +1,25 @@
 -- ================================================================
--- Converted from: sp_configure_quillt_integration()
+-- Converted from: sp_configure_quiltt_integration()
 -- Type: INSERT with ON CONFLICT UPDATE (UPSERT)
--- Description: Configure or update Quillt integration
+-- Description: Configure or update Quiltt integration
 -- Parameters:
 --   $1: p_user_id UUID - User ID
 --   $2: p_access_token TEXT - Access token
---   $3: p_quillt_connection_id TEXT - Quillt connection ID
+--   $3: p_quiltt_connection_id TEXT - Quiltt connection ID
 --   $4: p_refresh_token TEXT - Refresh token (optional)
---   $5: p_quillt_profile_id TEXT - Quillt profile ID (optional)
+--   $5: p_quiltt_profile_id TEXT - Quiltt profile ID (optional)
 -- Returns: Integration record
 -- NOTE: Audit log insert should be handled separately in service layer
 -- ================================================================
 
--- This query creates or updates a Quillt integration configuration
+-- This query creates or updates a Quiltt integration configuration
 -- Uses ON CONFLICT to handle updates to existing integrations
 
-INSERT INTO quillt_integrations (
+INSERT INTO quiltt_integrations (
     tenant_id,
     user_id,
-    quillt_connection_id,
-    quillt_profile_id,
+    quiltt_connection_id,
+    quiltt_profile_id,
     access_token_encrypted,
     refresh_token_encrypted,
     token_expires_at,
@@ -42,8 +42,8 @@ INSERT INTO quillt_integrations (
     TRUE
 )
 ON CONFLICT (tenant_id, user_id) DO UPDATE SET
-    quillt_connection_id = EXCLUDED.quillt_connection_id,
-    quillt_profile_id = EXCLUDED.quillt_profile_id,
+    quiltt_connection_id = EXCLUDED.quiltt_connection_id,
+    quiltt_profile_id = EXCLUDED.quiltt_profile_id,
     access_token_encrypted = EXCLUDED.access_token_encrypted,
     refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
     token_expires_at = EXCLUDED.token_expires_at,
@@ -53,6 +53,6 @@ RETURNING
     id,
     tenant_id,
     user_id,
-    quillt_connection_id,
+    quiltt_connection_id,
     is_active,
     token_expires_at;

@@ -270,7 +270,7 @@ The following 10 procedures remain as stored procedures due to complexity:
 5. **sp_purchase_service** - Payment processing logic
 6. **sp_process_stripe_webhook** - Dynamic webhook routing
 7. **sp_rebuild_projection** - Event sourcing projection
-8. **sp_sync_quillt_data** - Financial data synchronization
+8. **sp_sync_quiltt_data** - Financial data synchronization
 9. **sp_sync_real_estate_data** - Property data sync
 10. **sp_refresh_builder_content** - CMS content refresh
 

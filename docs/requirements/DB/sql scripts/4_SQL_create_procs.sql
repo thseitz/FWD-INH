@@ -23,7 +23,7 @@
 --
 -- INTEGRATION PROCEDURES (18):
 -- - PII Management (2): sp_detect_pii, sp_update_pii_job_status
--- - Quillt Integration (4): configure, sync_data, validate_credentials, get_sync_status
+-- - Quiltt Integration (4): configure, sync_data, validate_credentials, get_sync_status
 -- - Real Estate (2): sp_sync_real_estate_data, sp_get_real_estate_sync_history
 -- - Advisor Companies (2): sp_manage_advisor_company, sp_get_advisor_companies
 -- - Integration Health (2): sp_check_integration_health, sp_retry_failed_integration
@@ -2276,16 +2276,16 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ================================================================
--- QUILLT INTEGRATION PROCEDURES
+-- QUILTT INTEGRATION PROCEDURES
 -- ================================================================
 
--- Configure Quillt integration
-CREATE OR REPLACE FUNCTION sp_configure_quillt_integration(
+-- Configure Quiltt integration
+CREATE OR REPLACE FUNCTION sp_configure_quiltt_integration(
     p_user_id UUID,
     p_access_token TEXT,
-    p_quillt_connection_id TEXT,
+    p_quiltt_connection_id TEXT,
     p_refresh_token TEXT DEFAULT NULL,
-    p_quillt_profile_id TEXT DEFAULT NULL
+    p_quiltt_profile_id TEXT DEFAULT NULL
 ) RETURNS UUID AS $$
 DECLARE
     v_integration_id UUID;
@@ -2293,12 +2293,12 @@ DECLARE
 BEGIN
     v_tenant_id := COALESCE(current_tenant_id(), 1); -- Default to tenant 1 for testing
     
-    -- Insert or update Quillt integration
-    INSERT INTO quillt_integrations (
+    -- Insert or update Quiltt integration
+    INSERT INTO quiltt_integrations (
         tenant_id,
         user_id,
-        quillt_connection_id,
-        quillt_profile_id,
+        quiltt_connection_id,
+        quiltt_profile_id,
         access_token_encrypted,
         refresh_token_encrypted,
         token_expires_at,
@@ -2306,16 +2306,16 @@ BEGIN
     ) VALUES (
         v_tenant_id,
         p_user_id,
-        p_quillt_connection_id,
-        p_quillt_profile_id,
+        p_quiltt_connection_id,
+        p_quiltt_profile_id,
         p_access_token, -- Store as plain text for now
         p_refresh_token,
         (NOW() + INTERVAL '30 days'),
         TRUE
     )
     ON CONFLICT (tenant_id, user_id) DO UPDATE SET
-        quillt_connection_id = EXCLUDED.quillt_connection_id,
-        quillt_profile_id = EXCLUDED.quillt_profile_id,
+        quiltt_connection_id = EXCLUDED.quiltt_connection_id,
+        quiltt_profile_id = EXCLUDED.quiltt_profile_id,
         access_token_encrypted = EXCLUDED.access_token_encrypted,
         refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
         token_expires_at = EXCLUDED.token_expires_at,
@@ -2337,8 +2337,8 @@ BEGIN
         'system'::audit_entity_type_enum,
         v_integration_id,
         jsonb_build_object(
-            'quillt_connection_id', p_quillt_connection_id,
-            'quillt_profile_id', p_quillt_profile_id
+            'quiltt_connection_id', p_quiltt_connection_id,
+            'quiltt_profile_id', p_quiltt_profile_id
         )
     );
     
@@ -2346,8 +2346,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Sync Quillt data
-CREATE OR REPLACE FUNCTION sp_sync_quillt_data(
+-- Sync Quiltt data
+CREATE OR REPLACE FUNCTION sp_sync_quiltt_data(
     p_user_id UUID,
     p_sync_type VARCHAR(50) DEFAULT 'full',
     p_data_categories JSONB DEFAULT '["accounts", "transactions", "documents"]'
@@ -2367,15 +2367,15 @@ BEGIN
     
     -- Get active integration
     SELECT id INTO v_integration_id
-    FROM quillt_integrations
+    FROM quiltt_integrations
     WHERE user_id = p_user_id AND is_active = TRUE;
     
     IF v_integration_id IS NULL THEN
-        RAISE EXCEPTION 'No active Quillt integration found';
+        RAISE EXCEPTION 'No active Quiltt integration found';
     END IF;
     
     -- Create webhook log entry
-    INSERT INTO quillt_webhook_logs (
+    INSERT INTO quiltt_webhook_logs (
         integration_id,
         webhook_id,
         event_type,
@@ -2395,12 +2395,12 @@ BEGIN
         NOW()
     ) RETURNING id INTO v_webhook_id;
     
-    -- Simulate sync process (in production, this would call Quillt API)
+    -- Simulate sync process (in production, this would call Quiltt API)
     -- For now, just update timestamps and counts
     v_records_count := floor(random() * 100 + 1)::INTEGER;
     
     -- Update last sync time
-    UPDATE quillt_integrations SET
+    UPDATE quiltt_integrations SET
         last_sync_at = NOW(),
         last_successful_sync_at = NOW(),
         sync_status = 'completed',
@@ -2408,7 +2408,7 @@ BEGIN
     WHERE id = v_integration_id;
     
     -- Update webhook log
-    UPDATE quillt_webhook_logs SET
+    UPDATE quiltt_webhook_logs SET
         processing_status = 'delivered',
         processed_at = NOW()
     WHERE id = v_webhook_id;
@@ -2427,8 +2427,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Validate Quillt credentials
-CREATE OR REPLACE FUNCTION sp_validate_quillt_credentials(
+-- Validate Quiltt credentials
+CREATE OR REPLACE FUNCTION sp_validate_quiltt_credentials(
     p_user_id UUID,
     p_access_token TEXT DEFAULT NULL
 ) RETURNS TABLE (
@@ -2442,7 +2442,7 @@ DECLARE
 BEGIN
     -- Get integration
     SELECT * INTO v_integration
-    FROM quillt_integrations
+    FROM quiltt_integrations
     WHERE user_id = p_user_id AND is_active = TRUE;
     
     IF v_integration IS NULL THEN
@@ -2460,7 +2460,7 @@ BEGIN
     -- Check token expiry
     IF v_integration."token_expires_at" < NOW() THEN
         -- Token expired
-        UPDATE quillt_integrations SET
+        UPDATE quiltt_integrations SET
             is_active = FALSE,
             change_summary = "completed_at" || jsonb_build_object('deactivation_reason', 'token_expired'),
             updated_at = NOW()
@@ -2490,8 +2490,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Get Quillt sync status
-CREATE OR REPLACE FUNCTION sp_get_quillt_sync_status(
+-- Get Quiltt sync status
+CREATE OR REPLACE FUNCTION sp_get_quiltt_sync_status(
     p_user_id UUID,
     p_days_back INTEGER DEFAULT 7
 ) RETURNS TABLE (
@@ -2506,7 +2506,7 @@ BEGIN
     WITH integration_info AS (
         SELECT 
             qi.*
-        FROM quillt_integrations qi
+        FROM quiltt_integrations qi
         WHERE qi.user_id = p_user_id
         AND qi.tenant_id = COALESCE(current_tenant_id(), 1)
     ),
@@ -2521,7 +2521,7 @@ BEGIN
                     'records', COALESCE(qwl.payload->'records_synced', '0'::jsonb)
                 ) ORDER BY qwl.received_at DESC
             ) as logs
-        FROM quillt_webhook_logs qwl
+        FROM quiltt_webhook_logs qwl
         JOIN integration_info ii ON qwl.integration_id = ii.id
         WHERE qwl.received_at > (NOW() - INTERVAL '1 day' * p_days_back)
     ),
@@ -2531,7 +2531,7 @@ BEGIN
             COUNT(*) FILTER (WHERE qwl.processing_status = 'delivered') as successful_syncs,
             COUNT(*) FILTER (WHERE qwl.processing_status = 'failed') as failed_syncs,
             AVG(COALESCE((qwl.payload->>'records_synced')::INTEGER, 0)) as avg_records_per_sync
-        FROM quillt_webhook_logs qwl
+        FROM quiltt_webhook_logs qwl
         JOIN integration_info ii ON qwl.integration_id = ii.id
         WHERE qwl.received_at > (NOW() - INTERVAL '1 day' * p_days_back)
     )
@@ -2898,7 +2898,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Check integration health
 CREATE OR REPLACE FUNCTION sp_check_integration_health(
-    p_integration_type VARCHAR(50) DEFAULT NULL -- 'quillt', 'builder', 'real_estate', or NULL for all
+    p_integration_type VARCHAR(50) DEFAULT NULL -- 'quiltt', 'builder', 'real_estate', or NULL for all
 ) RETURNS TABLE (
     integration_type VARCHAR,
     integration_name VARCHAR,
@@ -2908,17 +2908,17 @@ CREATE OR REPLACE FUNCTION sp_check_integration_health(
     health_details JSONB
 ) AS $$
 BEGIN
-    -- Check Quillt integrations
-    IF p_integration_type IS NULL OR p_integration_type = 'quillt' THEN
+    -- Check Quiltt integrations
+    IF p_integration_type IS NULL OR p_integration_type = 'quiltt' THEN
         RETURN QUERY
         SELECT 
-            'quillt'::VARCHAR,
-            'Quillt Integration'::VARCHAR,
+            'quiltt'::VARCHAR,
+            'Quiltt Integration'::VARCHAR,
             qi.is_active AND qi.token_expires_at > NOW(),
             qi.last_sync_at,
             COALESCE(
                 (SELECT COUNT(*) FILTER (WHERE processing_status = 'failed')::DECIMAL / NULLIF(COUNT(*), 0)
-                 FROM quillt_webhook_logs 
+                 FROM quiltt_webhook_logs 
                  WHERE integration_id = qi.id 
                  AND received_at > (NOW() - INTERVAL '24 hours')),
                 0
@@ -2929,7 +2929,7 @@ BEGIN
                 'sync_accounts', COUNT(*) FILTER (WHERE qi.sync_accounts = TRUE),
                 'sync_transactions', COUNT(*) FILTER (WHERE qi.sync_transactions = TRUE)
             )
-        FROM quillt_integrations qi
+        FROM quiltt_integrations qi
         WHERE qi.tenant_id = COALESCE(current_tenant_id(), 1)
         GROUP BY qi.is_active, qi.token_expires_at, qi.last_sync_at, qi.id;
     END IF;
@@ -3002,9 +3002,9 @@ BEGIN
     v_user_id := COALESCE(p_user_id, current_user_id());
     
     CASE p_integration_type
-        WHEN 'quillt' THEN
+        WHEN 'quiltt' THEN
             -- Update webhook log to retry
-            UPDATE quillt_webhook_logs SET
+            UPDATE quiltt_webhook_logs SET
                 processing_status = 'retrying',
                 retry_count = COALESCE(retry_count, 0) + p_retry_count,
                 processed_at = NULL
@@ -3013,7 +3013,7 @@ BEGIN
             
             v_success := FOUND;
             v_details := jsonb_build_object(
-                'integration_type', 'quillt',
+                'integration_type', 'quiltt',
                 'webhook_id', p_integration_id,
                 'retried', v_success
             );

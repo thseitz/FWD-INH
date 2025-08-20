@@ -3,7 +3,7 @@
 ## Table of Contents
 1. [Overview](#overview)
 2. [Stripe Payment Integration](#stripe-payment-integration)
-3. [Quillt Integration Procedures](#quillt-integration-procedures)
+3. [Quiltt Integration Procedures](#quiltt-integration-procedures)
 4. [Real Estate Integration Procedures](#real-estate-integration-procedures)
 5. [Advisor Company Management](#advisor-company-management)
 6. [Builder.io Integration](#builderio-integration)
@@ -13,7 +13,7 @@
 
 ## Overview
 
-The Forward Inheritance Platform's integration operations have been largely converted from stored procedures to individual SQL queries, with complex synchronization procedures retained. These operations connect with external services including Quillt for financial data, Stripe for payments, real estate valuation services, Builder.io for content management, and translation services.
+The Forward Inheritance Platform's integration operations have been largely converted from stored procedures to individual SQL queries, with complex synchronization procedures retained. These operations connect with external services including Quiltt for financial data, Stripe for payments, real estate valuation services, Builder.io for content management, and translation services.
 
 ### Migration Status
 - **Converted to SQL**: 15 of 18 procedures (83%)
@@ -24,8 +24,8 @@ The Forward Inheritance Platform's integration operations have been largely conv
 - **Stripe Payment Integration**: Mostly converted to SQL (1 kept)
   - `call_sp_process_stripe_webhook.sql` - Complex webhook routing (KEPT)
   - Payment status updates converted to SQL
-- **Quillt Financial Integration**: Mostly converted (1 kept)
-  - `call_sp_sync_quillt_data.sql` - Complex sync logic (KEPT)
+- **Quiltt Financial Integration**: Mostly converted (1 kept)
+  - `call_sp_sync_quiltt_data.sql` - Complex sync logic (KEPT)
   - Configuration and validation converted to SQL
 - **Real Estate Services**: Mostly converted (1 kept)
   - `call_sp_sync_real_estate_data.sql` - Multi-provider sync (KEPT)
@@ -174,13 +174,13 @@ Synchronizes product catalog with Stripe.
 3. Create missing products in Stripe
 4. Log synchronization results
 
-## Quillt Integration Procedures
+## Quiltt Integration Procedures
 
-### sp_configure_quillt_integration
-Configures or updates Quillt financial data integration settings.
+### sp_configure_quiltt_integration
+Configures or updates Quiltt financial data integration settings.
 
 ```sql
-CREATE OR REPLACE FUNCTION sp_configure_quillt_integration(
+CREATE OR REPLACE FUNCTION sp_configure_quiltt_integration(
     p_user_id UUID,
     p_connection_id VARCHAR(255),
     p_profile_id VARCHAR(255) DEFAULT NULL,
@@ -196,16 +196,16 @@ BEGIN
     
     -- Check for existing integration
     SELECT id INTO v_integration_id
-    FROM quillt_integrations
+    FROM quiltt_integrations
     WHERE tenant_id = v_tenant_id AND user_id = p_user_id;
     
     IF v_integration_id IS NULL THEN
         -- Create new integration
-        INSERT INTO quillt_integrations (
+        INSERT INTO quiltt_integrations (
             tenant_id,
             user_id,
-            quillt_connection_id,
-            quillt_profile_id,
+            quiltt_connection_id,
+            quiltt_profile_id,
             access_token_encrypted,
             refresh_token_encrypted,
             sync_accounts,
@@ -228,9 +228,9 @@ BEGIN
         ) RETURNING id INTO v_integration_id;
     ELSE
         -- Update existing integration
-        UPDATE quillt_integrations SET
-            quillt_connection_id = COALESCE(p_connection_id, quillt_connection_id),
-            quillt_profile_id = COALESCE(p_profile_id, quillt_profile_id),
+        UPDATE quiltt_integrations SET
+            quiltt_connection_id = COALESCE(p_connection_id, quiltt_connection_id),
+            quiltt_profile_id = COALESCE(p_profile_id, quiltt_profile_id),
             access_token_encrypted = COALESCE(encrypt_text(p_access_token), access_token_encrypted),
             refresh_token_encrypted = COALESCE(encrypt_text(p_refresh_token), refresh_token_encrypted),
             sync_accounts = COALESCE((p_sync_settings->>'sync_accounts')::boolean, sync_accounts),
@@ -256,9 +256,9 @@ BEGIN
         'configure',
         'integration',
         v_integration_id,
-        'Quillt Integration',
+        'Quiltt Integration',
         jsonb_build_object(
-            'integration_type', 'quillt',
+            'integration_type', 'quiltt',
             'sync_settings', p_sync_settings
         )
     );
@@ -274,11 +274,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 - Automatic connection status management
 - Complete audit logging of configuration changes
 
-### sp_sync_quillt_data
-Synchronizes financial data from Quillt for a user.
+### sp_sync_quiltt_data
+Synchronizes financial data from Quiltt for a user.
 
 ```sql
-CREATE OR REPLACE FUNCTION sp_sync_quillt_data(
+CREATE OR REPLACE FUNCTION sp_sync_quiltt_data(
     p_user_id UUID,
     p_sync_type VARCHAR(50) DEFAULT 'all'
 ) RETURNS TABLE (
@@ -304,17 +304,17 @@ BEGIN
     
     -- Get integration configuration
     SELECT id INTO v_integration_id
-    FROM quillt_integrations
+    FROM quiltt_integrations
     WHERE tenant_id = v_tenant_id 
     AND user_id = p_user_id
     AND is_active = TRUE;
     
     IF v_integration_id IS NULL THEN
-        RAISE EXCEPTION 'No active Quillt integration found for user';
+        RAISE EXCEPTION 'No active Quiltt integration found for user';
     END IF;
     
     -- Update sync status to running
-    UPDATE quillt_integrations SET
+    UPDATE quiltt_integrations SET
         sync_status = 'running',
         last_sync_at = (NOW() AT TIME ZONE 'UTC')
     WHERE id = v_integration_id;
@@ -322,26 +322,26 @@ BEGIN
     BEGIN
         -- Sync accounts if enabled
         IF p_sync_type IN ('all', 'accounts') THEN
-            -- Actual sync logic would call Quillt API here
+            -- Actual sync logic would call Quiltt API here
             v_accounts_count := 5; -- Placeholder for actual sync
         END IF;
         
         -- Sync transactions if enabled
         IF p_sync_type IN ('all', 'transactions') THEN
-            -- Actual sync logic would call Quillt API here
+            -- Actual sync logic would call Quiltt API here
             v_transactions_count := 150; -- Placeholder for actual sync
         END IF;
         
         -- Sync investments if enabled
         IF p_sync_type IN ('all', 'investments') THEN
-            -- Actual sync logic would call Quillt API here
+            -- Actual sync logic would call Quiltt API here
             v_investments_count := 3; -- Placeholder for actual sync
         END IF;
         
         v_status := 'completed';
         
         -- Update successful sync timestamp
-        UPDATE quillt_integrations SET
+        UPDATE quiltt_integrations SET
             sync_status = v_status,
             last_successful_sync_at = (NOW() AT TIME ZONE 'UTC'),
             sync_error = NULL
@@ -352,7 +352,7 @@ BEGIN
         v_errors := 1;
         
         -- Update with error information
-        UPDATE quillt_integrations SET
+        UPDATE quiltt_integrations SET
             sync_status = v_status,
             sync_error = SQLERRM
         WHERE id = v_integration_id;
@@ -373,7 +373,7 @@ BEGIN
         'sync',
         'integration',
         v_integration_id,
-        'Quillt Data Sync',
+        'Quiltt Data Sync',
         jsonb_build_object(
             'sync_id', v_sync_id,
             'sync_type', p_sync_type,
@@ -392,11 +392,11 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### sp_validate_quillt_credentials
-Validates Quillt API credentials and connection.
+### sp_validate_quiltt_credentials
+Validates Quiltt API credentials and connection.
 
 ```sql
-CREATE OR REPLACE FUNCTION sp_validate_quillt_credentials(
+CREATE OR REPLACE FUNCTION sp_validate_quiltt_credentials(
     p_user_id UUID
 ) RETURNS TABLE (
     is_valid BOOLEAN,
@@ -416,13 +416,13 @@ BEGIN
     -- Get integration
     SELECT id, connection_status 
     INTO v_integration_id, v_status
-    FROM quillt_integrations
+    FROM quiltt_integrations
     WHERE tenant_id = v_tenant_id AND user_id = p_user_id;
     
     IF v_integration_id IS NULL THEN
         RETURN QUERY
         SELECT FALSE, 'not_configured'::VARCHAR(50), 
-               'No Quillt integration configured'::TEXT, 
+               'No Quiltt integration configured'::TEXT, 
                NULL::TIMESTAMP WITH TIME ZONE;
         RETURN;
     END IF;
@@ -435,7 +435,7 @@ BEGIN
         v_error := NULL;
         
         -- Update integration status
-        UPDATE quillt_integrations SET
+        UPDATE quiltt_integrations SET
             connection_status = v_status,
             updated_at = (NOW() AT TIME ZONE 'UTC')
         WHERE id = v_integration_id;
@@ -445,7 +445,7 @@ BEGIN
         v_status := 'disconnected';
         v_error := SQLERRM;
         
-        UPDATE quillt_integrations SET
+        UPDATE quiltt_integrations SET
             connection_status = v_status,
             sync_error = v_error,
             updated_at = (NOW() AT TIME ZONE 'UTC')
@@ -458,11 +458,11 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### sp_get_quillt_sync_status
-Retrieves current sync status and history for Quillt integration.
+### sp_get_quiltt_sync_status
+Retrieves current sync status and history for Quiltt integration.
 
 ```sql
-CREATE OR REPLACE FUNCTION sp_get_quillt_sync_status(
+CREATE OR REPLACE FUNCTION sp_get_quiltt_sync_status(
     p_user_id UUID,
     p_include_history BOOLEAN DEFAULT FALSE
 ) RETURNS TABLE (
@@ -515,7 +515,7 @@ BEGIN
         qi.sync_investments,
         qi.sync_error,
         COALESCE(v_history, '[]'::jsonb)
-    FROM quillt_integrations qi
+    FROM quiltt_integrations qi
     WHERE qi.tenant_id = v_tenant_id
     AND qi.user_id = p_user_id;
 END;
@@ -1157,9 +1157,9 @@ BEGIN
     v_tenant_id := current_tenant_id();
     
     RETURN QUERY
-    -- Quillt integrations
+    -- Quiltt integrations
     SELECT 
-        'quillt'::VARCHAR(50),
+        'quiltt'::VARCHAR(50),
         qi.id,
         qi.connection_status = 'connected' AND qi.sync_error IS NULL,
         qi.updated_at,
@@ -1167,12 +1167,12 @@ BEGIN
         qi.sync_error,
         CASE 
             WHEN qi.connection_status != 'connected' THEN 
-                ARRAY['Reconnect to Quillt', 'Verify API credentials']
+                ARRAY['Reconnect to Quiltt', 'Verify API credentials']
             WHEN qi.last_successful_sync_at < (NOW() - INTERVAL '7 days') THEN
                 ARRAY['Sync data to get latest updates']
             ELSE ARRAY[]::TEXT[]
         END
-    FROM quillt_integrations qi
+    FROM quiltt_integrations qi
     WHERE qi.tenant_id = v_tenant_id
     AND qi.is_active = TRUE
     
@@ -1234,10 +1234,10 @@ BEGIN
         
         BEGIN
             CASE p_integration_type
-                WHEN 'quillt' THEN
-                    -- Retry Quillt sync
-                    PERFORM sp_sync_quillt_data(
-                        (SELECT user_id FROM quillt_integrations WHERE id = p_integration_id)
+                WHEN 'quiltt' THEN
+                    -- Retry Quiltt sync
+                    PERFORM sp_sync_quiltt_data(
+                        (SELECT user_id FROM quiltt_integrations WHERE id = p_integration_id)
                     );
                     v_success := TRUE;
                     

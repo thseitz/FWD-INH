@@ -247,8 +247,8 @@ async function populateTestData(client: Client, tenantId: number) {
     
     // 9. Create integration configs
     await client.query(`
-      INSERT INTO quillt_integrations (
-        tenant_id, user_id, quillt_connection_id, quillt_profile_id, is_active, sync_accounts, sync_transactions
+      INSERT INTO quiltt_integrations (
+        tenant_id, user_id, quiltt_connection_id, quiltt_profile_id, is_active, sync_accounts, sync_transactions
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (tenant_id, user_id) DO NOTHING

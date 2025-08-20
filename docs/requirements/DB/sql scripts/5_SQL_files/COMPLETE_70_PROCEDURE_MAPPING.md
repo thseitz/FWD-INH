@@ -52,21 +52,21 @@
 | 33.2 | | create_pii_detection_job.sql |
 | 33.3 | | update_pii_detection_job.sql |
 | 34 | sp_update_pii_job_status | update_pii_job_status.sql |
-| 35 | sp_configure_quillt_integration | configure_quillt_integration.sql |
-| 36 | sp_sync_quillt_data | **KEPT** - call_sp_sync_quillt_data.sql |
-| 37.1 | sp_validate_quillt_credentials | validate_quillt_get_integration.sql |
-| 37.2 | | validate_quillt_deactivate_expired.sql |
-| 38 | sp_get_quillt_sync_status | get_quillt_sync_status.sql |
+| 35 | sp_configure_quiltt_integration | configure_quiltt_integration.sql |
+| 36 | sp_sync_quiltt_data | **KEPT** - call_sp_sync_quiltt_data.sql |
+| 37.1 | sp_validate_quiltt_credentials | validate_quiltt_get_integration.sql |
+| 37.2 | | validate_quiltt_deactivate_expired.sql |
+| 38 | sp_get_quiltt_sync_status | get_quiltt_sync_status.sql |
 | 39 | sp_sync_real_estate_data | **KEPT** - call_sp_sync_real_estate_data.sql |
 | 40 | sp_get_real_estate_sync_history | get_real_estate_sync_history.sql |
 | 41.1 | sp_manage_advisor_company | create_advisor_company.sql |
 | 41.2 | | update_advisor_company.sql |
 | 41.3 | | delete_advisor_company.sql |
 | 42 | sp_get_advisor_companies | get_advisor_companies.sql |
-| 43.1 | sp_check_integration_health | check_health_quillt.sql |
+| 43.1 | sp_check_integration_health | check_health_quiltt.sql |
 | 43.2 | | check_health_builder.sql |
 | 43.3 | | check_health_real_estate.sql |
-| 44.1 | sp_retry_failed_integration | retry_quillt_integration.sql |
+| 44.1 | sp_retry_failed_integration | retry_quiltt_integration.sql |
 | 44.2 | | retry_real_estate_sync.sql |
 | 44.3 | | log_integration_retry.sql |
 | 45 | sp_configure_builder_io | configure_builder_io.sql |

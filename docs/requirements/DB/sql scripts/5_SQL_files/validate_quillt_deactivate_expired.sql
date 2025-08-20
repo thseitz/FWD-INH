@@ -1,15 +1,15 @@
 -- ================================================================
--- Converted from: sp_validate_quillt_credentials() - Part 2
+-- Converted from: sp_validate_quiltt_credentials() - Part 2
 -- Type: UPDATE
--- Description: Deactivate expired Quillt integration
+-- Description: Deactivate expired Quiltt integration
 -- Parameters:
 --   $1: p_integration_id UUID - Integration ID to deactivate
 -- Returns: Updated integration record
 -- ================================================================
 
--- Deactivate expired Quillt integration
+-- Deactivate expired Quiltt integration
 
-UPDATE quillt_integrations SET
+UPDATE quiltt_integrations SET
     is_active = FALSE,
     sync_error = 'Token expired - integration deactivated',
     updated_at = NOW()

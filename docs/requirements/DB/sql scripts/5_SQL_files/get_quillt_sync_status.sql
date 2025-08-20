@@ -1,20 +1,20 @@
 -- ================================================================
--- Converted from: sp_get_quillt_sync_status()
+-- Converted from: sp_get_quiltt_sync_status()
 -- Type: Complex Read-Only Query with CTEs
--- Description: Get Quillt integration sync status and statistics
+-- Description: Get Quiltt integration sync status and statistics
 -- Parameters:
 --   $1: p_user_id UUID - User ID to check status for
 --   $2: p_days_back INTEGER - Number of days to look back (default 7)
 -- Returns: Integration status and sync statistics
 -- ================================================================
 
--- This query retrieves Quillt integration status with recent sync history
+-- This query retrieves Quiltt integration status with recent sync history
 -- Uses multiple CTEs to aggregate sync statistics
 
 WITH integration_info AS (
     SELECT 
         qi.*
-    FROM quillt_integrations qi
+    FROM quiltt_integrations qi
     WHERE qi.user_id = $1::UUID
     AND qi.tenant_id = COALESCE(
         CASE 
@@ -36,7 +36,7 @@ recent_logs AS (
                 'records', COALESCE(qwl.payload->'records_synced', '0'::jsonb)
             ) ORDER BY qwl.received_at DESC
         ) as logs
-    FROM quillt_webhook_logs qwl
+    FROM quiltt_webhook_logs qwl
     JOIN integration_info ii ON qwl.integration_id = ii.id
     WHERE qwl.received_at > (NOW() - INTERVAL '1 day' * COALESCE($2::INTEGER, 7))
 ),
@@ -46,7 +46,7 @@ sync_stats AS (
         COUNT(*) FILTER (WHERE qwl.processing_status = 'delivered') as successful_syncs,
         COUNT(*) FILTER (WHERE qwl.processing_status = 'failed') as failed_syncs,
         AVG(COALESCE((qwl.payload->>'records_synced')::INTEGER, 0)) as avg_records_per_sync
-    FROM quillt_webhook_logs qwl
+    FROM quiltt_webhook_logs qwl
     JOIN integration_info ii ON qwl.integration_id = ii.id
     WHERE qwl.received_at > (NOW() - INTERVAL '1 day' * COALESCE($2::INTEGER, 7))
 )

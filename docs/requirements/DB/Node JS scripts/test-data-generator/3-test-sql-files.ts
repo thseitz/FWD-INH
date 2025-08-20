@@ -159,7 +159,7 @@ function generateTestParams(fileName: string, content: string, testData: any): a
     } else if (content.includes(`$${i}::TEXT[]`)) {
       // Check arrays before simple TEXT type
       // Array of text values - optional parameters can be null
-      if (fileName.includes('builder') || fileName.includes('quillt')) {
+      if (fileName.includes('builder') || fileName.includes('quiltt')) {
         params.push(null);  // Optional array parameter
       } else {
         params.push([faker.lorem.word(), faker.lorem.word()]);
@@ -268,11 +268,11 @@ async function testSqlFiles() {
     const tenantResult = await client.query('SELECT id FROM tenants LIMIT 1');
     testData.tenantId = tenantResult.rows[0]?.id || 1;
     
-    // Get user with Quillt integration if exists, otherwise first user
+    // Get user with Quiltt integration if exists, otherwise first user
     const userResult = await client.query(`
       SELECT u.id 
       FROM users u
-      LEFT JOIN quillt_integrations qi ON qi.user_id = u.id AND qi.is_active = true
+      LEFT JOIN quiltt_integrations qi ON qi.user_id = u.id AND qi.is_active = true
       WHERE u.tenant_id = $1
       ORDER BY qi.id IS NOT NULL DESC, u.created_at
       LIMIT 1

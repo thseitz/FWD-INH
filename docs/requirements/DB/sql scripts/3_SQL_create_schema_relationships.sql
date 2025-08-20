@@ -128,8 +128,8 @@ ALTER TABLE advisor_companies ADD CONSTRAINT fk_advisor_companies_tenant
 ALTER TABLE builder_io_integrations ADD CONSTRAINT fk_builder_io_integrations_tenant 
     FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 
--- quillt_integrations
-ALTER TABLE quillt_integrations ADD CONSTRAINT fk_quillt_integrations_tenant 
+-- quiltt_integrations
+ALTER TABLE quiltt_integrations ADD CONSTRAINT fk_quiltt_integrations_tenant 
     FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 
 -- real_estate_provider_integrations
@@ -726,15 +726,15 @@ ALTER TABLE advisor_companies ADD CONSTRAINT fk_advisor_companies_created_by
 ALTER TABLE advisor_companies ADD CONSTRAINT fk_advisor_companies_updated_by 
     FOREIGN KEY (updated_by) REFERENCES users(id);
 
--- quillt_integrations relationships
-ALTER TABLE quillt_integrations ADD CONSTRAINT fk_quillt_integrations_user 
+-- quiltt_integrations relationships
+ALTER TABLE quiltt_integrations ADD CONSTRAINT fk_quiltt_integrations_user 
     FOREIGN KEY (user_id) REFERENCES users(id);
 
--- quillt_webhook_logs relationships
-ALTER TABLE quillt_webhook_logs ADD CONSTRAINT fk_quillt_webhook_logs_user 
+-- quiltt_webhook_logs relationships
+ALTER TABLE quiltt_webhook_logs ADD CONSTRAINT fk_quiltt_webhook_logs_user 
     FOREIGN KEY (user_id) REFERENCES users(id);
-ALTER TABLE quillt_webhook_logs ADD CONSTRAINT fk_quillt_webhook_logs_integration 
-    FOREIGN KEY (integration_id) REFERENCES quillt_integrations(id);
+ALTER TABLE quiltt_webhook_logs ADD CONSTRAINT fk_quiltt_webhook_logs_integration 
+    FOREIGN KEY (integration_id) REFERENCES quiltt_integrations(id);
 
 -- real_estate_sync_logs relationships
 ALTER TABLE real_estate_sync_logs ADD CONSTRAINT fk_real_estate_sync_logs_integration 

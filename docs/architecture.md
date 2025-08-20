@@ -83,7 +83,7 @@
 - [External APIs](#external-apis)
   - [Twilio API](#twilio-api)
   - [SendGrid API](#sendgrid-api)
-  - [Quillt API](#quillt-api)
+  - [Quiltt API](#quiltt-api)
   - [HEI API (Home Equity Investment)](#hei-api-home-equity-investment)
   - [Real Estate Valuation API](#real-estate-valuation-api-phase-2---provider-tbd)
   - [Vanta API](#vanta-api)
@@ -447,7 +447,7 @@ The Forward Inheritance Platform employs a **multi-tenant SaaS architecture** wi
 #### External Integrations
 - **Payments**: Stripe for all payment processing
 - **Communications**: Twilio (SMS), SendGrid (email)
-- **Financial Data**: Quillt API for bank account aggregation
+- **Financial Data**: Quiltt API for bank account aggregation
 - **Compliance**: Vanta for SOC 2 compliance automation
 
 #### Scale & Performance
@@ -524,7 +524,7 @@ graph TB
         ST[Stripe Payments]
         TW[Twilio SMS]
         SG[SendGrid Email]
-        Q[Quillt API]
+        Q[Quiltt API]
         RE[Real Estate API]
     end
     
@@ -758,7 +758,7 @@ async getUserById(params: GetUserByIdParams): Promise<GetUserByIdRow | null> {
 5. `sp_purchase_service` - Payment processing logic
 6. `sp_process_stripe_webhook` - Dynamic webhook routing
 7. `sp_rebuild_projection` - Event sourcing projection
-8. `sp_sync_quillt_data` - Financial data synchronization
+8. `sp_sync_quiltt_data` - Financial data synchronization
 9. `sp_sync_real_estate_data` - Property data sync
 10. `sp_refresh_builder_content` - CMS content refresh
 
@@ -806,7 +806,7 @@ export class EventsGateway {
 **Secondary Use Cases (Unidirectional):**
 - Document processing status updates
 - Payment confirmation notifications
-- Quillt sync progress
+- Quiltt sync progress
 - Asset valuation updates
 
 ### Frontend WebSocket Hook
@@ -1515,8 +1515,8 @@ interface FinancialAccount extends Asset {
   accountNumberLast4?: string;
   currentBalance: number;
   balanceAsOfDate: Date;
-  isQuilltConnected: boolean;
-  quilltConnectionId?: string;
+  isQuilttConnected: boolean;
+  quilttConnectionId?: string;
   // ... 20+ additional fields in actual implementation
 }
 
@@ -1722,19 +1722,19 @@ paths:
         - bearerAuth: []
         
   # Integration Endpoints
-  /integrations/quillt/connect:
+  /integrations/quiltt/connect:
     post:
       tags: [Integrations]
-      summary: Connect Quillt account
-      description: NestJS service orchestrates OAuth flow with Quillt, then sp_configure_quillt_integration
+      summary: Connect Quiltt account
+      description: NestJS service orchestrates OAuth flow with Quiltt, then sp_configure_quiltt_integration
       security:
         - bearerAuth: []
         
-  /integrations/quillt/sync:
+  /integrations/quiltt/sync:
     post:
       tags: [Integrations]
-      summary: Sync Quillt accounts
-      description: NestJS service fetches from Quillt API, processes data, then calls sp_sync_quillt_data
+      summary: Sync Quiltt accounts
+      description: NestJS service fetches from Quiltt API, processes data, then calls sp_sync_quiltt_data
       security:
         - bearerAuth: []
         
@@ -1769,7 +1769,7 @@ Major logical components and services across the fullstack, with clear boundarie
 - **Interceptor Layer**: Caching, logging, performance monitoring, and tenant context management
 - **AWS Step Functions**: Orchestrate document processing pipeline for PII detection
 - **SQS Queue Processors**: Handle async application tasks (notifications, reports, API sync)
-- **External Integration Modules**: Dedicated modules for Quillt, Builder.io, Vanta integrations
+- **External Integration Modules**: Dedicated modules for Quiltt, Builder.io, Vanta integrations
 
 ### Shared Components
 
@@ -1794,10 +1794,10 @@ The platform integrates with several external services to provide comprehensive 
 - **Authentication:** Bearer token with API Key
 - **Rate Limits:** 600 requests/second (unlikely to hit)
 
-### Quillt API
+### Quiltt API
 - **Purpose:** Financial account aggregation and balance synchronization
-- **Documentation:** https://docs.quillt.io/api-reference
-- **Base URL(s):** https://api.quillt.io/v1
+- **Documentation:** https://docs.quiltt.io/api-reference
+- **Base URL(s):** https://api.quiltt.io/v1
 - **Authentication:** OAuth 2.0 with client credentials
 - **Rate Limits:** 100 requests/minute per connection
 
@@ -1939,7 +1939,7 @@ apps/web/src/
 │   │   │   │   └── MortgageDetails.tsx
 │   │   │   ├── FinancialAccounts/
 │   │   │   │   ├── AccountForm.tsx
-│   │   │   │   ├── QuilltConnection.tsx
+│   │   │   │   ├── QuilttConnection.tsx
 │   │   │   │   └── BalanceSync.tsx
 │   │   │   └── [11 other asset types]/
 │   │   ├── hooks/
@@ -2754,7 +2754,7 @@ src/
 │   ├── assets/                   // Asset management with 13 types
 │   ├── documents/                // Document processing
 │   ├── integrations/
-│   │   ├── quillt/              // Financial sync
+│   │   ├── quiltt/              // Financial sync
 │   │   ├── builder-io/          // CMS integration
 │   │   └── vanta/               // Compliance
 │   └── queues/                   // SQS message processors
@@ -4776,7 +4776,7 @@ export class ApiGatewayStack extends Stack {
         maxPayloadSize: 10 * 1024 * 1024, // 10MB
       },
       {
-        path: '/api/integrations/quillt/sync',
+        path: '/api/integrations/quiltt/sync',
         method: 'POST',
         rateLimit: 20,
         burstLimit: 30,
@@ -9828,7 +9828,7 @@ class VantaIntegration {
       { name: 'AWS', critical: true, reviewed: true },
       { name: 'Twilio', critical: true, reviewed: true },
       { name: 'SendGrid', critical: false, reviewed: true },
-      { name: 'Quillt', critical: false, reviewed: true },
+      { name: 'Quiltt', critical: false, reviewed: true },
     ];
     
     await this.vantaClient.updateVendors(vendors);
@@ -10052,7 +10052,7 @@ API Gateway Routes:
   - /accounts/investment/*
 
 External Integrations:
-  - Quillt for account aggregation
+  - Quiltt for account aggregation
   - Plaid as backup provider
 
 Event Types:
@@ -10183,8 +10183,8 @@ Responsibilities:
 
 Database Tables:
   - integration_credentials
-  - quillt_integrations
-  - quillt_webhook_logs
+  - quiltt_integrations
+  - quiltt_webhook_logs
   - builder_io_integrations
   - advisor_companies
 

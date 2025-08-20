@@ -38,11 +38,11 @@ async function testStoredProcedures() {
     
     // Get test data IDs
     const tenantResult = await client.query('SELECT id FROM tenants LIMIT 1');
-    // Get user with Quillt integration if exists
+    // Get user with Quiltt integration if exists
     const userResult = await client.query(`
       SELECT u.id 
       FROM users u
-      LEFT JOIN quillt_integrations qi ON qi.user_id = u.id AND qi.is_active = true
+      LEFT JOIN quiltt_integrations qi ON qi.user_id = u.id AND qi.is_active = true
       WHERE u.tenant_id = $1
       ORDER BY qi.id IS NOT NULL DESC, u.created_at
       LIMIT 1
@@ -133,7 +133,7 @@ async function testStoredProcedures() {
         }
       },
       {
-        name: 'sp_sync_quillt_data',
+        name: 'sp_sync_quiltt_data',
         test: async () => {
           // Start transaction for session context
           await client.query('BEGIN');
@@ -141,7 +141,7 @@ async function testStoredProcedures() {
           await client.query(`SET LOCAL app.current_user_id = '${userId}'`);
           
           const result = await client.query(
-            'SELECT * FROM sp_sync_quillt_data($1, $2, $3)',
+            'SELECT * FROM sp_sync_quiltt_data($1, $2, $3)',
             [userId, 'full', JSON.stringify(['accounts', 'transactions'])]
           );
           await client.query('COMMIT');

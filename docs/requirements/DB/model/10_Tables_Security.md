@@ -824,18 +824,18 @@ CREATE TABLE builder_io_integrations (
 );
 ```
 
-### quillt_integrations table
-Quillt financial data integration.
+### quiltt_integrations table
+Quiltt financial data integration.
 
 ```sql
-CREATE TABLE quillt_integrations (
+CREATE TABLE quiltt_integrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id INTEGER NOT NULL,
     user_id UUID NOT NULL,
     
-    -- Quillt connection
-    quillt_connection_id TEXT NOT NULL,
-    quillt_profile_id TEXT,
+    -- Quiltt connection
+    quiltt_connection_id TEXT NOT NULL,
+    quiltt_profile_id TEXT,
     
     -- OAuth tokens
     access_token_encrypted TEXT,
@@ -865,7 +865,7 @@ CREATE TABLE quillt_integrations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
     
     -- Constraints
-    CONSTRAINT unique_quillt_user UNIQUE (tenant_id, user_id)
+    CONSTRAINT unique_quiltt_user UNIQUE (tenant_id, user_id)
 );
 ```
 

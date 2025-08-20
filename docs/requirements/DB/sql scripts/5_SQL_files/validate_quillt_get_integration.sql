@@ -1,13 +1,13 @@
 -- ================================================================
--- Converted from: sp_validate_quillt_credentials() - Part 1
+-- Converted from: sp_validate_quiltt_credentials() - Part 1
 -- Type: SELECT 
--- Description: Get active Quillt integration for validation
+-- Description: Get active Quiltt integration for validation
 -- Parameters:
 --   $1: p_user_id UUID - User ID
 -- Returns: Integration record with token details
 -- ================================================================
 
--- Get active Quillt integration for user
+-- Get active Quiltt integration for user
 
 SELECT 
     id,
@@ -18,6 +18,6 @@ SELECT
     sync_transactions,
     last_sync_at,
     is_active
-FROM quillt_integrations
+FROM quiltt_integrations
 WHERE user_id = $1::UUID 
   AND is_active = TRUE;

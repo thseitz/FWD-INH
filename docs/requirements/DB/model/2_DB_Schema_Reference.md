@@ -184,8 +184,8 @@ erDiagram
     
     
     %% Financial Data Integration
-    users ||--o{ quillt_integrations : "configured_by"
-    quillt_integrations ||--o{ quillt_sync_logs : "logs"
+    users ||--o{ quiltt_integrations : "configured_by"
+    quiltt_integrations ||--o{ quiltt_sync_logs : "logs"
     
     
     %% External System Integration
@@ -258,8 +258,8 @@ erDiagram
 - **system_configurations**: System-wide settings
 
 ### 7. Integration & External Systems (6 tables)
-- **quillt_integrations**: Financial data integration
-- **quillt_sync_logs**: Quillt synchronization tracking
+- **quiltt_integrations**: Financial data integration
+- **quiltt_sync_logs**: Quiltt synchronization tracking
 - **builder_io_integrations**: Content management integration
 - **real_estate_sync_logs**: Property valuation sync
 - **translations**: Multi-language support

@@ -2526,16 +2526,16 @@ CREATE TABLE builder_io_integrations (
     CONSTRAINT unique_builder_integration UNIQUE (tenant_id, space_id)
 );
 
--- Table 53: quillt_integrations
--- Purpose: Quillt financial data integration
-CREATE TABLE quillt_integrations (
+-- Table 53: quiltt_integrations
+-- Purpose: Quiltt financial data integration
+CREATE TABLE quiltt_integrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id INTEGER NOT NULL,
     user_id UUID NOT NULL,
     
-    -- Quillt connection
-    quillt_connection_id TEXT NOT NULL,
-    quillt_profile_id TEXT,
+    -- Quiltt connection
+    quiltt_connection_id TEXT NOT NULL,
+    quiltt_profile_id TEXT,
     
     -- OAuth tokens
     access_token_encrypted TEXT,
@@ -2565,12 +2565,12 @@ CREATE TABLE quillt_integrations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
-    CONSTRAINT unique_quillt_user UNIQUE (tenant_id, user_id)
+    CONSTRAINT unique_quiltt_user UNIQUE (tenant_id, user_id)
 );
 
--- Table 54: quillt_webhook_logs
--- Purpose: Track Quillt webhook events
-CREATE TABLE quillt_webhook_logs (
+-- Table 54: quiltt_webhook_logs
+-- Purpose: Track Quiltt webhook events
+CREATE TABLE quiltt_webhook_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Webhook details
@@ -2805,8 +2805,8 @@ CREATE INDEX idx_life_insurance_asset ON life_insurance(asset_id);
 CREATE INDEX idx_personal_property_asset ON personal_property(asset_id);
 
 -- Integration indexes
-CREATE INDEX idx_quillt_integrations_user ON quillt_integrations(user_id);
-CREATE INDEX idx_quillt_webhook_logs_status ON quillt_webhook_logs(processing_status) WHERE processing_status = 'pending';
+CREATE INDEX idx_quiltt_integrations_user ON quiltt_integrations(user_id);
+CREATE INDEX idx_quiltt_webhook_logs_status ON quiltt_webhook_logs(processing_status) WHERE processing_status = 'pending';
 
 -- Event sourcing indexes
 CREATE INDEX idx_event_store_aggregate_lookup ON event_store(aggregate_id, event_version);

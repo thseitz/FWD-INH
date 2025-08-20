@@ -1,27 +1,27 @@
 -- ================================================================
--- Converted from: sp_check_integration_health() - Quillt part
+-- Converted from: sp_check_integration_health() - Quiltt part
 -- Type: SELECT
--- Description: Check health of Quillt integrations
+-- Description: Check health of Quiltt integrations
 -- Parameters:
 --   $1: p_tenant_id INTEGER - Tenant ID (optional, uses session if null)
--- Returns: Health status of Quillt integrations
+-- Returns: Health status of Quiltt integrations
 -- ================================================================
 
--- Check Quillt integration health with error rates
+-- Check Quiltt integration health with error rates
 
 WITH integration_errors AS (
     SELECT 
         qi.id,
         COUNT(*) FILTER (WHERE wl.processing_status = 'failed')::DECIMAL / NULLIF(COUNT(*), 0) as error_rate
-    FROM quillt_integrations qi
-    LEFT JOIN quillt_webhook_logs wl ON wl.integration_id = qi.id 
+    FROM quiltt_integrations qi
+    LEFT JOIN quiltt_webhook_logs wl ON wl.integration_id = qi.id 
         AND wl.received_at > (NOW() - INTERVAL '24 hours')
     WHERE qi.tenant_id = COALESCE($1::INTEGER, current_setting('app.current_tenant_id', true)::INTEGER, 1)
     GROUP BY qi.id
 )
 SELECT 
-    'quillt'::VARCHAR as integration_type,
-    'Quillt Integration'::VARCHAR as integration_name,
+    'quiltt'::VARCHAR as integration_type,
+    'Quiltt Integration'::VARCHAR as integration_name,
     (qi.is_active AND qi.token_expires_at > NOW()) as is_healthy,
     qi.last_sync_at as last_activity,
     COALESCE(ie.error_rate, 0) as error_rate,
@@ -32,6 +32,6 @@ SELECT
         'sync_transactions', qi.sync_transactions,
         'last_sync', qi.last_sync_at
     ) as health_details
-FROM quillt_integrations qi
+FROM quiltt_integrations qi
 LEFT JOIN integration_errors ie ON ie.id = qi.id
 WHERE qi.tenant_id = COALESCE($1::INTEGER, current_setting('app.current_tenant_id', true)::INTEGER, 1);

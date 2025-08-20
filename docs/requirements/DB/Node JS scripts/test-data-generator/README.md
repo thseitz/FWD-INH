@@ -20,7 +20,7 @@ Populates the database with comprehensive test data:
 - Creates 10 assets with ownership records
 - Creates subscription plans and subscriptions
 - Creates payment methods for all users
-- Sets up integration configurations (Quillt, Builder.io)
+- Sets up integration configurations (Quiltt, Builder.io)
 
 ### 2. `2-test-stored-procedures.ts`
 Tests all stored procedures:

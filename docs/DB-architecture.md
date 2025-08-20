@@ -71,7 +71,7 @@ The Forward Inheritance Platform uses a PostgreSQL database with a sophisticated
 - Event sourcing architecture for complete audit trails and state reconstruction
 - Comprehensive audit logging and compliance tracking
 - PII detection and data masking capabilities
-- Integration support for third-party services (Quillt, Builder.io, Real Estate APIs)
+- Integration support for third-party services (Quiltt, Builder.io, Real Estate APIs)
 - **Subscription and payment management with Stripe integration**
 - **Single-entry general ledger for financial tracking**
 - **Flexible seat-based subscription plans with dynamic UI configuration**
@@ -1151,14 +1151,14 @@ Builder.io CMS integration.
 - Status (is_active, connection_status, last_error)
 - System fields (created_at, updated_at)
 
-#### quillt_integrations
-Quillt financial data integration.
+#### quiltt_integrations
+Quiltt financial data integration.
 
 **Columns:**
 - `id` (UUID, PRIMARY KEY)
 - `tenant_id` (INTEGER, NOT NULL)
 - `user_id` (UUID, NOT NULL)
-- Quillt connection (quillt_connection_id, quillt_profile_id)
+- Quiltt connection (quiltt_connection_id, quiltt_profile_id)
 - OAuth tokens (access_token_encrypted, refresh_token_encrypted, token_expires_at)
 - Sync configuration (sync_accounts, sync_transactions, sync_investments)
 - Sync status (last_sync_at, last_successful_sync_at, sync_status, sync_error)
@@ -1166,8 +1166,8 @@ Quillt financial data integration.
 - Status (is_active, connection_status)
 - System fields (created_at, updated_at)
 
-#### quillt_webhook_logs
-Track Quillt webhook events.
+#### quiltt_webhook_logs
+Track Quiltt webhook events.
 
 **Columns:**
 - `id` (UUID, PRIMARY KEY)
@@ -1309,9 +1309,9 @@ Each asset type table has:
 - `event_projections.tenant_id` → `tenants(id)`
 
 ### Integration Relationships
-- `quillt_integrations.user_id` → `users(id)`
-- `quillt_webhook_logs.user_id` → `users(id)`
-- `quillt_webhook_logs.integration_id` → `quillt_integrations(id)`
+- `quiltt_integrations.user_id` → `users(id)`
+- `quiltt_webhook_logs.user_id` → `users(id)`
+- `quiltt_webhook_logs.integration_id` → `quiltt_integrations(id)`
 - `real_estate_sync_logs.integration_id` → `real_estate_provider_integrations(id)`
 - `real_estate_sync_logs.property_id` → `real_estate(id)`
 
@@ -1440,8 +1440,8 @@ These replace invalid UNIQUE constraints with WHERE clauses:
 - `idx_event_projections_aggregate` ON `event_projections(aggregate_id)` WHERE `aggregate_id IS NOT NULL`
 
 ### Integration Indexes
-- `idx_quillt_integrations_user` ON `quillt_integrations(user_id)`
-- `idx_quillt_webhook_logs_status` ON `quillt_webhook_logs(processing_status)` WHERE `processing_status = 'pending'`
+- `idx_quiltt_integrations_user` ON `quiltt_integrations(user_id)`
+- `idx_quiltt_webhook_logs_status` ON `quiltt_webhook_logs(processing_status)` WHERE `processing_status = 'pending'`
 
 ## Views
 
@@ -1588,7 +1588,7 @@ The following categories of operations have been converted from stored procedure
 
 **Integration Operations (30+ files)**
 - PII Management (3 files)
-- Quillt Integration (4 files)
+- Quiltt Integration (4 files)
 - Real Estate Integration (3 files)
 - Builder.io Integration (3 files)
 - Advisor Companies (3 files)
@@ -1636,8 +1636,8 @@ These procedures contain complex business logic, multi-step transactions, or dyn
 - `sp_add_email_to_persona(p_persona_id UUID, p_email TEXT, p_usage_type email_usage_type_enum DEFAULT 'personal', p_is_primary BOOLEAN DEFAULT FALSE, p_added_by UUID DEFAULT NULL)` RETURNS UUID - Add email to persona
 - `sp_add_phone_to_persona(p_persona_id UUID, p_phone VARCHAR(20), p_country_code VARCHAR(5) DEFAULT '+1', p_usage_type phone_usage_type_enum DEFAULT 'primary', p_is_primary BOOLEAN DEFAULT FALSE, p_added_by UUID DEFAULT NULL)` RETURNS UUID - Add phone to persona
 
-8. **sp_sync_quillt_data** - Complex financial data synchronization
-   - Wrapper: `call_sp_sync_quillt_data.sql`
+8. **sp_sync_quiltt_data** - Complex financial data synchronization
+   - Wrapper: `call_sp_sync_quiltt_data.sql`
 - `sp_create_invitation(p_tenant_id INTEGER, p_ffc_id UUID, p_phone_number VARCHAR(20), p_role ffc_role_enum, p_invited_by UUID, p_persona_first_name TEXT, p_persona_last_name TEXT)` RETURNS UUID - Create FFC invitation
 
 9. **sp_sync_real_estate_data** - Property data synchronization with multiple providers
@@ -1798,7 +1798,7 @@ The database includes a comprehensive Node.js/TypeScript testing framework for a
 All 50 procedures are tested across three categories:
 1. **Core Procedures (28)** - User management, FFC operations, assets, audit, etc.
 2. **Event Sourcing Procedures (4)** - Event store management and projections
-3. **Integration Procedures (18)** - External system integrations (Quillt, Builder.io, etc.)
+3. **Integration Procedures (18)** - External system integrations (Quiltt, Builder.io, etc.)
 
 #### Test Features
 - **Automatic Test Data Generation** - Creates required test data (tenants, users, personas, FFCs)

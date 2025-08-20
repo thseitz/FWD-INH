@@ -108,7 +108,7 @@ Instead of complex normalized asset structures:
 - **PII Detection**: Automated detection and masking of sensitive data
 
 ### Integration Points
-- **External APIs**: Quillt for financial data, real estate providers for valuations
+- **External APIs**: Quiltt for financial data, real estate providers for valuations
 - **Builder.io**: Content management system integration
 - **Multi-language**: Spanish language support built-in
 
