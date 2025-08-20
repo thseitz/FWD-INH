@@ -74,7 +74,7 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
   - [Story 4.5: Advisor Sponsored Plans](#story-45-advisor-sponsored-plans)
   - [Story 4.6: General Ledger & Financial Tracking](#story-46-general-ledger--financial-tracking)
   - [Story 4.7: Third-Party Integration Framework](#story-47-third-party-integration-framework)
-  - [Story 4.8: Quillt API Integration for Financial Accounts](#story-48-quillt-api-integration-for-financial-accounts)
+  - [Story 4.8: Quiltt API Integration for Financial Accounts](#story-48-quiltt-api-integration-for-financial-accounts)
   - [Story 4.9: Real Estate Data Provider Integration](#story-49-real-estate-data-provider-integration)
   - [Story 4.10: Performance Optimization & Caching](#story-410-performance-optimization--caching)
 - [Epic 5: Multi-Language Support (US Market)](#epic-5-multi-language-support-us-market)
@@ -233,7 +233,99 @@ Based on market research and industry studies:
 - Setup, periodic check-ins, life events (births, deaths, marriages, divorces)
 - Seasonal tax planning and annual reviews
 
-## 🎯 Phase 1A Scope & Core Features
+## 🎯 Minimal Path Validation & Phase 1A Scope
+
+> **🚀 Minimal Path Goal**: Validate core technical stack locally before Phase 1A - prove complete user journey from UI through database without cloud dependencies.
+
+---
+
+### **Phase 0: Minimal Path Validation (Days 1-14)**
+**Goal**: Prove fundamental technical architecture works end-to-end locally using Docker containerized hosting: User registration → FFC creation → Asset management → Data persistence and display
+
+#### **Local Containerized Architecture:**
+- **Docker Compose Stack** orchestrating all services locally
+- **Vite React Frontend** with shadcn/ui components and Tailwind CSS
+- **NestJS Backend API** with full TypeScript support
+- **PostgreSQL Database** with pgTyped + Slonik integration
+- **Local File Storage** for documents and images with stubbed encryption
+- **Complete Development Environment** ready for immediate development
+
+#### **Minimal Path Scope:**
+- **Basic Landing Page** with Forward branding, sign up/login buttons
+- **Local User Registration** with stubbed authentication (no Cognito)
+- **FFC Creation Flow** with family name and description
+- **Single Asset Category** - Jewelry only for proof of concept
+- **Manual Asset Entry** with core fields (name, value, category, optional images)
+- **Document Upload** to local filesystem with stubbed encryption markers
+- **Asset Display Dashboard** showing created and pre-seeded demo assets
+- **Database Integration** utilizing existing schema with pgTyped + Slonik
+
+#### **Technology Stack Validation:**
+- **Frontend**: Vite + React + TypeScript + shadcn/ui + Tailwind CSS
+- **Backend**: NestJS + TypeScript + Slonik + pgTyped
+- **Database**: PostgreSQL with existing schema design
+- **File Storage**: Local filesystem with development-friendly structure
+- **Hosting**: Docker containers with docker-compose orchestration
+- **Security**: Stubbed encryption for files, basic authentication flow
+
+#### **Success Criteria:**
+- Complete user journey functional locally without AWS dependencies
+- Docker compose stack running all services with single command startup
+- Database operations working through pgTyped + Slonik architecture
+- File uploads storing to local filesystem with proper organization
+- UI components rendering with shadcn/ui and Tailwind styling
+- Foundation ready for Phase 1A cloud integration and feature expansion
+- Development environment replicable across team members
+
+#### **Deferred to Phase 1A:**
+- Builder.io CMS integration
+- AWS Cognito authentication  
+- All 13 asset categories
+- Document management and PII processing
+- Member invitation system
+- Estate Capture Service marketplace
+
+---
+
+## 🎯 Phase 1A: AWS Infrastructure Bootstrap
+
+> **🚀 Infrastructure Goal**: Migrate Phase 0 validation to production-ready AWS infrastructure in manageable, testable increments.
+
+### **Phase 1A: AWS Infrastructure Bootstrap (Days 15-74)**
+
+Building on Phase 0 validation, Phase 1A focuses on migrating to AWS cloud infrastructure while maintaining application functionality.
+
+#### **Phase 1A-1: Basic Cloud Migration (Days 15-29)**
+- **AWS Account Foundation**: Security, access control, and billing safety setup
+- **Initial Cloud Deployment**: Migrate containerized application to ECS/Fargate
+- **Basic Database Migration**: PostgreSQL on AWS RDS with data persistence
+- **Core Application Access**: Frontend hosted on AWS Amplify with direct API access
+- **User Experience**: Same Phase 0 functionality now running on AWS infrastructure
+
+#### **Phase 1A-2: Authentication & API Gateway (Days 30-44)**
+- **AWS Cognito Integration**: Replace stubbed authentication with full Cognito user pools
+- **API Gateway Implementation**: Professional API layer with rate limiting and security
+- **Secure Session Management**: HTTP-only cookies and proper token handling
+- **User Registration Flow**: Complete email verification and secure login functionality
+- **Enhanced Security**: Production-grade authentication and authorization
+
+#### **Phase 1A-3: Asset Management Expansion (Days 45-59)**
+- **Asset Category Expansion**: Expand from 1 (jewelry) to 5 core asset categories
+- **Document Storage Integration**: AWS S3 for file uploads with proper organization
+- **Advanced Asset Features**: Enhanced asset permissions and ownership models
+- **Member Invitation System**: Basic family member invitation without dual-channel verification
+- **Dashboard Enhancement**: Multi-category asset visualization and management
+
+#### **Phase 1A-4: Production Readiness (Days 60-74)**
+- **Document Processing Pipeline**: AWS Step Functions for automated document handling
+- **Security Hardening**: Private networking, WAF protection, and VPC endpoints
+- **Monitoring & Observability**: CloudWatch dashboards, logging, and basic alerting
+- **Performance Optimization**: CloudFront CDN and caching strategies
+- **Go-Live Preparation**: Production environment ready for initial user onboarding
+
+---
+
+## 🎯 Phase 1B: Marketing Foundation & Core Features
 
 > **🚀 MVP Goal**: Launch with marketing foundation, complete FFC onboarding, and comprehensive asset management in 60 days.
 
@@ -245,7 +337,7 @@ Based on market research and industry studies:
 
 ---
 
-### **Phase 1A: True MVP Core (Days 1-60)**
+### **Phase 1B: Marketing Foundation & Core Features (Days 75-134)**
 **Goal**: Launch with marketing foundation, complete FFC onboarding, HEI integration, and comprehensive asset management
 
 ### **Key Features for Launch:**
@@ -321,19 +413,59 @@ Based on market research and industry studies:
 
 ## Epic Structure & Implementation Roadmap
 
-### Phase 1A: Foundation (Days 1-60)
+### Phase 0: Minimal Path Validation (Days 1-14)
+- **Technical Proof of Concept**: Complete user journey locally without cloud dependencies
+- **Core Stack Validation**: React + Nest.js + pgTyped + Slonik + PostgreSQL
+- **Single Asset Type**: Jewelry asset creation, storage, and display
+- **Foundation Ready**: Prepare architecture for Phase 1A cloud integration
+
+### Phase 1A: Foundation - AWS Infrastructure Bootstrap (Days 15-74)
+
+Building on Phase 0 validation, Phase 1A focuses on migrating to AWS cloud infrastructure in manageable, testable increments while expanding core features.
+
+#### **Phase 1A-1: Basic Cloud Migration (Days 15-29)**
+- **AWS Account Foundation**: Security, access control, and billing safety setup
+- **Initial Cloud Deployment**: Migrate containerized application to ECS/Fargate
+- **Basic Database Migration**: PostgreSQL on AWS RDS with data persistence
+- **Core Application Access**: Frontend hosted on AWS Amplify with direct API access
+- **User Experience**: Same Phase 0 functionality now running on AWS infrastructure
+
+#### **Phase 1A-2: Authentication & API Gateway (Days 30-44)**
+- **AWS Cognito Integration**: Replace stubbed authentication with full Cognito user pools
+- **API Gateway Implementation**: Professional API layer with rate limiting and security
+- **Secure Session Management**: HTTP-only cookies and proper token handling
+- **User Registration Flow**: Complete email verification and secure login functionality
+- **Enhanced Security**: Production-grade authentication and authorization
+
+#### **Phase 1A-3: Asset Management Expansion (Days 45-59)**
+- **Asset Category Expansion**: Expand from 1 (jewelry) to 5 core asset categories
+- **Document Storage Integration**: AWS S3 for file uploads with proper organization
+- **Advanced Asset Features**: Enhanced asset permissions and ownership models
+- **Member Invitation System**: Basic family member invitation without dual-channel verification
+- **Dashboard Enhancement**: Multi-category asset visualization and management
+
+#### **Phase 1A-4: Production Readiness (Days 60-74)**
+- **Document Processing Pipeline**: AWS Step Functions for automated document handling
+- **Security Hardening**: Private networking, WAF protection, and VPC endpoints
+- **Monitoring & Observability**: CloudWatch dashboards, logging, and basic alerting
+- **Performance Optimization**: CloudFront CDN and caching strategies
+- **Go-Live Preparation**: Production environment ready for initial user onboarding
+
+### Phase 1B: Marketing Foundation & Core Features (Days 75-134)
 - **Epic 1**: Marketing Foundation & Landing Page (2 weeks)
 - **Epic 2**: FFC Onboarding Flow with Enhanced Security (3 weeks)
 - **Epic 3**: Comprehensive Asset Management System (4 weeks)
 
-### Phase 1B: Enhancement (Days 61-90)
-- **Epic 4**: Advanced Features & Integrations (3 weeks)
-- **Epic 5**: Multi-Language Support (US Market) (2 weeks)
+### Phase 1C: Priority Integrations (Days 135-164)
+- **Epic 4A**: Twilio SMS 2FA Integration with Cognito/Amplify (1 week)  
+- **Epic 4B**: Quiltt API Integration for Financial Accounts (2 weeks)
+- **Epic 4C**: Zillow API Integration for Real Estate (1 week)
+- **Epic 4D**: Spanish Language Foundation (1 week)
 
-### Phase 2: Enterprise & Compliance (Months 4-9)
+### Phase 2: Enterprise & Compliance (Months 6-12)
 - **Epic 6**: SOC 2 Compliance & Trust Management Platform (6 months, parallel)
 
-### Post-MVP: Performance & Scale (Year 1)
+### Post-MVP: Performance & Scale (Year 2)
 - **Epic 7**: React Performance Optimization & User Experience Enhancement (3 months)
 
 ---
@@ -456,7 +588,7 @@ Based on market research and industry studies:
 
 #### Integration Infrastructure
 - **Financial Data Integration**
-  - Dedicated integration modules (QuilltModule, RealEstateModule)
+  - Dedicated integration modules (QuilttModule, RealEstateModule)
   - HttpModule with circuit breakers for external APIs
   - WebSocket Gateway for real-time updates
   - Webhook controllers with signature validation
@@ -1283,9 +1415,97 @@ This serverless approach ensures scalability, security, and compliance without m
 - 🔗 [Epic 6: Compliance Framework](#epic-6-compliance-framework-gdpr--sox) - Compliance requirements for audit trails
 - 🔗 [Epic 7: Performance Optimization](#epic-7-performance-optimization-advanced-caching) - Optimization for search and reporting
 
-**Database Implementation**: All database operations for search, reporting, audit trails, integrations, and Quillt API functions are documented in architecture.md section "Epic 4: Reporting, Analytics & Integrations" and "Integration Architecture > Quillt Integration"
+**Database Implementation**: All database operations for search, reporting, audit trails, integrations, and Quiltt API functions are documented in architecture.md section "Epic 4: Reporting, Analytics & Integrations" and "Integration Architecture > Quiltt Integration"
 
-#### Story 4.1: Advanced Search & Filtering System
+#### Story 4.1: Twilio SMS 2FA Integration with Cognito & Amplify
+**As an** FFC member  
+**I want** secure two-factor authentication using SMS  
+**So that** my family's sensitive financial information is protected with dual-channel verification
+
+**Acceptance Criteria**:
+- SMS verification code delivery via Twilio API
+- Integration with AWS Cognito custom authentication flow
+- Seamless Amplify frontend integration for 2FA prompts
+- Phone number verification during registration
+- SMS code validation with retry limits and timeout
+- Support for international phone number formats
+- Email authentication remains the primary account setup requirement
+- User preference settings for 2FA enable/disable
+
+**Technical Integration**:
+- AWS Cognito Pre-Authentication Lambda trigger
+- Twilio SMS API integration with proper error handling
+- Amplify Auth configuration for custom authentication flow
+- Rate limiting and abuse prevention mechanisms
+
+#### Story 4.2: Quiltt API Integration for Financial Accounts
+**As a** persona who owns financial assets  
+**I want** to connect my bank accounts through Quiltt  
+**So that** my account balances update automatically without manual entry
+
+**Acceptance Criteria**:
+- Quiltt Profile creation and management for asset-owning personas
+- Bank account connection flow with OAuth authentication
+- Automatic balance refresh (weekly/monthly scheduled)
+- Multiple accounts per connection support
+- Webhook handling for balance updates
+- Connection health monitoring and re-authentication prompts
+- Support for 10,000+ financial institutions via Quiltt
+
+**Database Modeling Requirements**:
+- New relationship model: Persona (asset owner) → Quiltt Connector → Financial Account Assets (1:n)
+- All created financial account assets must reference Quiltt connector ID for automatic updates
+- Asset synchronization tracking for balance and account data updates
+- Complete schema details documented in architecture.md
+
+**Integration Architecture**:
+```
+Asset-Owning Persona → Quiltt Profile → Bank Connection → Multiple Accounts → Forward Assets
+```
+
+**Quiltt Integration Workflow**:
+1. **Profile Creation**: Map asset-owning persona to Quiltt Profile with metadata
+2. **Bank Connection**: Persona connects via Quiltt's OAuth flow
+3. **Account Discovery**: Quiltt discovers multiple accounts per connection
+4. **Asset Creation**: Each account becomes a Financial Account asset with Quiltt connector reference
+5. **Balance Sync**: Webhook updates or scheduled refreshes update balances via connector ID
+6. **Error Handling**: Connection health monitoring triggers re-authentication
+
+**Supported Account Types**:
+- Checking and Savings Accounts
+- Credit Cards and Lines of Credit
+- Investment Accounts (401k, IRA, Brokerage)
+- Loan Accounts (Mortgage, Auto, Personal)
+
+#### Story 4.3: Zillow API Integration for Real Estate
+**As an** FFC member with real estate assets  
+**I want** automated property value updates via Zillow API
+**So that** my real estate portfolio reflects current market values
+
+**Acceptance Criteria**:
+- Zillow API integration with authentication and rate limiting
+- Property identification via address lookup
+- Automated valuation model (AVM) integration using Zillow's Zestimate
+- Property detail enrichment (square footage, lot size, property history)
+- Market trend analysis and price change alerts
+- Scheduled value updates (monthly/quarterly)
+- Error handling for properties not found in Zillow database
+
+#### Story 4.4: Spanish Language Foundation
+**As a** Spanish-speaking user  
+**I want** complete Spanish language support  
+**So that** I can confidently manage my family's inheritance planning in my native language
+
+**Acceptance Criteria**:
+- User registration and profile language preferences (English/Spanish)
+- Complete UI translation for all core user flows
+- Asset category and document type translations
+- Spanish legal document templates (professionally translated and legally reviewed)
+- Email communications in user's preferred language
+- Cultural UX adaptations for Hispanic family structures
+- Professional translation quality with financial terminology accuracy
+
+#### Story 4.5: Advanced Search & Filtering System
 **As an** FFC member  
 **I want** powerful search capabilities across all assets and documents  
 **So that** I can quickly find specific information within our family wealth
@@ -1396,33 +1616,33 @@ See architecture.md section "Epic 4: Bulk Operations" for complete database oper
 
 See architecture.md section "Epic 4: Integration Management" for complete database operation specifications including integration management functionality.
 
-#### Story 4.8: Quillt API Integration for Financial Accounts
+#### Story 4.8: Quiltt API Integration for Financial Accounts
 **As an** FFC member  
-**I want** to connect my bank accounts through Quillt  
+**I want** to connect my bank accounts through Quiltt  
 **So that** my account balances update automatically without manual entry
 
 **Acceptance Criteria**:
-- Quillt Profile creation and management for FFC members
+- Quiltt Profile creation and management for FFC members
 - Bank account connection flow with OAuth authentication
 - Automatic balance refresh (weekly/monthly scheduled)
 - Multiple accounts per connection support
 - Webhook handling for balance updates
 - Connection health monitoring and re-authentication prompts
-- Support for 10,000+ financial institutions via Quillt
+- Support for 10,000+ financial institutions via Quiltt
 
 **Integration Architecture**:
 ```
-FFC Member → Quillt Profile → Bank Connection → Multiple Accounts → Forward Assets
+FFC Member → Quiltt Profile → Bank Connection → Multiple Accounts → Forward Assets
 ```
 
 **Database implementation details are documented in architecture.md**
 
-See architecture.md section "Integration Architecture > Quillt Integration" for complete database operation specifications including Quillt connection management and webhook processing functionality.
+See architecture.md section "Integration Architecture > Quiltt Integration" for complete database operation specifications including Quiltt connection management and webhook processing functionality.
 
-**Quillt Integration Workflow**:
-1. **Profile Creation**: Map FFC member to Quillt Profile with metadata
-2. **Bank Connection**: User connects via Quillt's OAuth flow
-3. **Account Discovery**: Quillt discovers multiple accounts per connection
+**Quiltt Integration Workflow**:
+1. **Profile Creation**: Map FFC member to Quiltt Profile with metadata
+2. **Bank Connection**: User connects via Quiltt's OAuth flow
+3. **Account Discovery**: Quiltt discovers multiple accounts per connection
 4. **Asset Creation**: Each account becomes a Financial Account asset
 5. **Balance Sync**: Webhook updates or scheduled refreshes update balances
 6. **Error Handling**: Connection health monitoring triggers re-authentication
@@ -1583,7 +1803,7 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
    - Asset ownership verification logs
    - Financial data protection evidence
 5. **Integration Security Evidence**:
-   - Third-party vendor assessments (Quillt, AWS, real estate APIs)
+   - Third-party vendor assessments (Quiltt, AWS, real estate APIs)
    - API security validation
    - Webhook signature verification
    - External data handling compliance

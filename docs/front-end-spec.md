@@ -340,7 +340,7 @@ graph TD
 - Seamless transition between manual entry and API-enhanced data
 - Visual progress indicators showing data completeness
 
-#### Flow Diagram - UI Collection Mask System
+#### Flow Diagram - UI Collection Mask System with API-First Integration
 
 ```mermaid
 graph TD
@@ -348,72 +348,174 @@ graph TD
     B --> C[Asset Category Grid - All 13 Types]
     C --> D{Category Selection}
     
-    %% Category Examples
-    D -->|Real Estate| E1[Real Estate Selected]
-    D -->|Financial Accounts| E2[Financial Account Selected]
-    D -->|Personal Property| E3[Personal Property Selected]
+    %% Category Selection with API Check
+    D -->|Financial Accounts| E1[Financial Account Category Selected]
+    D -->|Real Estate| E2[Real Estate Selected]
+    D -->|HEI/Loans| E3[HEI/Loans Selected]
     D -->|Other 10 Categories| E4[Other Asset Types...]
     
-    %% UI Collection Mask API Call
-    E1 --> F[API Call: /ui-collection-mask/asset-form/REAL_ESTATE]
-    E2 --> F
-    E3 --> F
-    E4 --> F
+    %% Financial Accounts - API First Path
+    E1 --> F1{API Integration Available?}
+    F1 -->|Yes - Quillt Available| G1[Connect Bank Account - Primary Option]
+    F1 -->|No/User Prefers Manual| H1[Manual Financial Account Entry]
     
-    F --> G[Merge Base + Type-Specific Fields]
-    G --> H[Dynamic Form Generation]
+    %% Quillt Embedded Connector Flow
+    G1 --> I1[React Embedded Quillt Connector Takes Over Screen]
+    I1 --> J1[User Authenticates with Bank via Quillt]
+    J1 --> K1[Nest.js Middleware Presents Token to Bank]
+    K1 --> L1[Bank Returns Authentication Key]
+    L1 --> M1[Quillt Field Configuration - User/Admin Sets Collection Fields]
+    M1 --> N1[API Data Integration Workflow]
+    N1 --> O1[Complete Asset Data from API]
+    O1 --> P1[Asset Created - API Enhanced Status]
+    
+    %% Fallback to Manual if API Fails/Unavailable
+    G1 -->|Connection Failed| Q1[API Connection Failed - Fallback to Manual]
+    Q1 --> H1
+    
+    %% Real Estate - API First Path with Address Collection
+    E2 --> F2{Zillow Integration Available?}
+    F2 -->|Yes - Zillow Available| G2[Connect Property via Address - Primary Option]
+    F2 -->|No/User Prefers Manual| H2[Manual Real Estate Entry]
+    
+    %% Zillow Address-Based Integration Flow
+    G2 --> I2[Property Address Collection Form]
+    I2 --> J2[User Enters Property Address]
+    J2 --> K2[Submit Address to Zillow API]
+    K2 --> L2{Property Found in Zillow?}
+    L2 -->|Yes| M2[Zillow Property Data Retrieved]
+    L2 -->|No| Q2[Property Not Found - Fallback to Manual]
+    Q2 --> H2
+    M2 --> N2[Auto-populate Property Details from Zillow]
+    N2 --> O2[Create Asset with Zillow Auto-Update Enabled]
+    O2 --> P2[Asset Created - Zillow Enhanced Status]
+    
+    %% HEI/Loans - API First Path
+    E3 --> F3{HEI API Available?}
+    F3 -->|Yes - HEI Integration| G3[Connect HEI Account]
+    F3 -->|No/Manual Entry| H3[Manual Loan Entry]
+    G3 --> I3[HEI API Authentication]
+    I3 --> N1
+    
+    %% Other Categories - Manual Primary Path
+    E4 --> H4[Manual Asset Entry]
+    
+    %% Manual Entry Flow (All Categories)
+    H1 --> R[API Call: /ui-collection-mask/asset-form/FINANCIAL_ACCOUNTS]
+    H2 --> S[API Call: /ui-collection-mask/asset-form/REAL_ESTATE]
+    H3 --> T[API Call: /ui-collection-mask/asset-form/LOANS]
+    H4 --> U[API Call: /ui-collection-mask/asset-form/CATEGORY]
+    
+    R --> V[Merge Base + Type-Specific Fields]
+    S --> V
+    T --> V
+    U --> V
+    
+    %% Connect API Enhanced Assets to Dashboard
+    P1 --> NN[Dashboard Asset Card]
+    P2 --> NN[Dashboard Asset Card]
+    
+    V --> W[Dynamic Form Generation]
     
     %% Progressive Disclosure Structure
-    H --> I[Section 1: Basic Asset Information - Always Visible]
-    I --> J[Mandatory Base Fields - Asset Name, Value, etc.]
-    J --> K[Section 2: Asset Type Details - Always Visible]
-    K --> L[Mandatory Type Fields - Property Type, Account Type, etc.]
-    L --> M{User Completes Mandatory Fields?}
+    W --> X[Section 1: Basic Asset Information - Always Visible]
+    X --> Y[Mandatory Base Fields - Asset Name, Value, etc.]
+    Y --> Z[Section 2: Asset Type Details - Always Visible]
+    Z --> AA[Mandatory Type Fields - Account Type, Property Type, etc.]
+    AA --> BB{User Completes Mandatory Fields?}
     
-    M -->|No| N[Real-time Validation Feedback]
-    N --> J
-    M -->|Yes| O[Save Core Asset Data]
+    BB -->|No| CC[Real-time Validation Feedback]
+    CC --> Y
+    BB -->|Yes| DD[Save Core Asset Data]
     
     %% Progressive Enhancement Options
-    O --> P[Advanced Fields Available Indicator]
-    P --> Q{User Wants Advanced Fields?}
-    Q -->|No| R[Asset Saved - Completion Status: Basic]
-    Q -->|Yes| S[Show Advanced Fields Section]
+    DD --> EE[Advanced Fields Available Indicator]
+    EE --> FF{User Wants Advanced Fields?}
+    FF -->|No| GG[Asset Saved - Completion Status: Basic]
+    FF -->|Yes| HH[Show Advanced Fields Section]
     
-    S --> T[Optional Base Fields Group]
-    T --> U[Optional Type-Specific Fields Group]
-    U --> V[Enhanced Data Entry Interface]
-    V --> W[Save Complete Asset Data]
-    W --> X[Asset Saved - Completion Status: Comprehensive]
+    HH --> II[Optional Base Fields Group]
+    II --> JJ[Optional Type-Specific Fields Group]
+    JJ --> KK[Enhanced Data Entry Interface]
+    KK --> LL[Save Complete Asset Data]
+    LL --> MM[Asset Saved - Completion Status: Comprehensive]
     
-    %% API Enhancement Path
-    R --> Y[Dashboard Asset Card with Enhancement Hints]
-    X --> Y
-    Y --> Z{API Enhancement Available?}
-    Z -->|Yes - Quillt| AA[Connect Financial Account API]
-    Z -->|Yes - HEI| BB[Connect Home Equity API]
-    Z -->|Yes - Real Estate| CC[Connect Property Valuation API]
-    Z -->|No| DD[Manual Enhancement Option]
+    %% Post-Creation API Enhancement (For Manual Entries Only)
+    GG --> NN[Dashboard Asset Card]
+    MM --> NN
+    P1 --> NN
     
-    AA --> EE[API Data Integration Workflow]
-    BB --> EE
-    CC --> EE
-    DD --> EE
-    EE --> FF[Enhanced Asset with API Data]
+    NN --> OO{Post-Creation API Enhancement Available?}
+    OO -->|Yes - For Manual Entries| PP[Connect to API Later]
+    OO -->|No/Already API Enhanced| QQ[Manual Enhancement Only]
+    
+    PP --> RR[Secondary API Integration]
+    QQ --> SS[Manual Field Updates]
+    RR --> TT[Enhanced Asset View]
+    SS --> TT
     
     %% Asset Management Actions
-    FF --> GG[Asset Detail View]
-    R --> GG
-    X --> GG
-    GG --> HH[Edit Asset - Return to UI Collection Mask Form]
-    GG --> II[Manage Permissions]
-    GG --> JJ[Add Documents]
-    GG --> KK[View Enhancement Options]
+    TT --> UU[Edit Asset]
+    TT --> VV[Manage Permissions]
+    TT --> WW[Add Documents]
+    TT --> XX[View Enhancement History]
 ```
 
-#### UI Collection Mask Form Experience by Asset Type
+#### API-First Integration UX Experience
 
-**Real Estate Example Flow:**
+**Financial Accounts - Quillt Embedded Connector Flow:**
+1. **Category Selection**: User selects "Financial Accounts" from asset grid
+2. **Integration Choice**: Primary CTA "Connect Your Bank Account" with secondary "Enter Manually" option
+3. **Quillt Connector Takeover**: React embedded component fills screen with Quillt branding
+4. **Bank Selection**: User selects their financial institution from Quillt's bank list
+5. **Authentication**: Secure OAuth flow through bank's authentication system
+6. **Token Exchange**: Nest.js middleware securely handles token exchange with bank
+7. **Field Configuration**: Admin/user configures which account fields to collect automatically
+8. **Data Population**: Account information automatically populates UI Collection Mask fields
+9. **Review & Save**: User reviews auto-populated data, can add additional manual fields
+10. **Success State**: Asset created with "API Enhanced" badge and automatic update capabilities
+
+**Real Estate - Zillow Address-Based Integration Flow:**
+1. **Category Selection**: User selects "Real Estate" from asset grid
+2. **Integration Choice**: Primary CTA "Find Property Details" with secondary "Enter Manually" option
+3. **Address Collection**: Simple form asking for property address
+   - Street address (required)
+   - City, State, ZIP (required)
+   - Address autocomplete/validation
+4. **Zillow API Lookup**: Submit address to Zillow API for property search
+5. **Property Match Confirmation**: Show Zillow property details for user confirmation
+   - Property photos, estimated value, property type
+   - "Is this your property?" confirmation
+6. **Auto-Population**: Zillow data automatically fills UI Collection Mask fields:
+   - Property type (Single Family, Condo, etc.)
+   - Estimated current value
+   - Square footage, lot size
+   - Year built, bedrooms, bathrooms
+7. **Manual Override**: User can modify auto-populated values or add additional details
+8. **Auto-Update Setup**: Enable ongoing property value updates from Zillow
+9. **Success State**: Asset created with "Zillow Enhanced" badge and scheduled value updates
+
+**HEI/Loans - API Integration Flow:**
+1. **Category Selection**: "HEI/Loans" selected from asset grid
+2. **Integration Option**: "Connect HEI Account" prominent option
+3. **HEI Authentication**: Direct API connection with HEI provider
+4. **Loan Data Import**: Automatic population of loan details, balances, terms
+5. **Manual Override**: User can modify or add additional loan information
+
+**API Connection Failure Handling:**
+- **Graceful Degradation**: "Unable to find property details. Let's add this property manually."
+- **Retry Options**: "Try Different Address" and "Enter Manually" clearly presented
+- **Progress Preservation**: Address information saved for potential retry
+- **Clear Communication**: "You can always connect to Zillow updates later from the asset details"
+
+**Category Grid API Indicators:**
+- **API Available**: Green "⚡ Auto-Connect" badge on Financial Accounts, Real Estate, HEI/Loans
+- **Manual Only**: Standard entry icon for Personal Property, Digital Assets, etc.
+- **Field Count Preview**: "Find property automatically or enter 8 fields manually"
+
+#### Manual Entry UI Collection Mask Form Experience by Asset Type
+
+**Real Estate Manual Entry Flow:**
 1. **Category Selection**: Visual card with house icon, field count preview "(5 required, 8 optional)"
 2. **Basic Asset Information** (Always Visible):
    - Asset name (text) - "Main Family Home"
@@ -521,7 +623,7 @@ graph TD
     %% Free Plan Experience
     D --> E[Asset Creation - All 13 Categories Available]
     D --> F[Unlimited Family Members]
-    D --> G[Basic Document Storage]
+    D --> G[Basic Document Storage & PII Protection]
     D --> H[Standard Support]
     
     %% Service Discovery Path
@@ -547,21 +649,21 @@ graph TD
     T --> W[Service Completion & Deliverables]
     W --> X[Return to Free Plan with Enhanced Data]
     
-    %% Advisor Sponsored Plan Path
-    D --> Y[Advisor Invitation Received]
-    Y --> Z[Advisor Sponsored Plan Upgrade]
-    Z --> AA[Enhanced Features & Support]
-    AA --> BB[Advisor Dashboard Access]
+    %% Advisor Sponsored Access (Simplified)
+    D --> Y{Advisor Sponsored Access?}
+    Y -->|Yes| Z[Advisor Pays for Family Access]
+    Y -->|No| L[Standard Free Plan]
+    Z --> AA[Same Free Features - Advisor Sponsored]
+    AA --> BB[Advisor Can View Family Dashboard]
     
-    %% Dynamic UI Adaptation
+    %% All Paths Lead to Standard Free Experience
     L --> CC[Dynamic UI: Free Plan Features]
     X --> CC
-    AA --> DD[Dynamic UI: Advisor Plan Features]
+    AA --> CC
     
-    CC --> EE[Service Marketplace Visible]
-    CC --> FF[Basic Feature Set]
-    DD --> GG[Advanced Advisor Tools]
-    DD --> HH[Enhanced Reporting]
+    CC --> DD[Service Marketplace Visible]
+    CC --> EE[All Core Features Available]
+    CC --> FF[Asset Management & Reporting]
 ```
 
 #### Service Purchase UX Experience
@@ -581,10 +683,16 @@ graph TD
    - Service progress dashboard widget
    - Direct contact with assigned specialist
 
-**Dynamic UI Plan Adaptation:**
+**Advisor Sponsorship Model:**
+- **Advisor Payment**: Advisor pays for family's access (no plan changes for family)
+- **Family Experience**: Identical free unlimited plan experience
+- **Advisor Benefits**: Can view sponsored family's dashboard and reports
+- **No Plan Tiers**: All families get same feature set regardless of who pays
+
+**Dynamic UI Adaptation:**
 - **Free Plan UI**: All core features visible, service marketplace promoted
 - **Service Active UI**: Progress tracking, specialist contact, priority support
-- **Advisor Plan UI**: Multi-family dashboard, advanced reporting, bulk operations
+- **Advisor Sponsored UI**: Same features as free plan, with advisor visibility indicator
 
 #### Payment Processing & Receipt System
 
