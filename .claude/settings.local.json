@@ -34,7 +34,8 @@
       "mcp__postgres__execute",
       "Bash(npm test)",
       "Bash(timeout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "mcp__serena__get_symbols_overview"
     ],
     "deny": []
   },

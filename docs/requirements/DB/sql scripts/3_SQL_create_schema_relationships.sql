@@ -727,14 +727,24 @@ ALTER TABLE advisor_companies ADD CONSTRAINT fk_advisor_companies_updated_by
     FOREIGN KEY (updated_by) REFERENCES users(id);
 
 -- quiltt_integrations relationships
-ALTER TABLE quiltt_integrations ADD CONSTRAINT fk_quiltt_integrations_user 
-    FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE quiltt_integrations ADD CONSTRAINT fk_quiltt_integrations_persona 
+    FOREIGN KEY (persona_id) REFERENCES personas(id);
 
 -- quiltt_webhook_logs relationships
-ALTER TABLE quiltt_webhook_logs ADD CONSTRAINT fk_quiltt_webhook_logs_user 
-    FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE quiltt_webhook_logs ADD CONSTRAINT fk_quiltt_webhook_logs_persona 
+    FOREIGN KEY (persona_id) REFERENCES personas(id);
 ALTER TABLE quiltt_webhook_logs ADD CONSTRAINT fk_quiltt_webhook_logs_integration 
     FOREIGN KEY (integration_id) REFERENCES quiltt_integrations(id);
+
+-- quiltt_sessions relationships
+ALTER TABLE quiltt_sessions ADD CONSTRAINT fk_quiltt_sessions_tenant 
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE quiltt_sessions ADD CONSTRAINT fk_quiltt_sessions_persona 
+    FOREIGN KEY (persona_id) REFERENCES personas(id);
+
+-- financial_accounts Quiltt relationships
+ALTER TABLE financial_accounts ADD CONSTRAINT fk_financial_accounts_quiltt_integration 
+    FOREIGN KEY (quiltt_integration_id) REFERENCES quiltt_integrations(id);
 
 -- real_estate_sync_logs relationships
 ALTER TABLE real_estate_sync_logs ADD CONSTRAINT fk_real_estate_sync_logs_integration 
@@ -828,6 +838,19 @@ CREATE INDEX idx_media_storage_processing_status ON media_storage(processing_sta
 CREATE INDEX idx_document_metadata_document_type ON document_metadata(document_type);
 CREATE INDEX idx_assets_category_id ON assets(category_id);
 CREATE INDEX idx_ffc_personas_role ON ffc_personas(ffc_role);
+
+-- Quiltt integration indexes
+CREATE INDEX idx_quiltt_integrations_persona_id ON quiltt_integrations(persona_id);
+CREATE INDEX idx_quiltt_integrations_quiltt_user_id ON quiltt_integrations(quiltt_user_id);
+CREATE INDEX idx_financial_accounts_quiltt_integration ON financial_accounts(quiltt_integration_id);
+CREATE INDEX idx_financial_accounts_quiltt_account_id ON financial_accounts(quiltt_account_id);
+CREATE INDEX idx_financial_accounts_is_quiltt_connected ON financial_accounts(is_quiltt_connected);
+CREATE INDEX idx_quiltt_sessions_persona_id ON quiltt_sessions(persona_id);
+CREATE INDEX idx_quiltt_sessions_expires_at ON quiltt_sessions(expires_at);
+CREATE INDEX idx_quiltt_sessions_is_used ON quiltt_sessions(is_used);
+CREATE INDEX idx_quiltt_webhook_logs_integration_id ON quiltt_webhook_logs(integration_id);
+CREATE INDEX idx_quiltt_webhook_logs_event_type ON quiltt_webhook_logs(event_type);
+CREATE INDEX idx_quiltt_webhook_logs_processing_status ON quiltt_webhook_logs(processing_status);
 
 -- ================================================================
 -- EVENT SOURCING RELATIONSHIPS
@@ -1298,6 +1321,51 @@ INSERT INTO ui_collection_mask (entity_code, column_name, requirement, field_typ
   ('LOANS', 'maturity_date', 'mandatory', 'date', 10, 'Loan end date'),
   ('LOANS', 'lender_contact_email_address', 'mandatory', 'email', 11, 'Lender email contact (normalized)'),
   ('LOANS', 'lender_contact_phone_number', 'mandatory', 'phone', 12, 'Lender phone contact (normalized)');
+
+-- ================================================================
+-- VIEWS FOR DATA VALIDATION
+-- ================================================================
+
+-- View to check Quiltt integration consistency
+CREATE VIEW v_quiltt_integration_status AS
+SELECT 
+    qi.id as integration_id,
+    qi.persona_id,
+    p.first_name || ' ' || p.last_name as persona_name,
+    qi.quiltt_user_id,
+    qi.quiltt_connection_id,
+    qi.connection_status,
+    qi.is_active,
+    COUNT(fa.id) as connected_accounts_count,
+    qi.last_sync_at,
+    qi.sync_status
+FROM quiltt_integrations qi
+JOIN personas p ON qi.persona_id = p.id
+LEFT JOIN financial_accounts fa ON fa.quiltt_integration_id = qi.id
+GROUP BY qi.id, qi.persona_id, p.first_name, p.last_name, qi.quiltt_user_id, 
+         qi.quiltt_connection_id, qi.connection_status, qi.is_active, 
+         qi.last_sync_at, qi.sync_status;
+
+-- View to check financial accounts with Quiltt data
+CREATE VIEW v_quiltt_financial_accounts AS
+SELECT 
+    fa.id as asset_id,
+    a.asset_name,
+    fa.institution_name,
+    fa.account_type,
+    fa.current_balance,
+    fa.is_quiltt_connected,
+    fa.quiltt_account_id,
+    fa.last_quiltt_sync_at,
+    qi.quiltt_user_id,
+    qi.connection_status,
+    p.first_name || ' ' || p.last_name as owner_name
+FROM financial_accounts fa
+JOIN assets a ON fa.asset_id = a.id
+LEFT JOIN quiltt_integrations qi ON fa.quiltt_integration_id = qi.id
+LEFT JOIN asset_persona ap ON a.id = ap.asset_id AND ap.ownership_type = 'owner'
+LEFT JOIN personas p ON ap.persona_id = p.id
+WHERE fa.is_quiltt_connected = TRUE;
 
 -- ================================================================
 -- END OF SCHEMA RELATIONSHIPS FILE

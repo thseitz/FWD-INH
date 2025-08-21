@@ -1749,6 +1749,14 @@ CREATE TABLE financial_accounts (
     -- Documentation
     statement_document_ids UUID[],
     
+    -- Quiltt integration fields
+    quiltt_integration_id UUID,
+    quiltt_account_id TEXT,                -- External account ID from Quiltt
+    quiltt_connection_id TEXT,             -- Quiltt connection ID for this account
+    is_quiltt_connected BOOLEAN DEFAULT FALSE,
+    last_quiltt_sync_at TIMESTAMP WITH TIME ZONE,
+    quiltt_sync_status sync_status_enum DEFAULT 'pending',
+    
     -- System fields
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -1761,6 +1769,11 @@ CREATE TABLE financial_accounts (
     CONSTRAINT valid_balances CHECK (
         (current_balance >= 0 OR current_balance IS NULL) AND
         (available_balance >= 0 OR available_balance IS NULL)
+    ),
+    CONSTRAINT unique_quiltt_account UNIQUE (quiltt_account_id) WHERE quiltt_account_id IS NOT NULL,
+    CONSTRAINT quiltt_consistency CHECK (
+        (is_quiltt_connected = TRUE AND quiltt_integration_id IS NOT NULL AND quiltt_account_id IS NOT NULL) OR
+        (is_quiltt_connected = FALSE AND quiltt_integration_id IS NULL AND quiltt_account_id IS NULL)
     )
 );
 
@@ -2527,15 +2540,17 @@ CREATE TABLE builder_io_integrations (
 );
 
 -- Table 53: quiltt_integrations
--- Purpose: Quiltt financial data integration
+-- Purpose: Quiltt financial data integration per persona
+-- Each persona can have one Quiltt connection that manages multiple bank accounts
 CREATE TABLE quiltt_integrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id INTEGER NOT NULL,
-    user_id UUID NOT NULL,
+    persona_id UUID NOT NULL,
     
-    -- Quiltt connection
-    quiltt_connection_id TEXT NOT NULL,
-    quiltt_profile_id TEXT,
+    -- Quiltt identifiers
+    quiltt_user_id TEXT NOT NULL,          -- Quiltt's profile/user ID (same as our persona_id)
+    quiltt_connection_id TEXT NOT NULL,    -- Quiltt connection ID after auth
+    quiltt_profile_id TEXT,                -- Legacy field for compatibility
     
     -- OAuth tokens
     access_token_encrypted TEXT,
@@ -2553,9 +2568,6 @@ CREATE TABLE quiltt_integrations (
     sync_status sync_status_enum DEFAULT 'pending',
     sync_error TEXT,
     
-    -- Connected accounts
-    connected_account_ids TEXT[],
-    
     -- Status
     is_active BOOLEAN DEFAULT TRUE,
     connection_status integration_status_enum DEFAULT 'disconnected',
@@ -2565,7 +2577,8 @@ CREATE TABLE quiltt_integrations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
-    CONSTRAINT unique_quiltt_user UNIQUE (tenant_id, user_id)
+    CONSTRAINT unique_quiltt_persona UNIQUE (tenant_id, persona_id),
+    CONSTRAINT unique_quiltt_profile UNIQUE (quiltt_user_id)
 );
 
 -- Table 54: quiltt_webhook_logs
@@ -2589,8 +2602,8 @@ CREATE TABLE quiltt_webhook_logs (
     retry_count INTEGER DEFAULT 0,
     
     -- Related entities
-    user_id UUID,
     integration_id UUID,
+    persona_id UUID,  -- For easier lookup
     
     -- Constraints
     CONSTRAINT valid_retry_count CHECK (retry_count >= 0)
@@ -2721,6 +2734,29 @@ CREATE TABLE event_projections (
     
     -- Constraints
     CONSTRAINT unique_projection UNIQUE (tenant_id, projection_name, aggregate_id)
+);
+
+-- Table 60: quiltt_sessions
+-- Purpose: Temporary storage for Quiltt session tokens used in React UI connector flow
+CREATE TABLE quiltt_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id INTEGER NOT NULL,
+    persona_id UUID NOT NULL,
+    
+    -- Session token details
+    session_token TEXT NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    
+    -- Usage tracking
+    is_used BOOLEAN DEFAULT FALSE,
+    used_at TIMESTAMP WITH TIME ZONE,
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Constraints
+    CONSTRAINT valid_expiry CHECK (expires_at > created_at),
+    CONSTRAINT unique_active_session UNIQUE (persona_id) WHERE NOT is_used
 );
 
 -- ================================================================

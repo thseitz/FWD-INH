@@ -72,6 +72,8 @@ function generateTestParams(fileName: string, content: string, testData: any): a
       params.push('owner');
     } else if (content.includes(`$${i}::asset_type_enum`)) {
       params.push('real_estate');
+    } else if (content.includes(`$${i}::account_type_enum`)) {
+      params.push('checking');
     } else if (content.includes(`$${i}::subscription_status_enum`)) {
       params.push('active');
     } else if (content.includes(`$${i}::user_status_enum`)) {
@@ -205,6 +207,23 @@ function generateTestParams(fileName: string, content: string, testData: any): a
         params.push(faker.person.fullName());
       } else if (fileName.includes('builder') && content.includes('p_space_id')) {
         params.push('test_space');  // Use known Builder.io space ID
+      } else if (fileName.includes('quiltt')) {
+        // Handle Quiltt-specific text parameters
+        if (content.includes('p_session_token')) {
+          params.push('test_session_' + faker.string.alphanumeric(32));
+        } else if (content.includes('p_quiltt_user_id')) {
+          params.push(testData.personaId || faker.string.uuid());
+        } else if (content.includes('p_quiltt_connection_id')) {
+          params.push('conn_' + faker.string.alphanumeric(16));
+        } else if (content.includes('p_quiltt_account_id')) {
+          params.push('acct_' + faker.string.alphanumeric(16));
+        } else if (content.includes('p_access_token')) {
+          params.push('access_' + faker.string.alphanumeric(40));
+        } else if (content.includes('p_refresh_token')) {
+          params.push('refresh_' + faker.string.alphanumeric(40));
+        } else {
+          params.push(faker.lorem.word());
+        }
       } else if (fileName.includes('ui_mask_by_table_name')) {
         // UI collection mask query by table name
         params.push('assets');  // Use known table name
@@ -216,8 +235,16 @@ function generateTestParams(fileName: string, content: string, testData: any): a
       }
     } else if (content.includes(`$${i}::BOOLEAN`)) {
       params.push(true);
-    } else if (content.includes(`$${i}::DATE`) || content.includes(`$${i}::TIMESTAMP`)) {
-      params.push(new Date());
+    } else if (content.includes(`$${i}::DATE`) || content.includes(`$${i}::TIMESTAMP`) || content.includes(`$${i}::TIMESTAMPTZ`)) {
+      // Handle date/timestamp parameters
+      if (fileName.includes('quiltt') && content.includes('p_expires_at')) {
+        // Quiltt session expires in 1 hour
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 1);
+        params.push(expiresAt);
+      } else {
+        params.push(new Date());
+      }
     } else if (content.includes(`$${i}::DECIMAL(5,2)`)) {
       // For ownership percentage - use smaller values for transfers
       if (fileName.includes('transfer')) {
@@ -272,7 +299,8 @@ async function testSqlFiles() {
     const userResult = await client.query(`
       SELECT u.id 
       FROM users u
-      LEFT JOIN quiltt_integrations qi ON qi.user_id = u.id AND qi.is_active = true
+      LEFT JOIN personas p ON p.user_id = u.id
+      LEFT JOIN quiltt_integrations qi ON qi.persona_id = p.id AND qi.is_active = true
       WHERE u.tenant_id = $1
       ORDER BY qi.id IS NOT NULL DESC, u.created_at
       LIMIT 1

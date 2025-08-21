@@ -188,6 +188,47 @@ async function populateTestData(client: Client, tenantId: number) {
     }
     console.log(chalk.green('✓ Created ' + assets.length + ' assets'));
     
+    // 5a. Create financial_accounts for financial_account type assets
+    const financialAssetResult = await client.query(`
+      SELECT a.id as asset_id, qi.id as quiltt_integration_id
+      FROM assets a
+      JOIN asset_categories ac ON a.category_id = ac.id
+      LEFT JOIN asset_persona ap ON a.id = ap.asset_id AND ap.is_primary = true
+      LEFT JOIN quiltt_integrations qi ON qi.persona_id = ap.persona_id
+      WHERE a.tenant_id = $1 AND ac.code = 'financial_account'
+      LIMIT 5
+    `, [tenantId]);
+    
+    for (const row of financialAssetResult.rows) {
+      const isQuilttConnected = row.quiltt_integration_id !== null && Math.random() > 0.5;
+      await client.query(`
+        INSERT INTO financial_accounts (
+          asset_id, institution_name, account_type, account_number_last_four,
+          current_balance, balance_as_of_date,
+          quiltt_integration_id, quiltt_account_id, quiltt_connection_id,
+          is_quiltt_connected, last_quiltt_sync_at, quiltt_sync_status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (asset_id) DO NOTHING
+      `, [
+        row.asset_id,
+        faker.company.name() + ' Bank',
+        faker.helpers.arrayElement(['checking', 'savings', 'investment', 'retirement']),
+        faker.string.numeric(4),
+        faker.number.float({ min: 1000, max: 100000, fractionDigits: 2 }),
+        new Date(),
+        isQuilttConnected ? row.quiltt_integration_id : null,
+        isQuilttConnected ? 'acct_' + faker.string.alphanumeric(16) : null,
+        isQuilttConnected ? 'conn_' + faker.string.alphanumeric(10) : null,
+        isQuilttConnected,
+        isQuilttConnected ? new Date() : null,
+        isQuilttConnected ? 'completed' : 'pending'
+      ]);
+    }
+    if (financialAssetResult.rows.length > 0) {
+      console.log(chalk.green('✓ Created financial account details'));
+    }
+    
     // 6. Ensure we have a subscription plan
     const planResult = await client.query('SELECT id FROM plans WHERE tenant_id = $1 LIMIT 1', [tenantId]);
     let planId = planResult.rows[0]?.id;
@@ -246,13 +287,27 @@ async function populateTestData(client: Client, tenantId: number) {
     console.log(chalk.green('✓ Created ' + paymentMethodCount + ' payment methods'));
     
     // 9. Create integration configs
-    await client.query(`
-      INSERT INTO quiltt_integrations (
-        tenant_id, user_id, quiltt_connection_id, quiltt_profile_id, is_active, sync_accounts, sync_transactions
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (tenant_id, user_id) DO NOTHING
-    `, [tenantId, users[0], 'conn_' + faker.string.alphanumeric(10), 'prof_' + faker.string.alphanumeric(10), true, true, true]);
+    // Get first persona for Quiltt integration
+    const personaResult = await client.query('SELECT id FROM personas WHERE tenant_id = $1 LIMIT 1', [tenantId]);
+    const personaId = personaResult.rows[0]?.id;
+    
+    if (personaId) {
+      await client.query(`
+        INSERT INTO quiltt_integrations (
+          tenant_id, persona_id, quiltt_user_id, quiltt_connection_id, quiltt_profile_id, is_active, sync_accounts, sync_transactions
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (tenant_id, persona_id) DO NOTHING
+      `, [tenantId, personaId, personaId, 'conn_' + faker.string.alphanumeric(10), 'prof_' + faker.string.alphanumeric(10), true, true, true]);
+      
+      // Create a Quiltt session for testing
+      await client.query(`
+        INSERT INTO quiltt_sessions (
+          tenant_id, persona_id, session_token, expires_at
+        )
+        VALUES ($1, $2, $3, $4)
+      `, [tenantId, personaId, 'sess_' + faker.string.alphanumeric(32), new Date(Date.now() + 3600000)]); // 1 hour from now
+    }
     
     // Add builder.io integration for testing sp_refresh_builder_content
     await client.query(`
