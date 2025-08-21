@@ -19,6 +19,20 @@
 
 ### 🏗️ Architecture Foundation
 - [Introduction](#introduction)
+- [Phase 0: Local Development Architecture](#phase-0-local-development-architecture)
+  - [Overview](#overview)
+  - [Technology Stack](#technology-stack-1)
+  - [Docker Setup](#docker-setup)
+  - [Development Workflow](#development-workflow)
+  - [Key Differences from Production](#key-differences-from-production)
+  - [Migration Path to Phase 1A](#migration-path-to-phase-1a)
+  - [Phase 0 Authentication Implementation Strategy](#phase-0-authentication-implementation-strategy)
+- [AWS Infrastructure Build-Out Plan (Pulumi-Based)](#aws-infrastructure-build-out-plan-pulumi-based)
+  - [Overview](#overview-1)
+  - [Infrastructure Components](#infrastructure-components)
+  - [Phased Deployment Strategy](#phased-deployment-strategy)
+  - [Cost Optimization Strategy](#cost-optimization-strategy)
+  - [Repository Structure](#repository-structure-1)
 - [High Level Architecture](#high-level-architecture)
   - [Technical Summary](#technical-summary)
   - [Platform and Infrastructure Choice](#platform-and-infrastructure-choice)
@@ -409,6 +423,755 @@ Based on review of the PRD and existing documentation, this is a **Greenfield pr
 - AWS Amplify used specifically for React CI/CD and hosting
 - AWS Step Functions for document processing and PII workflows
 
+## Phase 0: Local Development Architecture
+
+### Overview
+
+Phase 0 provides a minimal local development environment to validate the technical architecture before AWS deployment. This phase uses Docker containers to host the complete stack locally, enabling rapid development and testing.
+
+### Technology Stack
+
+**Frontend (Vite + React)**
+- **Framework**: React with TypeScript
+- **Build Tool**: Vite (fast development server)
+- **Routing**: React Router
+- **UI Styling**: Tailwind CSS
+- **Component Library**: shadcn/ui
+- **Port**: 3000
+
+**Backend (NestJS)**
+- **Framework**: NestJS with TypeScript
+- **Database Access**: Slonik + pgTyped for type-safe SQL
+- **Port**: 4000
+
+**Database (PostgreSQL)**
+- **Database**: PostgreSQL 15+
+- **Port**: 15432 (to avoid conflicts with system PostgreSQL)
+- **Schema**: Complete 72-table schema (already designed)
+- **Data Access**: SQL-first approach with pgTyped type generation
+
+**Local Storage**
+- **File Storage**: Local filesystem for documents/images
+- **Encryption**: Placeholder/mock encryption for development
+
+### Docker Setup
+
+```yaml
+# docker-compose.yml (conceptual)
+services:
+  frontend:
+    build: ./apps/web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+      
+  backend:
+    build: ./apps/api
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/fwd_db
+    depends_on:
+      - db
+      
+  db:
+    image: postgres:15
+    ports:
+      - "15432:5432"
+    environment:
+      - POSTGRES_DB=fwd_db
+      - POSTGRES_PASSWORD=FGt!3reGTdt5BG!
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+```
+
+### Development Workflow
+
+1. **Database Setup**: Run SQL schema scripts to create tables and functions
+2. **Type Generation**: pgTyped generates TypeScript types from SQL files
+3. **Backend Start**: NestJS server with Slonik database client
+4. **Frontend Start**: Vite dev server with React
+5. **Local Testing**: Full stack runs locally for development
+
+### Key Differences from Production
+
+- **Authentication**: Complete 2FA flow UI/UX with stubbed backend services
+  - **Email Verification**: Full UI flow, stubbed email sending (returns "OK")
+  - **SMS 2FA**: Full UI flow, stubbed SMS sending (returns "OK") 
+  - **Authorization Logic**: Stubbed functions return "OK" (no actual validation)
+  - **JWT Tokens**: Complete token generation and validation
+  - **Session Management**: Full httpOnly cookie implementation
+  - **Advantage**: Phase 1A only needs external service integrations
+- **File Storage**: Local filesystem (no AWS S3)
+- **Integrations**: Mock/placeholder integrations (Quiltt, Twilio, Zillow)
+- **Encryption**: Development-only encryption keys
+- **Infrastructure**: Docker containers (no AWS ECS/Fargate)
+
+### Migration Path to Phase 1A
+
+Phase 0 validates the core architecture patterns that will be deployed to AWS in Phase 1A:
+- Same database schema and queries
+- Same NestJS backend structure
+- Same React frontend components
+- Same pgTyped + Slonik data access patterns
+
+### Phase 0 Migration Path to Production Authentication
+
+**Migration Strategy**
+1. **Infrastructure Setup**: Deploy AWS Cognito, configure Twilio, configure SendGrid
+2. **Replace Email Stubs**: Fill in `sendEmailVerification()` and `verifyEmailCode()` with SendGrid
+3. **Replace SMS Stubs**: Fill in `sendSMSVerification()` and `verifySMSCode()` with Twilio
+4. **Replace Auth Stubs**: Fill in `validateCredentials()` and `checkPermissions()` with AWS Cognito
+5. **Keep Everything Else**: All UI flows, database integration, and API structure remain unchanged
+
+**Phase 0 Implementation Notes**
+- Complete user registration flow with database persistence
+- Full email/phone verification tracking in database
+- Session management with database storage
+- Audit logging for all authentication events
+- All frontend authentication UI flows fully implemented
+
+See [🔐 Authentication Architecture](#🔐-authentication-architecture-phased-implementation) for complete implementation details.
+
+## AWS Infrastructure Build-Out Plan (Pulumi-Based)
+
+### Overview
+
+The platform follows a lean-first, phase-by-phase infrastructure build that maintains development velocity while progressively adding security and operational capabilities. This approach maps directly to the technology decisions documented in this architecture (Cognito + httpOnly cookies, ECS/Fargate, RDS PostgreSQL, S3, SQS, Step Functions, Amplify/CloudFront).
+
+### Infrastructure Components
+
+**Account & Organization (Baseline)**
+- IAM OIDC role for GitHub Actions deploys
+- Least-privilege roles for CI, ECS tasks, Step Functions, and data access
+
+**Networking (Per Environment)**
+- VPC with 3 AZs, private subnets (app/db) and public subnets (egress only)
+- Internet Gateway, NAT Gateways, route tables
+- VPC endpoints for S3, ECR, CloudWatch Logs, Secrets Manager, SSM, KMS, STS
+
+**Security**
+- KMS CMKs for RDS/S3/secrets
+- WAF on API Gateway and CloudFront
+- Secrets Manager for database/auth/3rd-party API secrets
+- CloudTrail + CloudWatch metrics/alarms
+
+**Data & Storage**
+- RDS PostgreSQL Multi-AZ with subnet groups and parameter groups
+- S3 buckets: docs-original, docs-processed, website-static (versioning + KMS + lifecycle)
+- In-memory cache in NestJS; Redis/Upstash when scale requires (matches ADR-004)
+
+**Compute & Containers**
+- ECR repositories (api, worker)
+- ECS (Fargate) cluster with task definitions for API/worker/migrations
+- Internal ALB for REST APIs
+- WebSocket support via API Gateway WebSocket API or ALB pass-through
+
+**API & Authentication**
+- API Gateway HTTP API with VPC Link to internal ALB
+- Usage plans/quotas, WAF, custom domain + ACM
+- Cognito User Pool & Hosted UI
+- Pre-Token-Generation Lambda for tenant claims
+
+**Async & Workflows**
+- SQS (main + DLQ) for app tasks & Stripe webhooks
+- Step Functions state machine for Textract/Comprehend/Lambda document processing
+
+**Observability**
+- CloudWatch log groups with retention, dashboards, alarms
+- Sentry for application error tracking
+
+**Frontend**
+- Amplify app connected to GitHub for React SPA builds
+- CloudFront distribution with Origin Access Control (OAC)
+
+### Phased Deployment Strategy
+
+#### **Phase 0: Local Development** (Current)
+**Goal**: Validate architecture with Docker containers locally
+- Complete application development with stubbed external services
+- Database schema validation and pgTyped integration
+- UI/UX flows for authentication and core features
+
+#### **Phase 1: Account Foundation**
+**Goal**: Safe root access, developer access, billing safety
+```bash
+# Pulumi Module: 00-account-foundation
+```
+- Root MFA and break-glass user setup
+- Development account with AWS Budgets + alerts
+- CloudTrail (single trail, all regions) → S3
+- DeployRole for CI/CD (GitHub OIDC-ready)
+- DeveloperRole with console access
+
+#### **Phase 2: Open Development Networking**
+**Goal**: Get containers/DB reachable quickly, keep simple
+```bash
+# Pulumi Module: 10-network-dev-open
+```
+- Single VPC with two public subnets (2 AZs)
+- No NAT Gateways initially (cost savings)
+- Security Groups: ALB (80/443 from 0.0.0.0/0), ECS (3000 from ALB), DB (5432 from ECS)
+- Public ALB as temporary development front door
+
+**Pulumi Configuration**:
+```typescript
+// config.ts
+export const isProd = pulumi.getStack() === "prod";
+export const openDev = !isProd;       // public ALB, tasks with public IPs
+export const natCount = isProd ? 2 : 0;
+```
+
+#### **Phase 3: Minimum Application Stack**
+**Goal**: Ship the app end-to-end with fewest moving parts
+```bash
+# Pulumi Modules: 20-data-dev, 30-ecr-ecs-api, 40-frontend-amplify
+```
+- ECR repository for NestJS API image
+- RDS PostgreSQL (single-AZ, t4g.small, default KMS)
+- S3 buckets: app-docs-original, app-docs-processed (versioning enabled)
+- ECS/Fargate cluster with API service (2 tasks) behind public ALB
+- Amplify deployment for React SPA
+
+**Smoke Tests**:
+- `curl ALB /healthz → 200`
+- Database migrations via one-off Fargate task
+- SPA renders and API calls succeed
+
+#### **Phase 4: Authentication & API Gateway**
+**Goal**: Implement Cognito + Authorization Code with PKCE, httpOnly cookies
+```bash
+# Pulumi Modules: 50-auth-cognito, 55-api-gateway
+```
+- Cognito User Pool + Hosted UI (scopes: openid, email, profile)
+- Pre-Token-Generation Lambda for tenant/role claims
+- API Gateway HTTP API routing /auth/* and /api/* to backend
+- HttpOnly cookie management, JWT tokens stay out of JavaScript
+
+**Smoke Tests**:
+- Login via Cognito → callback → cookies set (not visible to JS)
+- Token refresh flow succeeds transparently
+
+#### **Phase 5: Storage & Async Primitives**
+**Goal**: Enable uploads and background work
+```bash
+# Pulumi Module: 60-queues-workers
+```
+- S3 integration for original + processed document storage
+- SQS (main + DLQ) for Stripe webhooks, notifications
+- Worker ECS service reading SQS queues
+- In-memory caching (no Redis yet, per ADR-004)
+
+**Smoke Tests**:
+- Upload document → appears in original bucket
+- Test job enqueued → worker consumes
+- DLQ receives poison messages
+
+#### **Phase 6: Document Processing Pipeline**
+**Goal**: Fulfill PII masking flow
+```bash
+# Pulumi Module: 70-step-functions-doc-pipeline
+```
+- Step Functions state machine: Validate → Textract → Comprehend PII → Mask → Write copies → Update DB → Notify
+- S3 event trigger on original bucket upload
+- Lambda functions for processing steps (small memory, short timeouts)
+
+**Smoke Tests**:
+- Upload PDF → masked copy in processed bucket
+- Database updated with processing status
+- Application displays masked version
+
+#### **Phase 7: Network Hardening**
+**Goal**: Secure network now that development velocity is established
+```bash
+# Pulumi Module: 80-network-harden
+```
+- Migrate ECS tasks to private subnets (no public IP)
+- Add 1 NAT Gateway for VPC (dev cost optimization)
+- Move ALB to internal, connect API Gateway via VPC Link
+- Add VPC Endpoints: S3, ECR, CloudWatch Logs, Secrets Manager, SSM, KMS
+- Attach WAF to API Gateway (rate limiting, SQL injection, XSS protection)
+
+**Smoke Tests**:
+- External access only via API Gateway (ALB not public)
+- WAF blocks test attack signatures
+- Application functionality maintained
+
+#### **Phase 8: Global Delivery**
+**Goal**: Production-grade static asset and API delivery
+```bash
+# Pulumi Module: 90-cloudfront
+```
+- CloudFront distribution in front of Amplify SPA
+- Optional CloudFront in front of API Gateway for global edge latency
+- Long-TTL caching for static assets, no-cache for APIs
+
+#### **Phase 9: Observability & CI/CD**
+**Goal**: Production monitoring and deployment automation
+```bash
+# Pulumi Modules: 95-observability, 99-cicd
+```
+- CloudWatch Logs/Dashboards/Alarms:
+  - API 4xx/5xx rates and P95 latency
+  - ECS CPU/Memory utilization
+  - RDS CPU/connections
+  - SQS queue depth
+  - Step Functions failures
+- Sentry integration for frontend and backend error tracking
+- GitHub Actions CI/CD:
+  - Build & push Docker images
+  - `pulumi up` for development
+  - Manual approvals for staging/production
+
+### Cost Optimization Reference
+
+See [💰 Cost Optimization Strategy](#cost-optimization-strategy) for comprehensive cost optimization including environment-specific strategies, progressive scaling, and break-even analysis.
+
+### Repository Structure
+
+```
+/
+├── apps/
+│   ├── frontend/          # React SPA
+│   └── api/              # NestJS backend
+├── packages/
+│   └── shared/           # Shared TypeScript types
+└── infra/
+    └── pulumi/           # Infrastructure as Code
+        ├── 00-account-foundation/
+        ├── 10-network-dev-open/
+        ├── 20-data-dev/
+        ├── 30-ecr-ecs-api/
+        ├── 40-frontend-amplify/
+        ├── 50-auth-cognito/
+        ├── 55-api-gateway/
+        ├── 60-queues-workers/
+        ├── 70-step-functions-doc-pipeline/
+        ├── 80-network-harden/
+        ├── 90-cloudfront/
+        ├── 95-observability/
+        └── 99-cicd/
+```
+
+## Phase-by-Phase Integration Migration Strategy
+
+This section documents the comprehensive migration strategy from Phase 0 local development through full AWS production deployment, ensuring minimal disruption and systematic validation at each stage.
+
+### Migration Overview
+
+The Forward Inheritance Platform follows a **risk-minimized, incrementally-validated migration approach** that enables continuous development velocity while systematically replacing stubbed components with production implementations.
+
+#### Migration Principles
+
+1. **Backward Compatibility**: Each phase maintains full compatibility with previous phases
+2. **Zero-Downtime Transitions**: Live system remains operational during all migrations
+3. **Incremental Validation**: Each component is validated independently before proceeding
+4. **Rollback Capability**: Every phase includes rollback procedures for critical failures
+5. **Feature Flag Control**: New integrations controlled via feature flags for safe deployment
+
+### Detailed Phase Migration Strategy
+
+#### Phase 0 → Phase 1A: AWS Infrastructure Foundation
+
+**Migration Scope**: Local Docker → AWS Cloud Infrastructure
+**Timeline**: Days 15-74 (60 days)
+**Risk Level**: Medium (infrastructure change)
+
+```typescript
+// Migration checklist and validation
+interface Phase1AMigration {
+  infrastructureMigration: {
+    awsAccount: 'Setup with security foundation',
+    networking: 'VPC with public subnets (cost-optimized)',
+    compute: 'ECS/Fargate cluster deployment',
+    database: 'RDS PostgreSQL migration from local',
+    storage: 'S3 bucket creation and file migration',
+    monitoring: 'Basic CloudWatch logging'
+  },
+  
+  applicationMigration: {
+    containerization: 'Docker images to ECR',
+    configuration: 'Environment variable migration',
+    secrets: 'AWS Secrets Manager integration',
+    healthChecks: 'ALB health check endpoints',
+    dataValidation: 'Database consistency verification'
+  },
+  
+  validationGates: {
+    functional: 'All Phase 0 functionality working on AWS',
+    performance: 'Response times within 2x of local',
+    security: 'TLS termination and basic security groups',
+    cost: 'Monthly cost under $200 for development workload'
+  }
+}
+```
+
+#### Phase 1A → Phase 1B: Authentication & External Services
+
+**Migration Scope**: Stubbed Auth → Production AWS Cognito + API Gateway
+**Timeline**: Days 75-134 (60 days)  
+**Risk Level**: High (authentication change affects all users)
+
+```typescript
+interface Phase1BMigration {
+  authenticationMigration: {
+    cognitoSetup: 'User pool creation and configuration',
+    apiGatewayIntegration: 'HTTP API with VPC Link to ALB',
+    jwtAuthorization: 'Token validation and refresh flows',
+    sessionMigration: 'Migrate existing stub sessions to Cognito',
+    backupAuth: 'Maintain stub auth as fallback during migration'
+  },
+  
+  migrationSteps: [
+    {
+      step: 1,
+      action: 'Deploy Cognito infrastructure alongside existing auth',
+      validation: 'New user registration works with Cognito',
+      rollback: 'Disable Cognito, continue with stub auth'
+    },
+    {
+      step: 2, 
+      action: 'Migrate existing users to Cognito user pool',
+      validation: 'All existing users can log in with new system',
+      rollback: 'Restore user data from backup, use stub auth'
+    },
+    {
+      step: 3,
+      action: 'Switch production traffic to Cognito authentication',
+      validation: 'All authentication flows working, performance acceptable',
+      rollback: 'Feature flag to revert to stub authentication'
+    },
+    {
+      step: 4,
+      action: 'Remove stub authentication code and dependencies',
+      validation: 'Clean production system with only Cognito auth',
+      rollback: 'Redeploy previous version with stub auth'
+    }
+  ],
+  
+  featureFlags: {
+    'auth.useStubs': 'Control between stub and Cognito authentication',
+    'auth.migrationMode': 'Enable dual authentication during transition',
+    'auth.requireVerification': 'Control email/SMS verification requirements'
+  }
+}
+```
+
+#### Phase 1B → Phase 1C: External Integration Migration
+
+**Migration Scope**: Stubbed Services → Production Integrations (Twilio, Quiltt, Zillow, Spanish)
+**Timeline**: Days 135-164 (30 days)
+**Risk Level**: Medium (external dependencies)
+
+```typescript
+interface Phase1CMigration {
+  integrationMigration: {
+    twilioIntegration: {
+      timeline: 'Week 1',
+      scope: 'SMS verification replacement',
+      validation: 'Real SMS delivery and verification',
+      fallback: 'Stub SMS with admin override capability'
+    },
+    
+    quilttIntegration: {
+      timeline: 'Weeks 2-3', 
+      scope: 'Financial account aggregation',
+      validation: 'Bank account connectivity and balance sync',
+      fallback: 'Manual asset entry with Quiltt disabled'
+    },
+    
+    zillowIntegration: {
+      timeline: 'Week 4',
+      scope: 'Real estate valuation data',
+      validation: 'Property value estimates and market data',
+      fallback: 'Manual property valuation entry'
+    },
+    
+    spanishLocalization: {
+      timeline: 'Week 5',
+      scope: 'Spanish language support',
+      validation: 'Complete UI translation and email templates',
+      fallback: 'English-only with graceful language switching'
+    }
+  },
+  
+  migrationPattern: {
+    preparation: [
+      'Create integration service stubs alongside existing stubs',
+      'Implement feature flags for each integration',
+      'Add comprehensive error handling and fallback logic',
+      'Create integration health check endpoints'
+    ],
+    
+    deployment: [
+      'Deploy integration code with feature flags disabled',
+      'Validate integration connectivity in staging environment',
+      'Enable feature flag for subset of users (beta testing)',
+      'Monitor performance and error rates',
+      'Gradually increase traffic to new integration',
+      'Switch 100% traffic once validation complete'
+    ],
+    
+    validation: [
+      'Integration health checks passing',
+      'Error rates below 1% for integration calls',
+      'Performance impact negligible on core flows',
+      'Fallback mechanisms tested and working',
+      'User experience equivalent or improved'
+    ]
+  }
+}
+```
+
+### Migration Infrastructure & Tooling
+
+#### Feature Flag Management
+
+```typescript
+// Integration feature flag service
+class FeatureFlagService {
+  async isEnabled(flag: string, userId?: string, ffcId?: string): Promise<boolean> {
+    // Hierarchical flag evaluation: user > ffc > tenant > global
+    const userFlag = userId ? await this.getUserFlag(flag, userId) : null;
+    const ffcFlag = ffcId ? await this.getFFCFlag(flag, ffcId) : null;
+    const globalFlag = await this.getGlobalFlag(flag);
+    
+    return userFlag ?? ffcFlag ?? globalFlag ?? false;
+  }
+  
+  // Integration-specific flags
+  async shouldUseTwilio(userId: string): Promise<boolean> {
+    return this.isEnabled('integrations.twilio.enabled', userId);
+  }
+  
+  async shouldUseQuiltt(userId: string): Promise<boolean> {
+    return this.isEnabled('integrations.quiltt.enabled', userId);
+  }
+}
+```
+
+#### Migration Health Monitoring
+
+```typescript
+// Migration health monitoring service
+class MigrationHealthService {
+  async checkMigrationHealth(): Promise<MigrationHealthReport> {
+    return {
+      authenticationHealth: await this.checkAuthenticationMigration(),
+      integrationHealth: await this.checkIntegrationMigration(),
+      performanceHealth: await this.checkPerformanceImpact(),
+      errorRates: await this.checkErrorRates(),
+      recommendedActions: await this.generateRecommendations()
+    };
+  }
+  
+  private async checkAuthenticationMigration(): Promise<AuthMigrationHealth> {
+    const cognitoSuccess = await this.testCognitoAuth();
+    const stubFallbackWorking = await this.testStubAuth();
+    const userMigrationProgress = await this.getUserMigrationProgress();
+    
+    return {
+      cognitoHealthy: cognitoSuccess,
+      fallbackAvailable: stubFallbackWorking,
+      migrationProgress: userMigrationProgress,
+      recommendation: this.getAuthRecommendation(cognitoSuccess, stubFallbackWorking)
+    };
+  }
+}
+```
+
+#### Rollback Procedures
+
+```typescript
+interface RollbackProcedures {
+  authenticationRollback: {
+    trigger: 'Cognito failure rate > 5% OR user complaints > 10',
+    procedure: [
+      'Enable feature flag auth.useStubs = true',
+      'Verify stub authentication working',
+      'Monitor user login success rates',
+      'Investigate Cognito issues offline',
+      'Plan re-migration once issues resolved'
+    ],
+    timeToRollback: '< 5 minutes',
+    validationSteps: [
+      'User login success rate > 95%',
+      'No authentication-related error reports',
+      'All core application functionality accessible'
+    ]
+  },
+  
+  integrationRollback: {
+    trigger: 'Integration failure rate > 10% OR performance degradation > 50%',
+    procedure: [
+      'Disable problematic integration via feature flag',
+      'Verify fallback/stub integration working',
+      'Monitor application performance recovery',
+      'Debug integration issues in staging environment',
+      'Plan re-deployment with fixes'
+    ],
+    timeToRollback: '< 2 minutes per integration',
+    validationSteps: [
+      'Application functionality equivalent to pre-integration',
+      'Performance back to baseline levels',
+      'Error rates below normal thresholds'
+    ]
+  }
+}
+```
+
+### Success Metrics & Validation Gates
+
+#### Phase Migration Success Criteria
+
+```typescript
+interface MigrationSuccessCriteria {
+  functionalRequirements: {
+    featureParity: '100% of Phase 0 functionality working',
+    userExperience: 'No degradation in user workflows',
+    dataIntegrity: 'Zero data loss during migration',
+    securityCompliance: 'All security requirements maintained'
+  },
+  
+  performanceRequirements: {
+    responseTime: 'API response times within 150% of baseline',
+    availability: 'System uptime > 99.5% during migration',
+    errorRate: 'Error rates < 1% for core functionality',
+    throughput: 'System handles expected user load'
+  },
+  
+  operationalRequirements: {
+    monitoring: 'All critical metrics being tracked',
+    alerting: 'Alert systems functional and tuned',
+    logging: 'Complete audit trail of migration activities',
+    documentation: 'All changes documented and validated'
+  }
+}
+```
+
+This comprehensive migration strategy ensures the Forward Inheritance Platform can evolve from local development through full production deployment while maintaining system reliability, user experience, and development velocity throughout the transformation process.
+
+## Epic 7: Performance Optimization & Advanced Caching
+
+> **🚀 Performance Goal**: Optimize React application performance, implement advanced caching strategies, and ensure scalable database operations for family wealth management at scale.
+
+### Overview
+
+Epic 7 focuses on performance optimization across the entire stack to support thousands of families managing complex asset portfolios. This includes React performance optimization, advanced caching implementation, database query optimization, CDN configuration, and comprehensive performance monitoring.
+
+### React Performance Optimization
+
+#### Component Performance Strategies
+
+**TBD**: React.memo implementation patterns
+**TBD**: useMemo and useCallback optimization strategies  
+**TBD**: Virtual scrolling for large asset lists
+**TBD**: Code splitting and lazy loading implementation
+**TBD**: Bundle size optimization techniques
+
+```typescript
+// TBD: Example React performance patterns
+// - Memoized components for asset lists
+// - Optimized re-rendering strategies
+// - Performance profiling implementation
+```
+
+#### State Management Optimization
+
+**TBD**: Zustand store optimization patterns
+**TBD**: Selective state subscriptions
+**TBD**: State normalization strategies
+**TBD**: Optimistic updates implementation
+
+### Advanced Caching Implementation
+
+#### Multi-Level Caching Strategy
+
+**TBD**: In-memory caching with Redis migration path
+**TBD**: Browser caching strategies  
+**TBD**: API response caching patterns
+**TBD**: Database query result caching
+
+```typescript
+// TBD: Caching service implementation
+// - Redis integration for multi-instance deployments
+// - Cache invalidation strategies
+// - Cache warming procedures
+```
+
+#### CDN and Asset Optimization
+
+**TBD**: CloudFront configuration for optimal performance
+**TBD**: Static asset optimization
+**TBD**: Image optimization and lazy loading
+**TBD**: Font loading optimization
+
+### Database Query Optimization
+
+#### Query Performance Strategies
+
+**TBD**: Database index optimization
+**TBD**: Query execution plan analysis
+**TBD**: Stored procedure performance tuning
+**TBD**: Connection pooling optimization
+
+```sql
+-- TBD: Optimized database queries
+-- - Asset retrieval with pagination
+-- - Complex family relationship queries
+-- - Financial data aggregation optimization
+```
+
+#### Data Access Patterns
+
+**TBD**: Efficient data loading strategies
+**TBD**: Bulk operation optimization
+**TBD**: Read replica implementation
+**TBD**: Database partitioning strategies
+
+### Performance Monitoring
+
+#### Metrics and Observability
+
+**TBD**: Performance metric collection
+**TBD**: Real User Monitoring (RUM) implementation
+**TBD**: Core Web Vitals tracking
+**TBD**: API performance monitoring
+
+```typescript
+// TBD: Performance monitoring service
+// - Page load time tracking
+// - API response time monitoring  
+// - Error rate tracking
+// - User experience metrics
+```
+
+#### Performance Dashboards
+
+**TBD**: CloudWatch dashboard configuration
+**TBD**: Sentry performance monitoring
+**TBD**: Custom performance analytics
+**TBD**: Performance alerting strategies
+
+### Implementation Timeline
+
+**Phase 1**: React component optimization and code splitting
+**Phase 2**: Advanced caching layer implementation
+**Phase 3**: Database query optimization and indexing
+**Phase 4**: CDN configuration and asset optimization
+**Phase 5**: Performance monitoring and alerting setup
+
+### Success Metrics
+
+- **Page Load Time**: < 2 seconds for dashboard
+- **API Response Time**: < 500ms for asset queries
+- **Bundle Size**: < 1MB total JavaScript
+- **Core Web Vitals**: Green scores across all metrics
+- **Database Query Time**: < 100ms for complex asset queries
+
+*Note: This section contains placeholder content (TBD) for future implementation. Detailed specifications will be developed during Epic 7 planning phase.*
+
 ## High Level Architecture
 
 ### Technical Summary
@@ -450,6 +1213,29 @@ The Forward Inheritance Platform employs a **multi-tenant SaaS architecture** wi
 - **Financial Data**: Quiltt API for bank account aggregation
 - **Compliance**: Vanta for SOC 2 compliance automation
 
+##### Integration Implementation Priority (Phase 1C)
+Based on PRD requirements, external integrations follow this implementation order:
+
+1. **Twilio SMS 2FA Integration** (Epic 2: Story 2.4, Week 1)
+   - **Purpose**: Replace stubbed SMS verification with production Twilio integration
+   - **Scope**: Full dual-channel authentication (email + SMS)
+   - **Dependencies**: AWS Cognito authentication foundation from Phase 1A
+
+2. **Quiltt API Integration** (Epic 4: Story 4.8, Weeks 2-3)
+   - **Purpose**: Financial account aggregation and balance synchronization
+   - **Scope**: Bank account connectivity, transaction sync, balance updates
+   - **Dependencies**: Asset management infrastructure from Phase 1B
+
+3. **Zillow API Integration** (Epic 4: Story 4.9, Week 4)
+   - **Purpose**: Real estate asset valuation and market data
+   - **Scope**: Property value estimation, market trend analysis
+   - **Dependencies**: Real estate asset category implementation
+
+4. **Spanish Language Foundation** (Epic 5: Story 5.1, Week 5)
+   - **Purpose**: Native Spanish language support for US market expansion
+   - **Scope**: UI translation, localized email templates, cultural adaptations
+   - **Dependencies**: Translation system architecture foundation
+
 #### Scale & Performance
 This architecture achieves **enterprise-grade security**, **scalability for millions of families**, and **maintainable code** through Nest.js's structured approach with clear separation of concerns.
 
@@ -474,7 +1260,7 @@ This architecture achieves **enterprise-grade security**, **scalability for mill
 **Package Organization:** 
 - `/apps` - Frontend (React) and Backend (Node.js) applications
 - `/packages` - Shared types, utilities, and database interfaces
-- `/infrastructure` - AWS CDK/Terraform definitions
+- `/infrastructure` - Pulumi definitions
 
 **Why Nx over alternatives:**
 - Advanced dependency graph visualization
@@ -620,7 +1406,7 @@ graph TB
 | Build Tool | Vite | 5.0+ | Frontend bundling | Fast HMR, excellent DX, optimized production builds |
 | Bundler | esbuild (via Vite) | - | JS/TS compilation | Fastest compilation, built into Vite |
 | Monorepo Build | Nx | 17+ | Build orchestration | Advanced caching, dependency graph, parallel builds |
-| IaC Tool | AWS CDK | 2.100+ | Infrastructure as code | TypeScript-native, better AWS integration than Terraform |
+| IaC Tool | Pulumi | 3.0+ | Infrastructure as code | TypeScript-native, multi-cloud support, excellent state management |
 | CI/CD | GitHub Actions + AWS Amplify | - | Deployment automation | GitHub integration, Amplify for React auto-deploy |
 | Monitoring | CloudWatch + Sentry | - | Observability | AWS-native metrics, error tracking with Sentry |
 | Logging | Winston + CloudWatch | - | Application logging | Structured logging, AWS integration |
@@ -761,6 +1547,16 @@ async getUserById(params: GetUserByIdParams): Promise<GetUserByIdRow | null> {
 8. `sp_sync_quiltt_data` - Financial data synchronization
 9. `sp_sync_real_estate_data` - Property data sync
 10. `sp_refresh_builder_content` - CMS content refresh
+
+### NestJS Integration Reference
+
+For detailed NestJS service implementation including connection pooling, tenant isolation, and stored procedure execution patterns, see [⚙️ Database Architecture with Nest.js](#database-architecture-with-nestjs) in the Backend Architecture section.
+
+**Key Integration Points:**
+- Slonik connection pooling with tenant context
+- Multi-tenant Row Level Security (RLS) setup
+- Service layer patterns for database operations
+- Error handling and transaction management
 
 ## Real-time Communication Architecture (WebSockets)
 
@@ -1040,9 +1836,25 @@ const FFCDashboard: React.FC<{ ffcId: string }> = ({ ffcId }) => {
 - **Reliability:** Socket.io handles reconnection, fallback to polling
 - **Room Support:** Built-in room/namespace management for FFCs
 
-## 🔐 Authentication Architecture (AWS Cognito + API Gateway)
+### Production Implementation Reference
 
-> **🛡️ Security First**: AWS Cognito with secure httpOnly cookies ensures tokens never reach JavaScript code, preventing XSS token theft.
+For complete WebSocket implementation including authentication guards, scaling strategies, and comprehensive collaboration features, see [⚙️ Real-Time WebSocket Layer with Socket.io](#real-time-websocket-layer-with-socketio) in the Backend Architecture section.
+
+**Advanced Features Covered:**
+- JWT-based WebSocket authentication
+- Multi-tenant collaboration patterns
+- Horizontal scaling with DynamoDB/Redis adapters
+- Error handling and reconnection logic
+- Performance monitoring and connection management
+
+## 🔐 Authentication Architecture (Phased Implementation)
+
+> **🛡️ Security First**: Phase 0 builds complete 2FA flows with stubbed authorization, Phase 1A adds AWS Cognito security.
+
+**Implementation Strategy:**
+- **Phase 0**: Complete email + SMS 2FA implementation with stubbed authorization  
+- **Phase 1A**: AWS Cognito integration replaces authorization stubs
+- **Phase 1A+**: Full production security with Cognito + API Gateway
 
 **📋 Related ADR:** [ADR-003: AWS Cognito for Authentication](#adr-003-aws-cognito-for-authentication)
 
@@ -1303,6 +2115,141 @@ const handleLogout = () => {
    - Session cleared on logout
    - Tenant isolation enforced
 
+### Production Implementation Flows
+
+#### User Registration Flow
+```typescript
+// registration.service.ts
+import { CognitoIdentityProviderClient, SignUpCommand, ConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class RegistrationService {
+  private cognitoClient = new CognitoIdentityProviderClient({ region: 'us-east-1' });
+  
+  async registerUser(dto: RegisterUserDto) {
+    // Step 1: Register user with Cognito
+    const signUpCommand = new SignUpCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: dto.email,
+      Password: dto.password,
+      UserAttributes: [
+        { Name: 'email', Value: dto.email },
+        { Name: 'phone_number', Value: dto.phoneNumber },
+        { Name: 'given_name', Value: dto.firstName },
+        { Name: 'family_name', Value: dto.lastName },
+        { Name: 'custom:tenant_id', Value: dto.tenantId.toString() },
+      ],
+    });
+    
+    const cognitoResponse = await this.cognitoClient.send(signUpCommand);
+    return {
+      userSub: cognitoResponse.UserSub,
+      codeDeliveryDetails: cognitoResponse.CodeDeliveryDetails,
+    };
+  }
+  
+  async confirmRegistration(email: string, code: string) {
+    const confirmCommand = new ConfirmSignUpCommand({
+      ClientId: process.env.COGNITO_CLIENT_ID,
+      Username: email,
+      ConfirmationCode: code,
+    });
+    
+    await this.cognitoClient.send(confirmCommand);
+    
+    // Create user record in database after confirmation
+    const userDetails = await this.getUserFromCognito(email);
+    await this.databaseService.query(sql`
+      SELECT * FROM sp_create_user_from_cognito(
+        ${userDetails.tenantId}::int,
+        ${userDetails.sub}::text,
+        ${userDetails.email}::text,
+        ${userDetails.phoneNumber}::text,
+        ${userDetails.firstName}::text,
+        ${userDetails.lastName}::text
+      )
+    `);
+    
+    return { success: true };
+  }
+}
+```
+
+#### User Login Flow
+```typescript
+@Injectable()
+export class AuthService {
+  async login(email: string, password: string) {
+    try {
+      const authCommand = new InitiateAuthCommand({
+        AuthFlow: 'USER_SRP_AUTH',
+        ClientId: process.env.COGNITO_CLIENT_ID,
+        AuthParameters: {
+          USERNAME: email,
+          PASSWORD: password,
+        },
+      });
+      
+      const authResponse = await this.cognitoClient.send(authCommand);
+      
+      // Handle MFA challenge if required
+      if (authResponse.ChallengeName === 'SMS_MFA') {
+        return {
+          requiresMfa: true,
+          session: authResponse.Session,
+          challengeType: 'SMS_MFA',
+        };
+      }
+      
+      const tokens = authResponse.AuthenticationResult;
+      const idTokenPayload = this.decodeToken(tokens.IdToken);
+      
+      await this.auditService.logAuthEvent(idTokenPayload.sub, 'LOGIN_SUCCESS');
+      
+      return {
+        accessToken: tokens.AccessToken,
+        idToken: tokens.IdToken,
+        refreshToken: tokens.RefreshToken,
+        expiresIn: tokens.ExpiresIn,
+        user: {
+          id: idTokenPayload.sub,
+          email: idTokenPayload.email,
+          tenantId: idTokenPayload['custom:tenant_id'],
+        },
+      };
+    } catch (error) {
+      await this.auditService.logAuthEvent(email, 'LOGIN_FAILED');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
+}
+```
+
+#### JWT Token Validation Middleware
+```typescript
+@Injectable()
+export class JwtAuthGuard {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = this.extractToken(request);
+    
+    try {
+      const decoded = this.jwtService.verify(token);
+      
+      // Set tenant context directly from token - eliminates DB call
+      request.tenantId = parseInt(decoded['custom:tenant_id']);
+      request.userRole = decoded['custom:role'];
+      request.ffcIds = decoded['custom:ffc_ids'].split(',');
+      
+      return true;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+}
+```
+
 ## Data Models
 
 These TypeScript interfaces define the core entities shared between frontend and backend, matching the database schema while keeping business logic in the application layer.
@@ -1524,6 +2471,152 @@ interface FinancialAccount extends Asset {
 ```
 
 **Implementation Note for AI Agents:** When implementing these interfaces, reference the database schema in `DB-architecture.md` to include ALL fields from the corresponding tables. The stored procedures will return complete data which the Node.js layer processes according to business rules before sending to the frontend.
+
+### Persona-Based Ownership Model
+
+The Forward Inheritance Platform implements a sophisticated persona-based ownership model that enables precise asset attribution and flexible permission management within family structures.
+
+#### Core Ownership Concepts
+
+```typescript
+interface Asset {
+  id: string;
+  tenantId: number;
+  ffcId: string;
+  categoryId: string;
+  assetName: string;
+  assetDescription?: string;
+  status: 'active' | 'inactive' | 'pending_verification' | 'archived' | 'disputed';
+  createdAt: Date;
+  updatedAt: Date;
+  // Ownership relationships defined separately in asset_persona table
+}
+
+interface AssetPersonaOwnership {
+  id: string;
+  assetId: string;
+  personaId: string;
+  ownershipType: 'direct' | 'trust' | 'beneficiary' | 'joint' | 'power_of_attorney' | 'custodial';
+  ownershipPercentage: number; // Precise to 0.01% (stored as decimal)
+  ownershipStartDate: Date;
+  ownershipEndDate?: Date;
+  isActiveOwner: boolean;
+  ownershipNotes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface AssetPermission {
+  id: string;
+  assetId: string;
+  personaId: string;
+  permissionType: 'view' | 'edit' | 'share' | 'transfer' | 'delete' | 'admin';
+  grantedBy: string; // personaId of grantor
+  grantedAt: Date;
+  expiresAt?: Date;
+  isActive: boolean;
+  permissionSource: 'ownership' | 'explicit_grant' | 'inherited' | 'administrative';
+}
+```
+
+#### Ownership Model Features
+
+1. **Direct Persona-to-Asset Links**
+   - Each asset can have multiple owners (personas) with specific ownership percentages
+   - Ownership percentages are precise to 0.01% for complex estate planning scenarios
+   - Multiple ownership types support various legal structures (direct, trust, beneficiary, etc.)
+
+2. **Ownership Type Classifications**
+   - **Direct**: Traditional personal ownership
+   - **Trust**: Assets held in trust structures
+   - **Beneficiary**: Beneficiary rights to trust or retirement assets
+   - **Joint**: Joint ownership (marriage, partnerships)
+   - **Power of Attorney**: Legal representative ownership
+   - **Custodial**: Guardian/custodial ownership for minors
+
+3. **Permission Inheritance Model**
+   ```typescript
+   // Permission calculation logic
+   interface PersonaAssetAccess {
+     canView: boolean;      // Ownership >= 0.01% OR explicit view permission
+     canEdit: boolean;      // Ownership >= 25% OR explicit edit permission  
+     canShare: boolean;     // Ownership >= 50% OR explicit share permission
+     canTransfer: boolean;  // Ownership >= 75% OR explicit transfer permission
+     canDelete: boolean;    // Ownership = 100% OR explicit admin permission
+     hasAdminRights: boolean; // Explicit admin permission only
+   }
+   ```
+
+4. **Ownership Transfer & History**
+   - Complete ownership transfer functionality with audit trails
+   - Historical ownership tracking for estate planning and legal compliance
+   - Transfer approval workflows for high-value assets
+   - Automatic permission recalculation upon ownership changes
+
+#### Implementation Architecture
+
+##### Database Layer
+- **`assets`**: Core asset information
+- **`asset_persona`**: Direct ownership relationships with percentages
+- **`asset_permissions`**: Explicit permission grants independent of ownership
+- **`asset_ownership_history`**: Complete ownership change audit trail
+
+##### Business Logic Layer
+```typescript
+class AssetOwnershipService {
+  async getAssetOwners(assetId: string): Promise<AssetPersonaOwnership[]> {
+    return this.pool.query(sql`
+      SELECT * FROM sp_get_asset_owners(${assetId}::uuid)
+    `);
+  }
+
+  async calculatePersonaPermissions(personaId: string, assetId: string): Promise<PersonaAssetAccess> {
+    const ownership = await this.getPersonaOwnershipPercentage(personaId, assetId);
+    const explicitPermissions = await this.getExplicitPermissions(personaId, assetId);
+    
+    return {
+      canView: ownership > 0 || explicitPermissions.includes('view'),
+      canEdit: ownership >= 25 || explicitPermissions.includes('edit'),
+      canShare: ownership >= 50 || explicitPermissions.includes('share'),
+      canTransfer: ownership >= 75 || explicitPermissions.includes('transfer'),
+      canDelete: ownership === 100 || explicitPermissions.includes('admin'),
+      hasAdminRights: explicitPermissions.includes('admin')
+    };
+  }
+
+  async transferOwnership(
+    assetId: string, 
+    fromPersonaId: string, 
+    toPersonaId: string, 
+    percentage: number
+  ): Promise<void> {
+    return this.pool.query(sql`
+      SELECT sp_transfer_asset_ownership(
+        ${assetId}::uuid,
+        ${fromPersonaId}::uuid,
+        ${toPersonaId}::uuid,
+        ${percentage}::decimal
+      )
+    `);
+  }
+}
+```
+
+##### Security & Access Control
+- **Tenant Isolation**: All ownership queries include tenant context
+- **Permission Validation**: Guards validate persona ownership before asset operations
+- **Audit Logging**: All ownership changes logged for compliance and dispute resolution
+- **Privacy Protection**: Assets only visible to personas with explicit ownership or permissions
+
+#### Key Architectural Principles
+
+1. **Asset Independence**: Assets have independent ownership structures separate from FFC membership
+2. **Percentage Precision**: Support for complex ownership scenarios with decimal precision
+3. **Permission Flexibility**: Explicit permissions can override ownership-based defaults
+4. **Historical Tracking**: Complete audit trail for legal and estate planning requirements
+5. **Transfer Workflows**: Secure ownership transfer with approval mechanisms for valuable assets
+
+This model enables the platform to handle complex family wealth structures while maintaining clear asset attribution and flexible access controls for various estate planning scenarios.
 
 ## API Specification
 
@@ -1794,8 +2887,368 @@ The platform integrates with several external services to provide comprehensive 
 - **Authentication:** Bearer token with API Key
 - **Rate Limits:** 600 requests/second (unlikely to hit)
 
-### Quiltt API
-- **Purpose:** Financial account aggregation and balance synchronization
+### Quiltt Integration Architecture
+
+#### Overview
+
+This section defines the complete architecture for integrating Quiltt banking connectivity into the Forward Inheritance Platform. The design focuses on the normal user flow: one user connecting their personal bank accounts to their primary persona.
+
+#### User Flow
+
+##### Standard Banking Connection Flow
+
+1. **User Authentication**: User logs into Forward Inheritance Platform
+2. **Asset Creation Intent**: User navigates to "Add Financial Asset"
+3. **Connection Method Selection**: User chooses "Connect Bank Account" vs "Manual Entry"
+4. **Quiltt Session Creation**: Backend creates temporary Quiltt session token
+5. **Bank Authentication**: User redirected to Quiltt UI, authenticates with bank
+6. **Account Selection**: User selects which accounts to share (e.g., 3 accounts)
+7. **Webhook Processing**: Quiltt sends webhook with connection details
+8. **Asset Creation**: Backend creates 3 financial account assets
+9. **Data Synchronization**: Account balances and details populated from Quiltt
+
+#### Database Architecture
+
+##### Core Tables
+
+###### quiltt_integrations
+```sql
+-- One record per persona's banking connection
+CREATE TABLE quiltt_integrations (
+    id UUID PRIMARY KEY,
+    tenant_id INTEGER NOT NULL,
+    persona_id UUID NOT NULL,              -- WHO owns the connected accounts
+    
+    -- Quiltt identifiers
+    quiltt_user_id TEXT NOT NULL,          -- Quiltt's profile ID (same as our persona_id)
+    quiltt_connection_id TEXT NOT NULL,    -- Quiltt connection ID after auth
+    
+    -- Token management
+    access_token_encrypted TEXT,
+    refresh_token_encrypted TEXT,
+    token_expires_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Sync configuration
+    sync_accounts BOOLEAN DEFAULT TRUE,
+    sync_transactions BOOLEAN DEFAULT TRUE,
+    sync_investments BOOLEAN DEFAULT TRUE,
+    
+    -- Status tracking
+    connection_status integration_status_enum DEFAULT 'connected',
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+    sync_status sync_status_enum DEFAULT 'completed',
+    
+    CONSTRAINT unique_quiltt_persona UNIQUE (tenant_id, persona_id)
+);
+```
+
+###### quiltt_sessions
+```sql
+-- Temporary session tokens for UI connector
+CREATE TABLE quiltt_sessions (
+    id UUID PRIMARY KEY,
+    persona_id UUID NOT NULL,
+    session_token TEXT NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    
+    CONSTRAINT unique_active_session UNIQUE (persona_id) WHERE NOT is_used
+);
+```
+
+###### financial_accounts (enhanced)
+```sql
+-- Links Quiltt accounts to our assets
+ALTER TABLE financial_accounts ADD (
+    quiltt_integration_id UUID REFERENCES quiltt_integrations(id),
+    quiltt_account_id TEXT,                -- External account ID from Quiltt
+    is_quiltt_connected BOOLEAN DEFAULT FALSE,
+    last_quiltt_sync_at TIMESTAMP WITH TIME ZONE,
+    
+    CONSTRAINT unique_quiltt_account UNIQUE (quiltt_account_id)
+);
+```
+
+##### Data Relationships
+
+```
+User (authentication)
+  ↓ 1:1 (normal case)
+Persona (business entity + asset owner)
+  ↓ 1:1
+Quiltt Integration (bank connection)
+  ↓ 1:many
+Financial Account Assets (individual bank accounts)
+  ↓ 1:1
+Asset-Persona Ownership (100% ownership)
+```
+
+#### API Implementation
+
+##### Backend Services
+
+###### QuilttIntegrationService
+
+```typescript
+export class QuilttIntegrationService {
+  
+  // Step 1: Create session for banking connection UI
+  async createBankingSession(userId: string): Promise<QuilttSessionResponse> {
+    // Get user's primary persona
+    const persona = await this.getActivePesonaForUser(userId);
+    
+    // Create Quiltt session using persona ID as external user ID
+    const quilttResponse = await this.quilttApiClient.createSession({
+      userId: persona.id,        // Use our persona ID
+      userUUID: persona.id,
+      metadata: {
+        tenantId: persona.tenantId,
+        personaName: `${persona.firstName} ${persona.lastName}`
+      }
+    });
+    
+    // Store session temporarily
+    await this.db.query(sql`
+      INSERT INTO quiltt_sessions (persona_id, session_token, expires_at)
+      VALUES (${persona.id}, ${quilttResponse.token}, ${quilttResponse.expiresAt})
+    `);
+    
+    return {
+      sessionToken: quilttResponse.token,
+      personaId: persona.id,
+      expiresAt: quilttResponse.expiresAt
+    };
+  }
+  
+  // Step 2: Handle successful bank connection webhook
+  async handleConnectionWebhook(webhookData: QuilttWebhookEvent): Promise<void> {
+    const { userId: quilttUserId, connectionId, accounts } = webhookData;
+    
+    // Find the persona (quilttUserId = our persona.id)
+    const persona = await this.db.queryOne(sql`
+      SELECT * FROM personas WHERE id = ${quilttUserId}
+    `);
+    
+    // Create or update integration record
+    const integration = await this.db.queryOne(sql`
+      INSERT INTO quiltt_integrations (
+        tenant_id, persona_id, quiltt_user_id, quiltt_connection_id, 
+        connection_status, sync_status
+      ) VALUES (
+        ${persona.tenantId}, ${persona.id}, ${quilttUserId}, ${connectionId},
+        'connected', 'completed'
+      )
+      ON CONFLICT (tenant_id, persona_id) 
+      DO UPDATE SET 
+        quiltt_connection_id = ${connectionId},
+        connection_status = 'connected',
+        last_sync_at = NOW()
+      RETURNING *
+    `);
+    
+    // Create financial assets for each connected account
+    for (const account of accounts) {
+      await this.createFinancialAssetFromQuiltt(integration.id, persona, account);
+    }
+    
+    // Mark session as used
+    await this.db.query(sql`
+      UPDATE quiltt_sessions 
+      SET is_used = TRUE, used_at = NOW()
+      WHERE persona_id = ${persona.id} AND NOT is_used
+    `);
+  }
+  
+  // Step 3: Create financial asset from Quiltt account data
+  private async createFinancialAssetFromQuiltt(
+    integrationId: string,
+    persona: Persona,
+    quilttAccount: QuilttAccount
+  ): Promise<void> {
+    
+    // Get FFC for this persona
+    const ffc = await this.db.queryOne(sql`
+      SELECT ffc_id FROM ffc_personas WHERE persona_id = ${persona.id}
+    `);
+    
+    // Create base asset
+    const asset = await this.db.queryOne(sql`
+      INSERT INTO assets (
+        tenant_id, ffc_id, category_id, 
+        asset_name, asset_description, status
+      ) VALUES (
+        ${persona.tenantId}, ${ffc.ffc_id}, 'financial_account',
+        ${quilttAccount.institutionName} || ' ' || ${quilttAccount.displayName},
+        'Connected via Quiltt banking integration',
+        'active'
+      )
+      RETURNING *
+    `);
+    
+    // Create financial account details
+    await this.db.query(sql`
+      INSERT INTO financial_accounts (
+        asset_id, institution_name, account_type, account_number_last_four,
+        current_balance, balance_as_of_date,
+        quiltt_integration_id, quiltt_account_id, is_quiltt_connected,
+        last_quiltt_sync_at
+      ) VALUES (
+        ${asset.id}, ${quilttAccount.institutionName}, ${quilttAccount.accountType},
+        ${quilttAccount.accountNumber?.slice(-4) || null},
+        ${quilttAccount.currentBalance}, NOW(),
+        ${integrationId}, ${quilttAccount.id}, TRUE,
+        NOW()
+      )
+    `);
+    
+    // Create 100% ownership for the persona
+    await this.db.query(sql`
+      INSERT INTO asset_persona (
+        tenant_id, asset_id, persona_id, 
+        ownership_type, ownership_percentage
+      ) VALUES (
+        ${persona.tenantId}, ${asset.id}, ${persona.id},
+        'owner', 100.00
+      )
+    `);
+  }
+  
+  // Step 4: Sync account data (scheduled job)
+  async syncAccountData(integrationId: string): Promise<void> {
+    const integration = await this.db.queryOne(sql`
+      SELECT * FROM quiltt_integrations WHERE id = ${integrationId}
+    `);
+    
+    // Get updated account data from Quiltt
+    const accounts = await this.quilttApiClient.getAccounts(integration.quiltt_user_id);
+    
+    // Update our financial accounts
+    for (const account of accounts) {
+      await this.db.query(sql`
+        UPDATE financial_accounts 
+        SET 
+          current_balance = ${account.currentBalance},
+          available_balance = ${account.availableBalance},
+          balance_as_of_date = NOW(),
+          last_quiltt_sync_at = NOW()
+        WHERE quiltt_account_id = ${account.id}
+      `);
+    }
+    
+    // Update integration sync status
+    await this.db.query(sql`
+      UPDATE quiltt_integrations 
+      SET last_sync_at = NOW(), sync_status = 'completed'
+      WHERE id = ${integrationId}
+    `);
+  }
+}
+```
+
+##### Frontend Integration
+
+###### React Component for Banking Connection
+
+```typescript
+export function BankingConnectionFlow() {
+  const [sessionToken, setSessionToken] = useState<string>();
+  const [isConnecting, setIsConnecting] = useState(false);
+  
+  const handleConnectBank = async () => {
+    setIsConnecting(true);
+    
+    try {
+      // Get Quiltt session token
+      const response = await assetService.createBankingSession();
+      setSessionToken(response.sessionToken);
+      
+      // Initialize Quiltt connector
+      const connector = new QuilttConnector({
+        token: response.sessionToken,
+        onSuccess: (data) => {
+          console.log('Banking connection successful:', data);
+          setIsConnecting(false);
+          // Refresh assets list to show new accounts
+          window.location.reload();
+        },
+        onError: (error) => {
+          console.error('Banking connection failed:', error);
+          setIsConnecting(false);
+        }
+      });
+      
+      connector.launch();
+      
+    } catch (error) {
+      console.error('Failed to create banking session:', error);
+      setIsConnecting(false);
+    }
+  };
+  
+  return (
+    <div className="banking-connection">
+      <h3>Connect Your Bank Accounts</h3>
+      <p>Securely connect your bank accounts to automatically track balances and transactions.</p>
+      
+      <Button 
+        onClick={handleConnectBank}
+        disabled={isConnecting}
+        className="w-full"
+      >
+        {isConnecting ? 'Connecting...' : 'Connect Bank Account'}
+      </Button>
+    </div>
+  );
+}
+```
+
+#### Security Considerations
+
+##### Data Protection
+- All Quiltt tokens encrypted at rest using AWS KMS
+- Session tokens expire quickly (15 minutes max)
+- Only account metadata stored, no credentials
+- Webhook signatures verified using HMAC
+
+##### Access Control
+- Quiltt integration tied to specific persona
+- Asset ownership automatically assigned to connecting persona
+- Standard RBAC applies to viewing/editing financial assets
+
+##### Privacy
+- Bank credentials never stored in our system
+- Account numbers masked (last 4 digits only)
+- PII handling follows existing platform standards
+
+#### Monitoring & Observability
+
+##### Key Metrics
+- Banking connection success/failure rates
+- Account sync frequency and success rates
+- Session token usage and expiration
+- Webhook processing latency
+
+##### Alerting
+- Failed webhook processing
+- Sync failures for multiple accounts
+- Expired or invalid tokens
+- Unusual account access patterns
+
+#### Error Handling
+
+##### Connection Failures
+- Graceful fallback to manual asset entry
+- Clear error messages for users
+- Retry mechanisms for temporary failures
+- Admin dashboard for connection status
+
+##### Data Sync Issues
+- Exponential backoff for API calls
+- Dead letter queue for failed webhooks
+- Manual sync triggers for administrators
+- Account status indicators in UI
+
+**API Reference:**
 - **Documentation:** https://docs.quiltt.io/api-reference
 - **Base URL(s):** https://api.quiltt.io/v1
 - **Authentication:** OAuth 2.0 with client credentials
@@ -3562,6 +5015,9 @@ sequenceDiagram
 ```
 
 ### Database Architecture with Nest.js
+
+> **📋 Foundation**: This section shows NestJS implementation details. For complete database architecture including pgTyped configuration and SQL organization, see [🗄️ Database Access Architecture](#🗄️-database-access-architecture-pgtyped--slonik).
+
 ```typescript
 // Slonik provider for stored procedure execution
 @Injectable()
@@ -3631,12 +5087,16 @@ export class TenantIsolationGuard implements CanActivate {
 }
 ```
 
-### AWS Cognito Authentication Flows
+#### Authentication Implementation Reference
 
-#### User Registration Flow
-```typescript
-// registration.service.ts
-import { CognitoIdentityProviderClient, SignUpCommand, ConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
+> **📝 Complete Implementation**: For detailed authentication flows including user registration, login, MFA setup, and JWT validation, see the comprehensive [🔐 Authentication Architecture](#🔐-authentication-architecture-phased-implementation) section.
+
+The authentication implementation includes:
+- User registration and email verification
+- Login flows with MFA support  
+- JWT token validation and refresh
+- Password reset functionality
+- Tenant isolation guards
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -4267,6 +5727,8 @@ export class UpstashRedisService implements CacheService {
 
 ### Real-Time WebSocket Layer with Socket.io
 
+> **📋 Foundation**: This section provides detailed implementation. For WebSocket architecture overview and design rationale, see [🔄 Real-time Communication Architecture](#real-time-communication-architecture-websockets).
+
 #### Architecture Overview
 The platform uses Socket.io for real-time collaboration features, enabling families to work together on estate planning with live updates.
 
@@ -4709,237 +6171,227 @@ AWS API Gateway provides centralized API management with rate limiting, authenti
 
 #### API Gateway Configuration
 ```typescript
-// infrastructure/api-gateway.ts - AWS CDK Definition
-import * as apigateway from '@aws-cdk/aws-apigatewayv2';
-import * as waf from '@aws-cdk/aws-wafv2';
+// infrastructure/api-gateway.ts - Pulumi Definition
+import * as aws from "@pulumi/aws";
+import * as pulumi from "@pulumi/pulumi";
 
-export class ApiGatewayStack extends Stack {
-  constructor(scope: Construct, id: string, props: ApiGatewayStackProps) {
-    super(scope, id, props);
-
-    // Create HTTP API Gateway
-    const httpApi = new apigateway.HttpApi(this, 'ForwardInheritanceAPI', {
-      apiName: 'forward-inheritance-api',
-      description: 'Forward Inheritance Platform API Gateway',
-      corsPreflight: {
-        allowOrigins: ['https://app.forward-inheritance.com'],
-        allowMethods: [apigateway.CorsHttpMethod.ANY],
-        allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+// Create HTTP API Gateway
+const httpApi = new aws.apigatewayv2.Api("forward-inheritance-api", {
+    name: "forward-inheritance-api",
+    description: "Forward Inheritance Platform API Gateway",
+    protocolType: "HTTP",
+    corsConfiguration: {
+        allowOrigins: ["https://app.forward-inheritance.com"],
+        allowMethods: ["*"],
+        allowHeaders: ["Content-Type", "Authorization", "X-Api-Key"],
         allowCredentials: true,
-      },
-      // Default throttling
-      defaultThrottleRateLimit: 2000,  // requests per second
-      defaultThrottleBurstLimit: 5000, // burst capacity
+    },
+});
+
+// VPC Link for private ALB integration
+const vpcLink = new aws.apigatewayv2.VpcLink("api-vpc-link", {
+    name: "forward-inheritance-vpc-link",
+    subnetIds: privateSubnetIds,
+    securityGroupIds: [apiSecurityGroupId],
+});
+
+// JWT Authorizer for AWS Cognito
+const authorizer = new aws.apigatewayv2.Authorizer("jwt-authorizer", {
+    apiId: httpApi.id,
+    authorizerType: "JWT",
+    identitySources: ["$request.header.Authorization"],
+    jwtConfiguration: {
+        audiences: [userPoolClientId],
+        issuer: pulumi.interpolate`https://cognito-idp.${aws.getRegion().then(r => r.name)}.amazonaws.com/${userPoolId}`,
+    },
+});
+
+// ALB Integration
+const albIntegration = new aws.apigatewayv2.Integration("alb-integration", {
+    apiId: httpApi.id,
+    integrationType: "HTTP_PROXY",
+    connectionType: "VPC_LINK",
+    connectionId: vpcLink.id,
+    integrationMethod: "ANY",
+    integrationUri: albArn,
+    payloadFormatVersion: "1.0",
+});
+
+// Routes with rate limiting
+const authRoutes = [
+    { path: "/api/auth/login", method: "POST", requireAuth: false },
+    { path: "/api/auth/register", method: "POST", requireAuth: false },
+    { path: "/api/auth/callback", method: "GET", requireAuth: false },
+    { path: "/api/auth/refresh", method: "POST", requireAuth: false },
+];
+
+const protectedRoutes = [
+    { path: "/api/assets/{proxy+}", method: "ANY", requireAuth: true },
+    { path: "/api/documents/{proxy+}", method: "ANY", requireAuth: true },
+    { path: "/api/integrations/{proxy+}", method: "ANY", requireAuth: true },
+    { path: "/api/user/{proxy+}", method: "ANY", requireAuth: true },
+];
+
+// Create routes
+[...authRoutes, ...protectedRoutes].forEach((route, index) => {
+    new aws.apigatewayv2.Route(`route-${index}`, {
+        apiId: httpApi.id,
+        routeKey: `${route.method} ${route.path}`,
+        target: pulumi.interpolate`integrations/${albIntegration.id}`,
+        authorizationType: route.requireAuth ? "JWT" : "NONE",
+        authorizerId: route.requireAuth ? authorizer.id : undefined,
     });
+});
 
-    // JWT Authorizer for AWS Cognito
-    const authorizer = new apigateway.HttpJwtAuthorizer('JwtAuthorizer', {
-      jwtIssuer: `https://cognito-idp.${this.region}.amazonaws.com/${props.userPoolId}`,
-      jwtAudience: [props.userPoolClientId],
-    });
+// Throttling configuration
+const throttleConfig = new aws.apigatewayv2.RouteResponse("throttle-config", {
+    apiId: httpApi.id,
+    routeId: "ANY /{proxy+}",
+    routeResponseKey: "$default",
+});
 
-    // Rate limiting per route
-    const routes = [
-      {
-        path: '/api/auth/login',
-        method: 'POST',
-        rateLimit: 5,      // 5 requests
-        burstLimit: 10,    // burst to 10
-        period: 900,       // per 15 minutes
-        requireAuth: false,
-      },
-      {
-        path: '/api/auth/register',
-        method: 'POST',
-        rateLimit: 3,
-        burstLimit: 5,
-        period: 3600,      // per hour
-        requireAuth: false,
-      },
-      {
-        path: '/api/assets/*',
-        method: 'ANY',
-        rateLimit: 100,
-        burstLimit: 200,
-        period: 60,        // per minute
-        requireAuth: true,
-      },
-      {
-        path: '/api/documents/upload',
-        method: 'POST',
-        rateLimit: 10,
-        burstLimit: 20,
-        period: 60,
-        requireAuth: true,
-        // Large payload support
-        payloadFormatVersion: '2.0',
-        maxPayloadSize: 10 * 1024 * 1024, // 10MB
-      },
-      {
-        path: '/api/integrations/quiltt/sync',
-        method: 'POST',
-        rateLimit: 20,
-        burstLimit: 30,
-        period: 300,       // per 5 minutes
-        requireAuth: true,
-      },
-    ];
+// Usage Plan for API rate limiting
+const usagePlan = new aws.apigateway.UsagePlan("api-usage-plan", {
+    name: "forward-inheritance-usage-plan",
+    description: "Usage plan for Forward Inheritance API",
+    throttleSettings: {
+        rateLimit: 1000,    // requests per second
+        burstLimit: 2000,   // burst capacity
+    },
+    quotaSettings: {
+        limit: 100000,      // requests per day
+        period: "DAY",
+    },
+});
 
-    // Add routes with specific rate limits
-    routes.forEach(route => {
-      httpApi.addRoutes({
-        path: route.path,
-        methods: [route.method],
-        integration: new apigateway.HttpAlbIntegration({
-          listener: props.albListener,
-        }),
-        authorizer: route.requireAuth ? authorizer : undefined,
-        throttle: {
-          rateLimit: route.rateLimit,
-          burstLimit: route.burstLimit,
-        },
-      });
-    });
+// API Key for partners
+const partnerApiKey = new aws.apigateway.ApiKey("partner-api-key", {
+    name: "partner-integration-key",
+    description: "API key for partner integrations",
+});
 
-    // Usage Plans for different tiers
-    const basicPlan = new apigateway.UsagePlan(this, 'BasicPlan', {
-      name: 'Basic',
-      description: 'Basic tier - Free plan',
-      throttle: {
-        rateLimit: 100,    // 100 requests per second
-        burstLimit: 200,
-      },
-      quota: {
-        limit: 10000,       // 10,000 requests
-        period: apigateway.Period.DAY,
-      },
-    });
+const usagePlanKey = new aws.apigateway.UsagePlanKey("usage-plan-key", {
+    keyId: partnerApiKey.id,
+    keyType: "API_KEY",
+    usagePlanId: usagePlan.id,
+});
 
-    const proPlan = new apigateway.UsagePlan(this, 'ProPlan', {
-      name: 'Pro',
-      description: 'Pro tier - Paid plan',
-      throttle: {
-        rateLimit: 500,
-        burstLimit: 1000,
-      },
-      quota: {
-        limit: 100000,      // 100,000 requests per day
-        period: apigateway.Period.DAY,
-      },
-    });
-
-    const enterprisePlan = new apigateway.UsagePlan(this, 'EnterprisePlan', {
-      name: 'Enterprise',
-      description: 'Enterprise tier - Custom limits',
-      throttle: {
-        rateLimit: 2000,
-        burstLimit: 5000,
-      },
-      // No quota limit for enterprise
-    });
-
-    // API Keys for B2B integrations
-    const partnerApiKey = new apigateway.ApiKey(this, 'PartnerApiKey', {
-      apiKeyName: 'partner-integration-key',
-      description: 'API key for partner integrations',
-    });
-
-    proPlan.addApiKey(partnerApiKey);
-
-    // WAF Web ACL for additional protection
-    const webAcl = new waf.CfnWebACL(this, 'ApiWafAcl', {
-      scope: 'REGIONAL',
-      defaultAction: { allow: {} },
-      rules: [
+// WAF Web ACL
+const webAcl = new aws.wafv2.WebAcl("api-waf", {
+    name: "forward-inheritance-api-waf",
+    description: "WAF for Forward Inheritance API Gateway",
+    scope: "REGIONAL",
+    defaultAction: { allow: {} },
+    rules: [
         {
-          name: 'RateLimitRule',
-          priority: 1,
-          statement: {
-            rateBasedStatement: {
-              limit: 2000,
-              aggregateKeyType: 'IP',
+            name: "RateLimitRule",
+            priority: 1,
+            statement: {
+                rateBasedStatement: {
+                    limit: 2000,
+                    aggregateKeyType: "IP",
+                },
             },
-          },
-          action: { block: {} },
-          visibilityConfig: {
-            sampledRequestsEnabled: true,
-            cloudWatchMetricsEnabled: true,
-            metricName: 'RateLimitRule',
-          },
+            action: { block: {} },
+            visibilityConfig: {
+                sampledRequestsEnabled: true,
+                cloudwatchMetricsEnabled: true,
+                metricName: "RateLimitRule",
+            },
         },
         {
-          name: 'SQLiRule',
-          priority: 2,
-          statement: {
-            managedRuleGroupStatement: {
-              vendorName: 'AWS',
-              name: 'AWSManagedRulesSQLiRuleSet',
+            name: "AWSManagedRulesSQLiRuleSet",
+            priority: 2,
+            statement: {
+                managedRuleGroupStatement: {
+                    vendorName: "AWS",
+                    name: "AWSManagedRulesSQLiRuleSet",
+                },
             },
-          },
-          action: { block: {} },
-          visibilityConfig: {
-            sampledRequestsEnabled: true,
-            cloudWatchMetricsEnabled: true,
-            metricName: 'SQLiRule',
-          },
+            action: { block: {} },
+            visibilityConfig: {
+                sampledRequestsEnabled: true,
+                cloudwatchMetricsEnabled: true,
+                metricName: "SQLiRule",
+            },
+            overrideAction: { none: {} },
         },
         {
-          name: 'XSSRule',
-          priority: 3,
-          statement: {
-            managedRuleGroupStatement: {
-              vendorName: 'AWS',
-              name: 'AWSManagedRulesKnownBadInputsRuleSet',
+            name: "AWSManagedRulesKnownBadInputsRuleSet",
+            priority: 3,
+            statement: {
+                managedRuleGroupStatement: {
+                    vendorName: "AWS",
+                    name: "AWSManagedRulesKnownBadInputsRuleSet",
+                },
             },
-          },
-          action: { block: {} },
-          visibilityConfig: {
-            sampledRequestsEnabled: true,
-            cloudWatchMetricsEnabled: true,
-            metricName: 'XSSRule',
-          },
+            action: { block: {} },
+            visibilityConfig: {
+                sampledRequestsEnabled: true,
+                cloudwatchMetricsEnabled: true,
+                metricName: "XSSRule",
+            },
+            overrideAction: { none: {} },
         },
-      ],
-      visibilityConfig: {
+    ],
+    visibilityConfig: {
         sampledRequestsEnabled: true,
-        cloudWatchMetricsEnabled: true,
-        metricName: 'ApiWafAcl',
-      },
-    });
+        cloudwatchMetricsEnabled: true,
+        metricName: "ForwardInheritanceApiWaf",
+    },
+});
 
-    // Associate WAF with API Gateway
-    new waf.CfnWebACLAssociation(this, 'ApiWafAssociation', {
-      resourceArn: httpApi.arnForExecuteApi(),
-      webAclArn: webAcl.attrArn,
-    });
+// Associate WAF with API Gateway
+const webAclAssociation = new aws.wafv2.WebAclAssociation("api-waf-association", {
+    resourceArn: pulumi.interpolate`${httpApi.arn}/*/*`,
+    webAclArn: webAcl.arn,
+});
 
-    // CloudWatch Dashboard for monitoring
-    const dashboard = new cloudwatch.Dashboard(this, 'ApiDashboard', {
-      dashboardName: 'forward-api-gateway',
-    });
+// Custom domain
+const apiDomainName = new aws.apigatewayv2.DomainName("api-domain", {
+    domainName: "api.forward-inheritance.com",
+    domainNameConfiguration: {
+        certificateArn: certificateArn,
+        endpointType: "REGIONAL",
+        securityPolicy: "TLS_1_2",
+    },
+});
 
-    dashboard.addWidgets(
-      new cloudwatch.GraphWidget({
-        title: 'API Request Count',
-        left: [httpApi.metricCount()],
-      }),
-      new cloudwatch.GraphWidget({
-        title: 'API Latency',
-        left: [
-          httpApi.metricLatency({ statistic: 'Average' }),
-          httpApi.metricLatency({ statistic: 'P99' }),
-        ],
-      }),
-      new cloudwatch.GraphWidget({
-        title: '4XX/5XX Errors',
-        left: [
-          httpApi.metric4XXError(),
-          httpApi.metric5XXError(),
-        ],
-      }),
-    );
-  }
-}
+const apiMapping = new aws.apigatewayv2.ApiMapping("api-mapping", {
+    apiId: httpApi.id,
+    domainName: apiDomainName.id,
+    stage: deploymentStage.id,
+});
+
+// Stage and deployment
+const deploymentStage = new aws.apigatewayv2.Stage("api-stage", {
+    apiId: httpApi.id,
+    name: "v1",
+    description: "Production API stage",
+    autoDeploy: true,
+    throttleConfig: {
+        rateLimit: 1000,
+        burstLimit: 2000,
+    },
+    accessLogSettings: {
+        destinationArn: cloudwatchLogGroup.arn,
+        format: pulumi.interpolate`{
+            "requestId": "$context.requestId",
+            "ip": "$context.identity.sourceIp",
+            "requestTime": "$context.requestTime",
+            "httpMethod": "$context.httpMethod",
+            "routeKey": "$context.routeKey",
+            "status": "$context.status",
+            "protocol": "$context.protocol",
+            "responseLength": "$context.responseLength",
+            "responseLatency": "$context.responseLatency"
+        }`,
+    },
+});
+
+export const apiGatewayUrl = httpApi.apiEndpoint;
+export const apiGatewayId = httpApi.id;
+export const customDomainUrl = pulumi.interpolate`https://${apiDomainName.domainName}`;
 ```
 
 #### Nest.js Rate Limiting (Application Layer)
@@ -5792,7 +7244,7 @@ fwd-inh/
 │   ├── ui/                        # Shared UI components (future)
 │   └── config/                    # Shared configuration
 ├── infrastructure/                # Infrastructure as Code
-│   ├── aws/                       # AWS CDK definitions
+│   ├── aws/                       # Pulumi AWS definitions
 │   └── docker/                    # Docker configurations
 ├── scripts/                       # Build/deploy scripts
 ├── docs/                          # Documentation
@@ -5882,6 +7334,22 @@ Monorepo managed with npm workspaces for simplicity in MVP.
 - **Upstash Redis**: Adds $10-30/month, supports 50,000+ families
 - **ElastiCache**: Only justified at 100,000+ families or enterprise requirements
 
+### Environment-Specific Cost Strategy
+
+**Development Environment Optimization:**
+- **NAT Gateways**: 0 until Phase 7, then 1 for entire VPC ($45/month savings)
+- **RDS**: Single-AZ, small instances (t4g.small) instead of Multi-AZ
+- **ECS**: Fargate Spot for non-critical workers (60% cost reduction)
+- **WAF**: Delayed until Phase 7 (cost consideration - $5/month + usage)
+- **Monitoring**: Basic CloudWatch vs enhanced monitoring
+
+**Production Environment:**
+- **NAT Gateways**: 1 per AZ for high availability ($90/month total)
+- **RDS**: Multi-AZ with larger instances (m5.large+)
+- **ECS**: Standard Fargate for critical services
+- **Full security and monitoring suite**
+- **Reserved Instance strategy for predictable workloads**
+
 ## Deployment Architecture
 
 ### Deployment Strategy
@@ -5900,7 +7368,7 @@ Monorepo managed with npm workspaces for simplicity in MVP.
 - Production (live environment)
 
 ### Infrastructure as Code
-- AWS CDK for infrastructure definition
+- Pulumi for infrastructure definition
 - ECS task definitions and services
 - Auto-scaling configuration
 - Health checks and monitoring
@@ -9253,13 +10721,13 @@ This section maps Product Requirements Document (PRD) requirements to specific a
 
 | PRD Epic | Architecture Section | Implementation Status | Code Location |
 |----------|---------------------|----------------------|---------------|
-| Epic 1: Marketing Foundation | [Builder.io Integration](#high-level-architecture-diagram) | ✅ Specified | Marketing pages + CDN |
+| Epic 1: Marketing Foundation | [High Level Architecture Diagram](#high-level-architecture-diagram) | ✅ Specified | Marketing pages + CDN |
 | Epic 2: FFC Onboarding | [Authentication Architecture](#authentication-architecture-aws-cognito--api-gateway) | ✅ Specified | `src/modules/ffc/` |
-| Epic 3: Asset Management | [Data Models](#data-models) | ✅ Specified | `src/modules/assets/` |
-| Epic 4: Advanced Features | [Queue Processing](#queue-processing-with-aws-sqs) | ✅ Specified | `src/modules/integrations/` |
+| Epic 3: Asset Management | [Persona-Based Ownership Model](#persona-based-ownership-model) | ✅ Specified | `src/modules/assets/` |
+| Epic 4: Advanced Features | [Message Queue Architecture](#message-queue-architecture-aws-sqs) | ✅ Specified | `src/modules/integrations/` |
 | Epic 5: Multi-Language | [Translation System](#translation-system-simple-englishspanish) | ✅ Specified | `src/i18n/` |
-| Epic 6: SOC 2 Compliance | [Vanta Integration](#vanta-integration-for-soc-2-compliance) | ✅ Specified | `src/modules/compliance/` |
-| Epic 7: React Performance | [Frontend Architecture](#frontend-architecture) | ✅ Specified | Frontend optimization |
+| Epic 6: SOC 2 Compliance | [Vanta API](#vanta-api) | ✅ Specified | `src/modules/compliance/` |
+| Epic 7: Performance Optimization | [Epic 7: Performance Optimization & Advanced Caching](#epic-7-performance-optimization--advanced-caching) | ✅ Specified | Performance optimization |
 
 ---
 
@@ -9545,7 +11013,7 @@ File Storage Backups:
       - Delete after 7 years
 
 Application State:
-  Infrastructure as Code: Terraform/CDK
+  Infrastructure as Code: Pulumi
   Container Images: ECR with immutable tags
   Configuration: AWS Systems Manager Parameter Store
 ```

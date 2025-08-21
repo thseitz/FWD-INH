@@ -20,17 +20,14 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
   - [Scale Target](#scale-target)
 
 ### 🎯 Product Definition
-- [Phase 1A Scope & Core Features](#phase-1a-scope--core-features)
-  - [Phase 1A: True MVP Core](#phase-1a-true-mvc-core-days-1-60)
-  - [Key Features for Launch](#key-features-for-launch)
-  - [Asset Categories (All 13 Types)](#asset-categories-all-13-types)
-  - [Key Permission Model](#key-permission-model)
-  - [Deferred Features](#deferred-to-later-phases)
-- [Epic Structure & Implementation Roadmap](#epic-structure--implementation-roadmap)
-  - [Phase 1A: Foundation](#phase-1a-foundation-days-1-60)
-  - [Phase 1B: Enhancement](#phase-1b-enhancement-days-61-90)
-  - [Phase 2: Enterprise & Compliance](#phase-2-enterprise--compliance-months-4-9)
-  - [Post-MVP: Performance & Scale](#post-mvp-performance--scale-year-1)
+- [Implementation Phases](#implementation-phases)
+  - [Phase 0: Minimal Path Validation](#phase-0-minimal-path-validation-days-1-14)
+  - [Phase 1A: AWS Infrastructure Bootstrap](#phase-1a-aws-infrastructure-bootstrap-days-15-74)
+  - [Phase 1B: Marketing Foundation & Core Features](#phase-1b-marketing-foundation--core-features-days-75-134)
+  - [Phase 2: Enterprise & Compliance](#phase-2-enterprise--compliance-months-6-12)
+  - [Post-MVP: Performance & Scale](#post-mvp-performance--scale-year-2)
+- [Epic Structure & Implementation](#epic-structure--implementation)
+  - [Epic Implementation Timeline](#epic-implementation-timeline)
 
 ### ⚙️ Technical Specifications
 - [Technical Architecture](#technical-architecture)
@@ -67,16 +64,18 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
   - [Story 3.8: One-Time Service Purchase](#story-38-one-time-service-purchase)
   - [Story 3.9: Dynamic UI for Plan Types](#story-39-dynamic-ui-for-plan-types)
 - [Epic 4: Advanced Features & Integrations](#epic-4-advanced-features--integrations)
-  - [Story 4.1: Advanced Search & Filtering System](#story-41-advanced-search--filtering-system)
-  - [Story 4.2: Comprehensive Reporting & Analytics](#story-42-comprehensive-reporting--analytics)
-  - [Story 4.3: Comprehensive Audit Trail System](#story-43-comprehensive-audit-trail-system)
-  - [Story 4.4: Bulk Operations & Data Management](#story-44-bulk-operations--data-management)
-  - [Story 4.5: Advisor Sponsored Plans](#story-45-advisor-sponsored-plans)
-  - [Story 4.6: General Ledger & Financial Tracking](#story-46-general-ledger--financial-tracking)
-  - [Story 4.7: Third-Party Integration Framework](#story-47-third-party-integration-framework)
-  - [Story 4.8: Quiltt API Integration for Financial Accounts](#story-48-quiltt-api-integration-for-financial-accounts)
-  - [Story 4.9: Real Estate Data Provider Integration](#story-49-real-estate-data-provider-integration)
-  - [Story 4.10: Performance Optimization & Caching](#story-410-performance-optimization--caching)
+  - [Story 4.1: Twilio SMS 2FA Integration](#story-41-twilio-sms-2fa-integration-with-cognito--amplify)
+  - [Story 4.2: Quiltt API Integration](#story-42-quiltt-api-integration-for-financial-accounts)
+  - [Story 4.3: Zillow API Integration](#story-43-zillow-api-integration-for-real-estate)
+  - [Story 4.4: Spanish Language Foundation](#story-44-spanish-language-foundation)
+  - [Story 4.5: Advanced Search & Filtering System](#story-45-advanced-search--filtering-system)
+  - [Story 4.6: Comprehensive Reporting & Analytics](#story-46-comprehensive-reporting--analytics)
+  - [Story 4.7: Comprehensive Audit Trail System](#story-47-comprehensive-audit-trail-system)
+  - [Story 4.8: Bulk Operations & Data Management](#story-48-bulk-operations--data-management)
+  - [Story 4.9: Advisor Sponsored Plans](#story-49-advisor-sponsored-plans)
+  - [Story 4.10: General Ledger & Financial Tracking](#story-410-general-ledger--financial-tracking)
+  - [Story 4.11: Third-Party Integration Framework](#story-411-third-party-integration-framework)
+  - [Story 4.14: Performance Optimization & Caching](#story-414-performance-optimization--caching)
 - [Epic 5: Multi-Language Support (US Market)](#epic-5-multi-language-support-us-market)
   - [Story 5.1: Spanish Language Foundation](#story-51-spanish-language-foundation)
 - [Epic 6: SOC 2 Compliance & Trust Management Platform](#epic-6-soc-2-compliance--trust-management-platform)
@@ -110,9 +109,6 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
   - [Early Warning System](#early-warning-system)
 
 ### 🚀 Implementation Planning
-- [Development Phases](#development-phases)
-  - [Phase 1A: Foundation and Core Features](#phase-1a-foundation-and-core-features-days-1-60)
-  - [Phase 1B: Enhancement and Optimization](#phase-1b-enhancement-and-optimization-days-61-120)
 - [Conclusion](#conclusion)
 
 ---
@@ -123,7 +119,7 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
 
 **Related Sections:**
 - 📈 [Strategic Insights](#strategic-insights) - Market positioning and business model
-- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - MVP feature definition
+- 🎯 [Implementation Phases](#implementation-phases) - MVP feature definition
 - ⚙️ [Technical Architecture](#technical-architecture) - Implementation approach
 
 ### Vision
@@ -185,7 +181,7 @@ Based on market research and industry studies:
 
 **Related Sections:**
 - 📊 [Project Context](#project-context) - Vision and mission alignment
-- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Strategic feature prioritization
+- 🎯 [Implementation Phases](#implementation-phases) - Strategic feature prioritization
 - 📋 [Success Metrics](#success-metrics) - Business performance targets
 
 ---
@@ -233,16 +229,23 @@ Based on market research and industry studies:
 - Setup, periodic check-ins, life events (births, deaths, marriages, divorces)
 - Seasonal tax planning and annual reviews
 
-## 🎯 Minimal Path Validation & Phase 1A Scope
+## 🚀 Implementation Phases
 
-> **🚀 Minimal Path Goal**: Validate core technical stack locally before Phase 1A - prove complete user journey from UI through database without cloud dependencies.
+> **📅 Development Strategy**: Phased approach from local validation to enterprise-scale platform over 18 months.
+
+**Related Sections:**
+- 📋 [Epic Implementation Timeline](#epic-implementation-timeline) - Epic-to-phase mapping
+- ⚙️ [Technical Architecture](#technical-architecture) - Technical implementation approach
+- 📈 [Success Metrics](#success-metrics) - Phase success criteria
+- 🚨 [Risk Mitigation](#risk-mitigation) - Phase risk management
 
 ---
 
-### **Phase 0: Minimal Path Validation (Days 1-14)**
+### Phase 0: Minimal Path Validation (Days 1-14)
+
 **Goal**: Prove fundamental technical architecture works end-to-end locally using Docker containerized hosting: User registration → FFC creation → Asset management → Data persistence and display
 
-#### **Local Containerized Architecture:**
+#### Local Containerized Architecture:
 - **Docker Compose Stack** orchestrating all services locally
 - **Vite React Frontend** with shadcn/ui components and Tailwind CSS
 - **NestJS Backend API** with full TypeScript support
@@ -250,7 +253,7 @@ Based on market research and industry studies:
 - **Local File Storage** for documents and images with stubbed encryption
 - **Complete Development Environment** ready for immediate development
 
-#### **Minimal Path Scope:**
+#### Minimal Path Scope:
 - **Basic Landing Page** with Forward branding, sign up/login buttons
 - **Local User Registration** with stubbed authentication (no Cognito)
 - **FFC Creation Flow** with family name and description
@@ -260,191 +263,50 @@ Based on market research and industry studies:
 - **Asset Display Dashboard** showing created and pre-seeded demo assets
 - **Database Integration** utilizing existing schema with pgTyped + Slonik
 
-#### **Technology Stack Validation:**
+#### Technology Stack Validation:
 - **Frontend**: Vite + React + TypeScript + shadcn/ui + Tailwind CSS
 - **Backend**: NestJS + TypeScript + Slonik + pgTyped
-- **Database**: PostgreSQL with existing schema design
-- **File Storage**: Local filesystem with development-friendly structure
-- **Hosting**: Docker containers with docker-compose orchestration
-- **Security**: Stubbed encryption for files, basic authentication flow
+- **Database**: PostgreSQL with full schema implementation
+- **Development Tools**: Docker Compose for local environment orchestration
 
-#### **Success Criteria:**
-- Complete user journey functional locally without AWS dependencies
-- Docker compose stack running all services with single command startup
-- Database operations working through pgTyped + Slonik architecture
-- File uploads storing to local filesystem with proper organization
-- UI components rendering with shadcn/ui and Tailwind styling
-- Foundation ready for Phase 1A cloud integration and feature expansion
-- Development environment replicable across team members
+#### Success Criteria:
+- Complete user journey testable locally
+- All core technologies integrated and functional
+- Database operations working with pgTyped + Slonik
+- Foundation ready for AWS migration
 
-#### **Deferred to Phase 1A:**
-- Builder.io CMS integration
-- AWS Cognito authentication  
-- All 13 asset categories
-- Document management and PII processing
-- Member invitation system
-- Estate Capture Service marketplace
+#### Deferred to Phase 1A:
+- AWS cloud infrastructure
+- Production authentication (Cognito)
+- External API integrations
+- Production monitoring and logging
 
----
+### Phase 1A: AWS Infrastructure Bootstrap (Days 15-74)
 
-## 🎯 Phase 1A: AWS Infrastructure Bootstrap
+**Goal**: Migrate Phase 0 validation to production-ready AWS infrastructure in manageable, testable increments.
 
-> **🚀 Infrastructure Goal**: Migrate Phase 0 validation to production-ready AWS infrastructure in manageable, testable increments.
-
-### **Phase 1A: AWS Infrastructure Bootstrap (Days 15-74)**
-
-Building on Phase 0 validation, Phase 1A focuses on migrating to AWS cloud infrastructure while maintaining application functionality.
-
-#### **Phase 1A-1: Basic Cloud Migration (Days 15-29)**
+#### Phase 1A-1: Basic Cloud Migration (Days 15-29)
 - **AWS Account Foundation**: Security, access control, and billing safety setup
 - **Initial Cloud Deployment**: Migrate containerized application to ECS/Fargate
 - **Basic Database Migration**: PostgreSQL on AWS RDS with data persistence
 - **Core Application Access**: Frontend hosted on AWS Amplify with direct API access
 - **User Experience**: Same Phase 0 functionality now running on AWS infrastructure
 
-#### **Phase 1A-2: Authentication & API Gateway (Days 30-44)**
+#### Phase 1A-2: Authentication & API Gateway (Days 30-44)
 - **AWS Cognito Integration**: Replace stubbed authentication with full Cognito user pools
 - **API Gateway Implementation**: Professional API layer with rate limiting and security
 - **Secure Session Management**: HTTP-only cookies and proper token handling
 - **User Registration Flow**: Complete email verification and secure login functionality
 - **Enhanced Security**: Production-grade authentication and authorization
 
-#### **Phase 1A-3: Asset Management Expansion (Days 45-59)**
+#### Phase 1A-3: Asset Management Expansion (Days 45-59)
 - **Asset Category Expansion**: Expand from 1 (jewelry) to 5 core asset categories
 - **Document Storage Integration**: AWS S3 for file uploads with proper organization
 - **Advanced Asset Features**: Enhanced asset permissions and ownership models
 - **Member Invitation System**: Basic family member invitation without dual-channel verification
 - **Dashboard Enhancement**: Multi-category asset visualization and management
 
-#### **Phase 1A-4: Production Readiness (Days 60-74)**
-- **Document Processing Pipeline**: AWS Step Functions for automated document handling
-- **Security Hardening**: Private networking, WAF protection, and VPC endpoints
-- **Monitoring & Observability**: CloudWatch dashboards, logging, and basic alerting
-- **Performance Optimization**: CloudFront CDN and caching strategies
-- **Go-Live Preparation**: Production environment ready for initial user onboarding
-
----
-
-## 🎯 Phase 1B: Marketing Foundation & Core Features
-
-> **🚀 MVP Goal**: Launch with marketing foundation, complete FFC onboarding, and comprehensive asset management in 60 days.
-
-**Related Sections:**
-- 📋 [Epic Structure](#epic-structure--implementation-roadmap) - Detailed implementation plan
-- ⚙️ [Technical Architecture](#technical-architecture) - Technical implementation approach
-- 📈 [Success Metrics](#success-metrics) - Launch success criteria
-- 🚨 [Risk Mitigation](#risk-mitigation) - Implementation risk management
-
----
-
-### **Phase 1B: Marketing Foundation & Core Features (Days 75-134)**
-**Goal**: Launch with marketing foundation, complete FFC onboarding, HEI integration, and comprehensive asset management
-
-### **Key Features for Launch:**
-
-#### **1. Forward Marketing Foundation**
-- **Forward Landing Page** with Builder.io CMS integration
-- **CMS Access** for marketing team independence
-- **A/B Testing Capability** for conversion optimization
-
-#### **2. Complete FFC Onboarding Flow**
-- **User Registration** with email verification (no payment required)
-- **Secure Login** with session management
-- **FFC Creation** with automatic Free Plan assignment
-- **Unlimited Member Invitations** (no seat restrictions for free plan)
-- **Member Invitation System** (email-based)
-- **Mandatory Dual-Channel Verification** (email + SMS)
-- **Owner Approval Required** for all new members
-- **Mandatory Account Creation** for invited members with optional profile picture upload
-- **Role Assignment**: 
-  - FFC Owners (edit rights on FFC level)
-  - Can add additional owners with edit rights
-  - Other roles: Beneficiary, Non-beneficiary
-- **Dynamic UI**: Seat management hidden for unlimited plans
-
-#### **3. Comprehensive Asset Management**
-- **All 13 Asset Categories** implemented from Day 1
-- **Asset-Level Permissions**: Individual ownership rights per asset
-- **Manual Asset Entry** for all asset types
-- **HEI Integration** as part of Loan category (read-only from API)
-
-#### **4. Core Security & Infrastructure**
-- **Authentication & authorization**
-- **Granular permissions** (FFC-level and asset-level)
-- **Data encryption**
-- **Audit logging for all changes**
-- **Weekly audit reports** sent to FFC owners
-
-#### **Asset Categories (All 13 Types)**
-1. Personal Directives (POA, Healthcare Directive, Letter of Intent, HIPAA)
-2. Trust
-3. Will
-4. Personal Property (Jewelry, Art, Pets, Furniture, etc.)
-5. Operational Property (Vehicles, Boats, Equipment, Appliances)
-6. Inventory
-7. Real Estate
-8. Life Insurance
-9. Financial Accounts (Investments, Bank, Retirement, College)
-10. Recurring Income (Royalties)
-11. Digital Assets (IP, Digital Assets)
-12. Ownership Interests (Business, Franchise)
-13. **Loans (including HEI via API, Interfamily Loans)**
-
-### **Key Permission Model**
-- **FFC Level**: Owners control FFC structure, invitations, approvals
-- **Asset Level**: Each asset has independent ownership/permission structure
-- **Critical Principle**: Asset owners control their assets, NOT FFC owners
-- **Privacy First**: Assets only visible to personas explicitly granted permission
-
-#### **5. Subscription & Payment Platform**
-- **Free Unlimited Plan** as default for all new FFCs
-- **One-Time Service Marketplace** (Estate Capture Service - $299)
-- **Payment Processing** via Stripe (only for services, not subscriptions)
-- **General Ledger** for financial tracking
-- **Dynamic Plan Configuration** (database-driven, no code changes)
-- **Conditional UI** based on plan type (hide seat management for unlimited plans)
-
-### **DEFERRED to Later Phases:**
-- Paid subscription plans (post-MVP)
-- Chat System (removed entirely from MVP)
-- Referral Engine (moved to Phase 1B or later)
-- AI Suggestions
-- Document Intelligence
-
-## Epic Structure & Implementation Roadmap
-
-### Phase 0: Minimal Path Validation (Days 1-14)
-- **Technical Proof of Concept**: Complete user journey locally without cloud dependencies
-- **Core Stack Validation**: React + Nest.js + pgTyped + Slonik + PostgreSQL
-- **Single Asset Type**: Jewelry asset creation, storage, and display
-- **Foundation Ready**: Prepare architecture for Phase 1A cloud integration
-
-### Phase 1A: Foundation - AWS Infrastructure Bootstrap (Days 15-74)
-
-Building on Phase 0 validation, Phase 1A focuses on migrating to AWS cloud infrastructure in manageable, testable increments while expanding core features.
-
-#### **Phase 1A-1: Basic Cloud Migration (Days 15-29)**
-- **AWS Account Foundation**: Security, access control, and billing safety setup
-- **Initial Cloud Deployment**: Migrate containerized application to ECS/Fargate
-- **Basic Database Migration**: PostgreSQL on AWS RDS with data persistence
-- **Core Application Access**: Frontend hosted on AWS Amplify with direct API access
-- **User Experience**: Same Phase 0 functionality now running on AWS infrastructure
-
-#### **Phase 1A-2: Authentication & API Gateway (Days 30-44)**
-- **AWS Cognito Integration**: Replace stubbed authentication with full Cognito user pools
-- **API Gateway Implementation**: Professional API layer with rate limiting and security
-- **Secure Session Management**: HTTP-only cookies and proper token handling
-- **User Registration Flow**: Complete email verification and secure login functionality
-- **Enhanced Security**: Production-grade authentication and authorization
-
-#### **Phase 1A-3: Asset Management Expansion (Days 45-59)**
-- **Asset Category Expansion**: Expand from 1 (jewelry) to 5 core asset categories
-- **Document Storage Integration**: AWS S3 for file uploads with proper organization
-- **Advanced Asset Features**: Enhanced asset permissions and ownership models
-- **Member Invitation System**: Basic family member invitation without dual-channel verification
-- **Dashboard Enhancement**: Multi-category asset visualization and management
-
-#### **Phase 1A-4: Production Readiness (Days 60-74)**
+#### Phase 1A-4: Production Readiness (Days 60-74)
 - **Document Processing Pipeline**: AWS Step Functions for automated document handling
 - **Security Hardening**: Private networking, WAF protection, and VPC endpoints
 - **Monitoring & Observability**: CloudWatch dashboards, logging, and basic alerting
@@ -452,520 +314,47 @@ Building on Phase 0 validation, Phase 1A focuses on migrating to AWS cloud infra
 - **Go-Live Preparation**: Production environment ready for initial user onboarding
 
 ### Phase 1B: Marketing Foundation & Core Features (Days 75-134)
-- **Epic 1**: Marketing Foundation & Landing Page (2 weeks)
-- **Epic 2**: FFC Onboarding Flow with Enhanced Security (3 weeks)
-- **Epic 3**: Comprehensive Asset Management System (4 weeks)
 
-### Phase 1C: Priority Integrations (Days 135-164)
-- **Epic 4A**: Twilio SMS 2FA Integration with Cognito/Amplify (1 week)  
-- **Epic 4B**: Quiltt API Integration for Financial Accounts (2 weeks)
-- **Epic 4C**: Zillow API Integration for Real Estate (1 week)
-- **Epic 4D**: Spanish Language Foundation (1 week)
+**Goal**: Launch with marketing foundation, complete FFC onboarding, HEI integration, and comprehensive asset management
+
+#### Key Features for Launch:
+
+##### 1. Forward Marketing Foundation
+- **Forward Landing Page** with Builder.io CMS integration
+- **CMS Access** for marketing team independence
+- **A/B Testing Capability** for conversion optimization
+
+##### 2. Complete FFC Onboarding Flow
+- **User Registration** with email verification (no payment required)
+- **Secure Login** with session management
+- **FFC Creation** with automatic Free Plan assignment
+- **Unlimited Member Invitations** (no seat restrictions for free plan)
+- **Member Invitation System** (email-based)
+- **Mandatory Dual-Channel Verification** (email + SMS)
+- **Owner Approval Required** for all new members
+
+##### 3. Comprehensive Asset Management System
+- **All 13 Asset Categories** available for management
+- **Asset-Persona Ownership Model** with percentage allocations
+- **Document & Photo Management** with PII protection
+- **Individual Asset Permissions** for granular access control
+- **Asset Dashboard & Visualization** for family overview
+
+##### 4. Free Plan Features
+- **Free Unlimited Plan** as default for all new FFCs
+- **Complete Asset Management** without feature restrictions
+- **Dynamic UI** optimized for unlimited plan experience
 
 ### Phase 2: Enterprise & Compliance (Months 6-12)
 - **Epic 6**: SOC 2 Compliance & Trust Management Platform (6 months, parallel)
+- **Enterprise Features**: Advanced compliance, audit trails, enterprise integrations
+- **Scale Preparation**: Performance optimization for larger customer base
 
 ### Post-MVP: Performance & Scale (Year 2)
 - **Epic 7**: React Performance Optimization & User Experience Enhancement (3 months)
+- **Advanced Features**: AI suggestions, advanced analytics, enterprise integrations
+- **Scale Optimization**: Support for millions of families
 
----
-
-## ⚙️ Technical Architecture
-
-> **🔧 Core Strategy**: Type-safe, secure, and scalable architecture using modern fullstack technologies with emphasis on developer experience and system reliability.
-
-**Related Sections:**
-- 📋 [Epic Requirements](#epic-structure--implementation-roadmap) - Feature-to-tech mapping
-- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Technical implementation priorities
-- 🗄️ [Database Schema](#database-schema) - Data architecture details
-- 📈 [Performance Requirements](#performance-requirements) - Technical success criteria
-
----
-
-### Core Architecture Principles
-
-#### Type-Safe Database Access Layer
-**All database operations use pgTyped and Slonik for maximum safety and performance**:
-- Type-safe database operations with compile-time validation
-- pgTyped generates TypeScript types from actual database schema
-- Slonik provides runtime safety with strict parameterization
-- No direct string concatenation of SQL queries
-- Comprehensive audit logging for all operations
-
-**Benefits**:
-1. **Security**: SQL injection prevention through parameterized queries
-2. **Type Safety**: Compile-time validation of all database operations
-3. **Performance**: Optimized connection pooling and query execution
-4. **Maintainability**: SQL queries in version-controlled files
-5. **Compliance**: Automatic audit trails and data governance
-
-### Frontend Technology Stack
-
-#### Core Framework and Tools
-- **React 18+ with TypeScript**
-  - Functional components with hooks
-  - Strict TypeScript configuration for type safety
-  - React Router v6 for client-side routing
-  - React Query for server state management
-  - Socket.io client for real-time updates
-- **Styling and UI Framework**
-  - Tailwind CSS for utility-first styling
-  - shadcn/ui component library for consistent design
-  - CSS modules for component-specific styles
-  - Design system implementation from existing mockups
-- **Build and Development Tools**
-  - Vite for fast development and building
-  - ESLint and Prettier for code quality
-  - Husky for pre-commit hooks
-  - Testing with Jest and React Testing Library
-
-#### Application Architecture
-- **Mobile-First Responsive Design**
-  - Progressive enhancement approach
-  - Breakpoint-based responsive design
-  - Touch-friendly interface optimization
-  - Cross-browser compatibility (modern browsers)
-- **Single Page Application (SPA)**
-  - Client-side routing and navigation
-  - Code splitting for optimal bundle sizes
-  - Lazy loading for performance optimization
-  - Progressive Web App (PWA) capabilities
-- **Component Architecture**
-  - Card-based modular component system
-  - Reusable component library
-  - Atomic design principles
-  - Storybook for component documentation
-- **State Management**
-  - Context API for global application state
-  - React Query for server state caching
-  - Local storage for user preferences
-  - Session management for authentication
-
-#### Integration Features
-- **Builder.io CMS Integration**
-  - Headless CMS for marketing content
-  - Dynamic content delivery
-  - A/B testing capabilities
-  - SEO optimization
-- **File Management**
-  - Document upload and preview
-  - Image optimization and compression
-  - Secure file sharing and access control
-  - Version control for documents
-
-### Backend Technology Stack
-
-#### Core Server Framework
-- **Nest.js with TypeScript**
-  - Enterprise-grade Node.js framework with dependency injection
-  - Modular architecture supporting microservices evolution
-  - Built-in support for GraphQL, WebSockets, and microservices
-  - Decorator-based routing and validation
-  - Comprehensive middleware pipeline for authentication, logging, and error handling
-  - Built-in OpenAPI/Swagger documentation generation
-  - Guard patterns for multi-tenant isolation and authorization
-  - Interceptors for caching, logging, and performance monitoring
-  - Rate limiting with @nestjs/throttler
-- **Database and ORM**
-  - PostgreSQL for primary data storage
-  - Slonik for safe PostgreSQL client operations with strict parameterization
-  - pgtyped for compile-time SQL type safety
-  - Database migrations with TypeORM or Prisma CLI
-  - Connection pooling with Nest.js database module
-  - Multi-tenant context management via interceptors
-- **Business Logic Architecture**
-  - Module-based organization by domain (assets, FFCs, personas)
-  - Repository pattern with type-safe SQL queries
-  - Service layer with dependency injection
-  - Transaction management via Nest.js database module
-  - Event-driven architecture with @nestjs/event-emitter
-  - Real-time collaboration with Socket.io WebSockets
-  - Hybrid processing approach:
-    - AWS Step Functions for document processing and PII workflows
-    - BullMQ for application-level tasks (notifications, API sync)
-    - WebSockets for live updates and presence
-  - CQRS pattern support for read/write separation (future)
-
-#### Integration Infrastructure
-- **Financial Data Integration**
-  - Dedicated integration modules (QuilttModule, RealEstateModule)
-  - HttpModule with circuit breakers for external APIs
-  - WebSocket Gateway for real-time updates
-  - Webhook controllers with signature validation
-  - Queue processors for async data synchronization
-  - Data transformation with class-transformer
-  - Retry logic with exponential backoff
-- **Email Service Integration**
-  - SendGrid for transactional emails
-  - Template management for referral campaigns
-  - Bounce and complaint handling
-  - Email analytics and tracking
-- **SMS Service Integration**
-  - Twilio for SMS delivery and phone verification
-  - WhatsApp Business API for international support
-  - Voice call backup for verification
-  - Phone number validation and formatting
-
-#### Security and Authentication
-- **Authentication and Authorization**
-  - AWS Cognito integration via Nest.js guards
-  - JWT validation with @nestjs/jwt and @nestjs/passport
-  - Multi-tenant isolation via TenantIsolationGuard
-  - FFC membership validation via FfcMembershipGuard
-  - Asset-level permissions via AssetPermissionsGuard
-  - Role-based access control (RBAC) with custom decorators
-  - Multi-factor authentication (2FA) via Cognito
-  - Session management with Redis store
-- **Data Protection**
-  - Encryption at rest and in transit
-  - PII masking and data anonymization
-  - GDPR and CCPA compliance
-  - Audit logging for all data access
-- **API Security**
-  - AWS API Gateway for centralized API management
-  - Multi-layer rate limiting (Gateway + Application)
-  - Usage plans and quotas for different tiers
-  - API key management for B2B integrations
-  - AWS WAF integration for DDoS protection
-  - SQL injection and XSS prevention
-  - Input validation with class-validator and DTOs
-  - Request sanitization with custom pipes
-  - CORS configuration at Gateway and application levels
-  - Helmet.js integration for security headers
-  - API versioning and deprecation management
-
-### AWS Cloud Migration Roadmap
-
-#### Phase 1: Basic Cloud Infrastructure (Cost-Optimized MVP)
-- **Content Delivery**
-  - CloudFront for global CDN
-  - S3 for static asset storage
-  - Route 53 for DNS management
-  - SSL/TLS certificate management
-- **Application Hosting**
-  - Amplify for frontend CI/CD and hosting
-  - API Gateway for secure, scalable API endpoints
-  - ECS Fargate (1-2 instances) with in-memory caching
-  - Lambda functions for serverless operations
-- **Caching Strategy**
-  - In-memory caching within Nest.js instances (no Redis for MVP)
-  - Sticky sessions via ALB for cache consistency
-  - 5-minute TTL for permissions and FFC memberships
-  - Cost savings: $200-500/month vs Redis
-
-#### Phase 2: Scaling Infrastructure (10K+ Families)
-- **Container Orchestration**
-  - EKS (Elastic Kubernetes Service) for container management
-  - Fargate for serverless container execution
-  - Docker containerization for all services
-  - Auto-scaling based on demand (3+ instances)
-- **Database Services**
-  - RDS PostgreSQL for development and testing
-  - Aurora PostgreSQL for production scalability
-  - Migration from in-memory to Redis when needed:
-    - ElastiCache Redis for shared cache across instances
-    - Gradual migration path built into cache module
-  - Database read replicas for reporting
-
-### API Management and Security
-
-#### API Gateway Features
-- **Rate Limiting and Throttling**
-  - Per-endpoint rate limits (e.g., 5 login attempts per 15 minutes)
-  - Burst capacity for traffic spikes
-  - Per-user and per-IP throttling
-- **Usage Plans and Tiers**
-  - Basic: 10K requests/day
-  - Pro: 100K requests/day
-  - Enterprise: Custom limits
-- **API Key Management**
-  - Secure key generation for partners
-  - Usage tracking and analytics
-  - Automatic key rotation
-- **Cost Protection**
-  - Request quotas prevent runaway costs
-  - Real-time monitoring and alerts
-  - Automatic blocking of abusive clients
-
-### Security and Compliance
-
-#### Compliance Frameworks
-- **SOC 1 & SOC 2 Compliance**
-  - Regular third-party audits
-  - Control implementation and monitoring
-  - Risk assessment and mitigation
-  - Continuous compliance monitoring
-- **Industry Standards**
-  - PCI DSS for payment processing
-  - GDPR for data protection
-  - CCPA for California privacy rights
-  - HIPAA considerations for health directives
-- **Penetration Testing**
-  - Regular security assessments
-  - Vulnerability scanning and remediation
-  - Third-party security audits
-  - Bug bounty program considerations
-
-#### Security Infrastructure
-- **Vanta Integration**
-  - Continuous compliance monitoring
-  - Automated security assessments
-  - Policy management and enforcement
-  - Audit trail maintenance
-- **Access Controls**
-  - Two-factor authentication enforcement
-  - Single sign-on (SSO) integration
-  - Session management and timeout
-  - IP whitelisting and geo-blocking
-- **Data Protection**
-  - Context-aware access controls
-  - Dynamic PII masking
-  - Data loss prevention (DLP)
-  - Encryption key management
-- **Network Security**
-  - VPC segmentation and isolation
-  - Network access control lists (NACLs)
-  - Security groups and firewall rules
-  - VPN access for administrative functions
-
-### Performance Requirements
-
-#### API Performance Targets
-- **Response Times**
-  - p50: < 100ms
-  - p95: < 200ms
-  - p99: < 500ms
-- **Throughput**
-  - 10,000 concurrent users
-  - 100 financial sync operations/second
-  - 5,000 concurrent WebSocket connections per instance
-
-#### Real-Time Performance
-- **WebSocket Latency**
-  - Message delivery: < 100ms
-  - Presence updates: < 50ms
-  - Document progress: real-time streaming
-- **Collaboration Features**
-  - Live asset updates within 200ms
-  - Instant notification delivery
-  - Presence detection within 1 second
-
-#### Frontend Performance
-- **Page Load Times**
-  - First Contentful Paint (FCP): < 1.5s
-  - Time to Interactive (TTI): < 3.5s
-  - Cumulative Layout Shift (CLS): < 0.1
-- **Mobile Performance**
-  - Touch response: < 100ms
-  - Smooth scrolling: 60fps
-  - Offline capability for critical features
-
-#### Database Performance
-- **Query Performance**
-  - Simple queries: < 10ms
-  - Complex queries: < 50ms
-  - Bulk operations: < 500ms
-- **Connection Management**
-  - Connection pool: 100-500 connections
-  - Query timeout: 30s
-  - Transaction timeout: 60s
-
-## Database Schema
-
-**Complete database schema designs are documented in architecture.md.**
-
-### Key Components:
-- **Multi-Tenant Core Schemas**: Tenants, Personas, FFCs, Contact/Communication
-- **Enhanced Asset Management**: 13 asset categories with ownership and permissions
-- **Invitation & Verification**: Dual-channel verification system
-- **Audit & Compliance**: Comprehensive audit trails and security measures
-- **Performance Indexes**: Optimized for multi-tenant operations
-
-### Reference Sections in architecture.md:
-- **Multi-Tenant Core Schemas**: Complete table definitions for tenants, personas, FFCs
-- **Contact and Communication Schema**: Flexible address, phone, and email management
-- **Enhanced Asset Management Schema**: All 13 asset categories with ownership models
-- **Invitation and Verification Schema**: Dual-channel security verification
-- **Enhanced Audit and Compliance Schema**: Comprehensive audit logging
-- **Performance Indexes**: All database indexes for optimal performance
-
-**See architecture.md for complete table definitions, triggers, constraints, and indexes.**
-
-## 📈 Success Metrics
-
-> **🎯 North Star**: Enable 64,000 families to successfully manage their inheritance planning by Year 3, generating $12.8M ARR.
-
-**Related Sections:**
-- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Feature-metric alignment
-- 📈 [Strategic Insights](#strategic-insights) - Business model validation
-- 🚨 [Risk Mitigation](#risk-mitigation) - Risk-metric relationships
-- 📋 [Epic Structure](#epic-structure--implementation-roadmap) - Feature success tracking
-
----
-
-### Launch Metrics (Day 1-30)
-- **Registration Completion Rate**: >85%
-  - Measured from landing page to verified account
-  - A/B test onboarding variations
-- **FFC Creation Rate**: >70% of registered users
-  - Time from registration to first FFC
-  - Track abandonment points
-- **First Asset Added**: >60% of FFCs
-  - Manual entry vs. import usage
-  - Category distribution analysis
-- **Member Invites Sent**: Average 3 per FFC
-  - Dual-channel verification completion rate
-  - Acceptance rate tracking
-  - Time to acceptance
-- **Invite Acceptance Rate**: >40%
-  - By relationship type
-  - Re-invitation success
-- **Phone Verification Success**: >90%
-  - SMS delivery rate
-  - Code entry success rate
-  - International vs domestic performance
-
-### Growth Metrics (Day 31-90)
-- **Weekly Active Family Circles (WAFCs)**: 60%
-  - Definition: 2+ members, 3+ actions/week
-  - Growth target: 10% WoW
-- **Assets per FFC**: Average 5+
-  - Distribution by category
-  - Value concentration analysis
-- **Landing Page Performance**:
-  - Conversion rate >2%
-  - Page load time <2 seconds
-  - A/B test winners implemented
-- **Marketing Independence**: 100% of content updates by marketing team
-- **Asset Permission Changes**: Track frequency and patterns
-- **Security Metrics**: Zero successful phishing attempts
-
-### Subscription & Revenue Metrics
-- **Free Plan Adoption**: 100% of new FFCs (no payment friction)
-- **Service Attach Rate**: 30% purchase Estate Capture Service within 90 days
-- **Payment Success Rate**: >98% for one-time services
-- **Time to First Purchase**: Average <30 days from registration
-- **Revenue per FFC**: Track one-time service revenue (target $90/FFC by Day 90)
-- **Zero Payment Abandonment**: No users blocked by payment requirements at signup
-
-### North Star Metric
-**Weekly Active Family Circles (WAFCs)**
-- **Definition**: FFCs with 2+ members and 3+ platform actions per week
-- **Target**: 50% of all FFCs are WAFCs by Day 90
-- **Growth**: 10% week-over-week increase in WAFCs
-- **Why it matters**: Indicates true platform value and stickiness
-
-### Business KPIs
-
-**Platform Foundation Success**
-- **Target**: 95% successful family onboarding completion
-- **Measurement**: End-to-end flow completion rate
-- **Sub-metrics**:
-  - Setup abandonment: <5%
-  - Time to complete: <15 minutes
-  - User satisfaction: >4.0/5
-
-**Security Performance**
-- **Verification Success Rate**: >90%
-- **Phone Verification Completion**: >85%
-- **False Positive Rate**: <1%
-- **Security Incident Rate**: 0
-
-**Marketing Performance**
-- **Landing Page Load Time**: <2 seconds
-- **Form Conversion Rate**: >2%
-- **Content Update Frequency**: Daily capability
-- **A/B Test Velocity**: 2+ tests per month
-
-## Risk Mitigation
-
-### Risk Scoring Matrix
-
-| Risk | Probability | Impact | Score | Priority | Mitigation Strategy |
-|------|-------------|--------|-------|----------|-------------------|
-| Phone Verification Delivery | Medium (40%) | High | 16 | P0 | Multiple SMS providers, voice backup, WhatsApp integration |
-| Builder.io Performance Impact | Medium (30%) | Medium | 9 | P1 | CDN optimization, fallback content, performance monitoring |
-| Asset Permission Complexity | High (60%) | Medium | 18 | P0 | Clear UI, extensive testing, user education, progressive disclosure |
-| Invitation Fraud/Abuse | Low (20%) | High | 12 | P1 | Rate limiting, phone verification, audit trails, manual review |
-| International SMS Costs | High (70%) | Low | 7 | P2 | WhatsApp backup, voice alternatives, cost monitoring |
-
-### Security Risks
-
-#### Phone Verification System
-**Risk**: SMS delivery failures or phone number spoofing  
-**Mitigation**:
-- Multi-provider SMS strategy (Twilio primary, backup providers)
-- Voice call verification as backup
-- WhatsApp Business API for international
-- Rate limiting and abuse detection
-- Complete audit trail for all verification attempts
-
-#### Asset Permission System
-**Risk**: Complex permissions leading to user errors or security gaps  
-**Mitigation**:
-- Progressive disclosure of advanced features
-- Clear visual indicators for permission levels
-- Default to secure permissions
-- Permission preview before saving
-- Extensive user testing and iterative improvement
-
-#### Invitation Security
-**Risk**: Phishing or unauthorized access attempts  
-**Mitigation**:
-- Dual-channel verification required
-- Unique tokens with expiration
-- Owner approval after verification
-- Comprehensive audit logging
-- Clear security messaging to users
-
-### Technical Risks
-
-#### Builder.io Integration
-**Risk**: Performance impact or service dependency  
-**Mitigation**:
-- CDN caching for all Builder.io content
-- Fallback static content for outages
-- Performance monitoring and alerting
-- Regular performance testing
-- Alternative CMS evaluation
-
-#### Database Performance
-**Risk**: Complex permission queries causing slowdowns  
-**Mitigation**:
-- Optimized indexes for permission checks
-- Query performance monitoring
-- Caching layer for frequently accessed data
-- Database scaling plan
-- Regular performance reviews
-
-### Business Risks
-
-#### User Adoption of Security Features
-**Risk**: Complex verification process reducing adoption  
-**Mitigation**:
-- Clear explanation of security benefits
-- Progressive onboarding
-- Support team training
-- User feedback collection
-- Iterative UX improvements
-
-#### Marketing Team Builder.io Learning Curve
-**Risk**: Delayed marketing capability due to tool complexity  
-**Mitigation**:
-- Comprehensive Builder.io training
-- Template library for common use cases
-- Dedicated support channel
-- Documentation and video tutorials
-- Gradual feature rollout
-
-### Early Warning System
-
-**Monitoring Triggers**:
-- SMS delivery rate <85% � Switch providers
-- Landing page load time >3s � Performance investigation
-- Permission errors >5/day � UI review
-- Failed verification attempts >10% � Security review
-- Asset creation abandonment >30% � UX analysis
 
 ## 📋 Epic Structure & Implementation
 
@@ -979,8 +368,33 @@ Building on Phase 0 validation, Phase 1A focuses on migrating to AWS cloud infra
 - **Epic 6**: Compliance runs parallel to ensure enterprise readiness
 - **Epic 7**: Performance optimization enhances all user-facing features
 
+### Epic Implementation Timeline
+
+#### Phase 0: Minimal Path Validation (Days 1-14)
+- **Technical Proof of Concept**: Complete user journey locally without cloud dependencies
+- **Core Stack Validation**: React + Nest.js + pgTyped + Slonik + PostgreSQL
+- **Single Asset Type**: Jewelry asset creation, storage, and display
+- **Foundation Ready**: Prepare architecture for Phase 1A cloud integration
+
+#### Phase 1B: Marketing Foundation & Core Features (Days 75-134)
+- **Epic 1**: Marketing Foundation & Landing Page (2 weeks)
+- **Epic 2**: FFC Onboarding Flow with Enhanced Security (3 weeks)
+- **Epic 3**: Comprehensive Asset Management System (4 weeks)
+
+#### Phase 1C: Priority Integrations (Days 135-164)
+- **Epic 2**: Twilio SMS 2FA Integration (Story 2.4) (1 week)  
+- **Epic 4**: Quiltt API Integration for Financial Accounts (Story 4.8) (2 weeks)
+- **Epic 4**: Real Estate Data Provider Integration (Story 4.9) (1 week)
+- **Epic 5**: Spanish Language Foundation (Story 5.1) (1 week)
+
+#### Phase 2: Enterprise & Compliance (Months 6-12)
+- **Epic 6**: SOC 2 Compliance & Trust Management Platform (6 months, parallel)
+
+#### Post-MVP: Performance & Scale (Year 2)
+- **Epic 7**: React Performance Optimization & User Experience Enhancement (3 months)
+
 **Related Sections:**
-- 🎯 [Phase 1A Scope](#phase-1a-scope--core-features) - Epic prioritization rationale
+- 🎯 [Implementation Phases](#implementation-phases) - Epic prioritization rationale
 - ⚙️ [Technical Architecture](#technical-architecture) - Technical implementation approach
 - 📈 [Success Metrics](#success-metrics) - Epic success measurement
 - 🚨 [Risk Mitigation](#risk-mitigation) - Epic-specific risk management
@@ -1049,9 +463,7 @@ Building on Phase 0 validation, Phase 1A focuses on migrating to AWS cloud infra
 - 🔗 [Business Model](#business-model) - Lead value and revenue attribution
 
 **Database Implementation**:
-**Database implementation details are documented in architecture.md**
-
-See architecture.md section "Epic 1: Marketing Foundation" for complete database operation specifications including lead capture functionality.
+**Database implementation details are documented in DB-architecture.md**
 
 ### Epic 2: FFC Onboarding Flow with Enhanced Security
 
@@ -1082,9 +494,7 @@ See architecture.md section "Epic 1: Marketing Foundation" for complete database
 - 🔗 [Security Considerations](#security-considerations) - Password and authentication standards
 
 **Database Implementation**:
-**Database implementation details are documented in architecture.md**
-
-See architecture.md section "Epic 2: FFC Onboarding" for complete database operation specifications including user registration and member invitation functionality.
+**Database implementation details are documented in DB-architecture.md**
 
 #### Story 2.2: FFC Creation Wizard
 **As a** verified user  
@@ -1121,9 +531,7 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete database opera
 - 🔗 [Role-Based Access Controls](#role-based-access-controls) - Role assignment implications
 - 🔗 [Security Considerations](#security-considerations) - Invitation security measures
 
-**Database implementation details are documented in architecture.md**
-
-See architecture.md section "Epic 2: FFC Onboarding" for complete member invitation operation specifications.
+**Database implementation details are documented in DB-architecture.md**
 
 #### Story 2.4: Phone Verification System
 **As an** invited family member  
@@ -1171,7 +579,7 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete member invitat
 
 **Strategic Priority**: Critical - Core platform functionality and primary value driver
 
-**Database Implementation**: All database operations for asset management, document handling, and PII processing are documented in architecture.md section "Epic 3: Asset Management & PII Protection"
+**Database Implementation**: All database operations for asset management, document handling, and PII processing are documented in DB-architecture.md
 
 #### Story 3.1: Asset Category Infrastructure
 **As a** system architect  
@@ -1261,9 +669,7 @@ See architecture.md section "Epic 2: FFC Onboarding" for complete member invitat
 - 🔗 [Role-Based Access Controls](#role-based-access-controls) - Permission inheritance from ownership
 
 **Database Implementation**:
-**Database implementation details are documented in architecture.md**
-
-See architecture.md section "Epic 3: Asset Management" for complete database operation specifications including asset creation with ownership functionality.
+**Database implementation details are documented in DB-architecture.md**
 
 #### Story 3.3: Document & Photo Management with PII Protection
 **As an** asset owner  
@@ -1415,7 +821,7 @@ This serverless approach ensures scalability, security, and compliance without m
 - 🔗 [Epic 6: Compliance Framework](#epic-6-compliance-framework-gdpr--sox) - Compliance requirements for audit trails
 - 🔗 [Epic 7: Performance Optimization](#epic-7-performance-optimization-advanced-caching) - Optimization for search and reporting
 
-**Database Implementation**: All database operations for search, reporting, audit trails, integrations, and Quiltt API functions are documented in architecture.md section "Epic 4: Reporting, Analytics & Integrations" and "Integration Architecture > Quiltt Integration"
+**Database Implementation**: All database operations for search, reporting, audit trails, integrations, and Quiltt API functions are documented in DB-architecture.md
 
 #### Story 4.1: Twilio SMS 2FA Integration with Cognito & Amplify
 **As an** FFC member  
@@ -1456,7 +862,7 @@ This serverless approach ensures scalability, security, and compliance without m
 - New relationship model: Persona (asset owner) → Quiltt Connector → Financial Account Assets (1:n)
 - All created financial account assets must reference Quiltt connector ID for automatic updates
 - Asset synchronization tracking for balance and account data updates
-- Complete schema details documented in architecture.md
+- Complete schema details documented in DB-architecture.md
 
 **Integration Architecture**:
 ```
@@ -1518,11 +924,9 @@ Asset-Owning Persona → Quiltt Profile → Bank Connection → Multiple Account
 - Search result sorting and pagination
 - Search analytics and suggestions
 
-**Database implementation details are documented in architecture.md**
+**Database implementation details are documented in DB-architecture.md**
 
-See architecture.md section "Epic 4: Advanced Features" for complete database operation specifications including family asset search functionality.
-
-#### Story 4.2: Comprehensive Reporting & Analytics
+#### Story 4.6: Comprehensive Reporting & Analytics
 **As an** FFC owner  
 **I want** detailed reports on our family wealth  
 **So that** I can make informed financial decisions and track changes over time
@@ -1535,11 +939,9 @@ See architecture.md section "Epic 4: Advanced Features" for complete database op
 - Custom report builder
 - Export to Excel/CSV formats
 
-**Database implementation details are documented in architecture.md**
+**Database implementation details are documented in DB-architecture.md**
 
-See architecture.md section "Epic 4: Reporting & Analytics" for complete database operation specifications including wealth report generation functionality.
-
-#### Story 4.3: Comprehensive Audit Trail System
+#### Story 4.7: Comprehensive Audit Trail System
 **As a** compliance officer  
 **I want** complete audit trails for all platform activities  
 **So that** we maintain regulatory compliance and security accountability
@@ -1552,11 +954,9 @@ See architecture.md section "Epic 4: Reporting & Analytics" for complete databas
 - Audit log search and filtering
 - Suspicious activity detection and alerts
 
-**Database implementation details are documented in architecture.md**
+**Database implementation details are documented in DB-architecture.md**
 
-See architecture.md section "Epic 4: Audit & Compliance" for complete database operation specifications including audit event logging functionality.
-
-#### Story 4.4: Bulk Operations & Data Management
+#### Story 4.8: Bulk Operations & Data Management
 **As an** FFC owner with many assets  
 **I want** bulk operations for efficient management  
 **So that** I can update multiple assets quickly and maintain data consistency
@@ -1569,11 +969,9 @@ See architecture.md section "Epic 4: Audit & Compliance" for complete database o
 - Progress tracking for long-running operations
 - Bulk export and import functionality
 
-**Database implementation details are documented in architecture.md**
+**Database implementation details are documented in DB-architecture.md**
 
-See architecture.md section "Epic 4: Bulk Operations" for complete database operation specifications including bulk asset update functionality.
-
-#### Story 4.5: Advisor Sponsored Plans
+#### Story 4.9: Advisor Sponsored Plans
 **As a** financial advisor  
 **I want** to sponsor multiple family FFCs  
 **So that** I can provide this as a value-added service to my clients
@@ -1586,7 +984,7 @@ See architecture.md section "Epic 4: Bulk Operations" for complete database oper
 - Ability to transfer ownership to families
 - No payment required from families
 
-#### Story 4.6: General Ledger & Financial Tracking
+#### Story 4.10: General Ledger & Financial Tracking
 **As a** platform administrator  
 **I want** complete financial transaction tracking  
 **So that** we can maintain accurate books and handle refunds properly
@@ -1599,7 +997,7 @@ See architecture.md section "Epic 4: Bulk Operations" for complete database oper
 - Stripe webhook integration for payment events
 - Audit trail for all financial transactions
 
-#### Story 4.7: Third-Party Integration Framework
+#### Story 4.11: Third-Party Integration Framework
 **As a** platform administrator  
 **I want** extensible integration capabilities  
 **So that** we can connect with financial institutions and estate planning tools
@@ -1612,80 +1010,9 @@ See architecture.md section "Epic 4: Bulk Operations" for complete database oper
 - Data synchronization job management
 - Error handling and retry logic
 
-**Database implementation details are documented in architecture.md**
+**Database implementation details are documented in DB-architecture.md**
 
-See architecture.md section "Epic 4: Integration Management" for complete database operation specifications including integration management functionality.
-
-#### Story 4.8: Quiltt API Integration for Financial Accounts
-**As an** FFC member  
-**I want** to connect my bank accounts through Quiltt  
-**So that** my account balances update automatically without manual entry
-
-**Acceptance Criteria**:
-- Quiltt Profile creation and management for FFC members
-- Bank account connection flow with OAuth authentication
-- Automatic balance refresh (weekly/monthly scheduled)
-- Multiple accounts per connection support
-- Webhook handling for balance updates
-- Connection health monitoring and re-authentication prompts
-- Support for 10,000+ financial institutions via Quiltt
-
-**Integration Architecture**:
-```
-FFC Member → Quiltt Profile → Bank Connection → Multiple Accounts → Forward Assets
-```
-
-**Database implementation details are documented in architecture.md**
-
-See architecture.md section "Integration Architecture > Quiltt Integration" for complete database operation specifications including Quiltt connection management and webhook processing functionality.
-
-**Quiltt Integration Workflow**:
-1. **Profile Creation**: Map FFC member to Quiltt Profile with metadata
-2. **Bank Connection**: User connects via Quiltt's OAuth flow
-3. **Account Discovery**: Quiltt discovers multiple accounts per connection
-4. **Asset Creation**: Each account becomes a Financial Account asset
-5. **Balance Sync**: Webhook updates or scheduled refreshes update balances
-6. **Error Handling**: Connection health monitoring triggers re-authentication
-
-**Supported Account Types**:
-- Checking and Savings Accounts
-- Credit Cards and Lines of Credit
-- Investment Accounts (401k, IRA, Brokerage)
-- Loan Accounts (Mortgage, Auto, Personal)
-
-#### Story 4.9: Real Estate Data Provider Integration
-**As an** FFC member with real estate assets  
-**I want** automated property value updates  
-**So that** my real estate portfolio reflects current market values
-
-**Acceptance Criteria**:
-- Research and select optimal real estate data provider (Zillow API, CoreLogic, RentSpree, etc.)
-- Property identification via address lookup
-- Automated valuation model (AVM) integration
-- Comparable sales (comps) data integration
-- Property detail enrichment (square footage, lot size, etc.)
-- Market trend analysis and alerts
-- Scheduled value updates (monthly/quarterly)
-
-**Provider Evaluation Criteria**:
-- **Coverage**: National property database completeness
-- **Accuracy**: AVM accuracy vs actual sales data
-- **API Quality**: Rate limits, uptime, data freshness
-- **Cost Structure**: Per-call pricing vs subscription models
-- **Data Richness**: Property details, history, market trends
-
-**Database implementation details are documented in architecture.md**
-
-See architecture.md section "Integration Architecture > Real Estate Provider Integration" for complete database operation specifications including real estate integration management functionality.
-
-**Provider Research Tasks**:
-1. **API Comparison**: Zillow API vs CoreLogic vs RentSpree vs others
-2. **Pricing Analysis**: Cost per property lookup and ongoing updates
-3. **Data Quality Assessment**: Accuracy testing with known property values
-4. **Integration Complexity**: Authentication, rate limits, webhook support
-5. **Legal Compliance**: Terms of service and data usage restrictions
-
-#### Story 4.10: Performance Optimization & Caching
+#### Story 4.14: Performance Optimization & Caching
 **As a** system user  
 **I want** fast response times even with large datasets  
 **So that** the platform remains responsive as our family wealth grows
@@ -1739,7 +1066,7 @@ See architecture.md section "Integration Architecture > Real Estate Provider Int
 
 *Note: Additional languages will only be pursued after Spanish market success validation*
 
-**Technical Implementation**: All translation infrastructure, helper functions, and database schema extensions are documented in architecture.md section "Multi-Language Support Architecture".
+**Technical Implementation**: All translation infrastructure, helper functions, and database schema extensions are documented in DB-architecture.md.
 
 ### Epic 6: SOC 2 Compliance & Trust Management Platform
 
@@ -2275,86 +1602,508 @@ const preloadAssets = () => {
 
 ---
 
-## Development Phases
+## ⚙️ Technical Architecture
 
-### Phase 1A: Foundation and Core Features (Days 1-60)
+> **🔧 Core Strategy**: Type-safe, secure, and scalable architecture using modern fullstack technologies with emphasis on developer experience and system reliability.
 
-**Primary Objective**: Launch with marketing foundation, secure family onboarding, and comprehensive asset management.
-
-#### Month 1 (Days 1-30): Infrastructure and Marketing Foundation
-**Development Priorities**:
-- **Technical Foundation**
-  - Development, staging, and production environments
-  - Core database schema implementation
-  - CI/CD pipelines with automated testing
-  - AWS infrastructure setup (S3, CloudFront, RDS)
-  - Authentication and authorization systems
-  - Monitoring and logging infrastructure
-
-- **Builder.io Marketing Platform**
-  - Builder.io integration and configuration
-  - Landing page templates and components
-  - A/B testing framework setup
-  - Analytics and tracking implementation
-  - SEO optimization and performance tuning
-  - Marketing team training and handoff
-
-- **Core Backend Services**
-  - User management and authentication APIs
-  - FFC creation and management endpoints
-  - SMS/Email service integrations (Twilio, SendGrid)
-  - Permission system implementation
-  - Audit logging system
-  - Database optimization and indexing
-
-#### Month 2 (Days 31-60): Complete Onboarding and Asset Management
-**Development Priorities**:
-- **Secure Onboarding System**
-  - User registration and email verification
-  - FFC creation wizard
-  - Dual-channel invitation system
-  - Mandatory phone verification
-  - Owner approval workflow
-  - Role assignment and management
-
-- **Comprehensive Asset Management**  
-  - All 13 asset categories implementation
-  - Asset-persona ownership system
-  - Individual asset permissions
-  - Category-specific forms and validation
-  - File upload and document management
-  - Asset dashboard and overview
-
-- **HEI Integration**
-  - API integration for loan data
-  - Read-only display in asset system
-  - Data synchronization and updates
-  - Integration with asset permission system
-
-**Phase 1A Success Criteria**:
-- Marketing team publishing content independently
-- 90%+ user registration completion rate
-- Dual-channel verification >90% success rate
-- All 13 asset categories functional
-- Asset permission system working correctly
-- Zero security breaches
-- Landing page conversion rate >2%
-
-### Phase 1B: Enhancement and Optimization (Days 61-120)
-
-**Primary Objective**: Optimize user experience, add advanced features, and prepare for scale.
-
-**Development Priorities**:
-- Advanced search and filtering
-- Bulk asset operations
-- Enhanced mobile experience
-- Performance optimization
-- Security enhancements (2FA)
-- Advanced analytics and reporting
-- User feedback integration
-- International expansion features
+**Related Sections:**
+- 📋 [Epic Requirements](#epic-structure--implementation-roadmap) - Feature-to-tech mapping
+- 🎯 [Implementation Phases](#implementation-phases) - Technical implementation priorities
+- 🗄️ [Database Schema](#database-schema) - Data architecture details
+- 📈 [Performance Requirements](#performance-requirements) - Technical success criteria
 
 ---
+
+### Core Architecture Principles
+
+#### Type-Safe Database Access Layer
+**All database operations use pgTyped and Slonik for maximum safety and performance**:
+- Type-safe database operations with compile-time validation
+- pgTyped generates TypeScript types from actual database schema
+- Slonik provides runtime safety with strict parameterization
+- No direct string concatenation of SQL queries
+- Comprehensive audit logging for all operations
+
+**Benefits**:
+1. **Security**: SQL injection prevention through parameterized queries
+2. **Type Safety**: Compile-time validation of all database operations
+3. **Performance**: Optimized connection pooling and query execution
+4. **Maintainability**: SQL queries in version-controlled files
+5. **Compliance**: Automatic audit trails and data governance
+
+### Frontend Technology Stack
+
+#### Core Framework and Tools
+- **React 18+ with TypeScript**
+  - Functional components with hooks
+  - Strict TypeScript configuration for type safety
+  - React Router v6 for client-side routing
+  - React Query for server state management
+  - Socket.io client for real-time updates
+- **Styling and UI Framework**
+  - Tailwind CSS for utility-first styling
+  - shadcn/ui component library for consistent design
+  - CSS modules for component-specific styles
+  - Design system implementation from existing mockups
+- **Build and Development Tools**
+  - Vite for fast development and building
+  - ESLint and Prettier for code quality
+  - Husky for pre-commit hooks
+  - Testing with Jest and React Testing Library
+
+#### Application Architecture
+- **Mobile-First Responsive Design**
+  - Progressive enhancement approach
+  - Breakpoint-based responsive design
+  - Touch-friendly interface optimization
+  - Cross-browser compatibility (modern browsers)
+- **Single Page Application (SPA)**
+  - Client-side routing and navigation
+  - Code splitting for optimal bundle sizes
+  - Lazy loading for performance optimization
+  - Progressive Web App (PWA) capabilities
+- **Component Architecture**
+  - Card-based modular component system
+  - Reusable component library
+  - Atomic design principles
+  - Storybook for component documentation
+- **State Management**
+  - Context API for global application state
+  - React Query for server state caching
+  - Local storage for user preferences
+  - Session management for authentication
+
+#### Integration Features
+- **Builder.io CMS Integration**
+  - Headless CMS for marketing content
+  - Dynamic content delivery
+  - A/B testing capabilities
+  - SEO optimization
+- **File Management**
+  - Document upload and preview
+  - Image optimization and compression
+  - Secure file sharing and access control
+  - Version control for documents
+
+### Backend Technology Stack
+
+#### Core Server Framework
+- **Nest.js with TypeScript**
+  - Enterprise-grade Node.js framework with dependency injection
+  - Modular architecture supporting microservices evolution
+  - Built-in support for GraphQL, WebSockets, and microservices
+  - Decorator-based routing and validation
+  - Comprehensive middleware pipeline for authentication, logging, and error handling
+  - Built-in OpenAPI/Swagger documentation generation
+  - Guard patterns for multi-tenant isolation and authorization
+  - Interceptors for caching, logging, and performance monitoring
+  - Rate limiting with @nestjs/throttler
+- **Database and ORM**
+  - PostgreSQL for primary data storage
+  - Slonik for safe PostgreSQL client operations with strict parameterization
+  - pgtyped for compile-time SQL type safety
+  - Database migrations with TypeORM or Prisma CLI
+  - Connection pooling with Nest.js database module
+  - Multi-tenant context management via interceptors
+- **Business Logic Architecture**
+  - Module-based organization by domain (assets, FFCs, personas)
+  - Repository pattern with type-safe SQL queries
+  - Service layer with dependency injection
+  - Transaction management via Nest.js database module
+  - Event-driven architecture with @nestjs/event-emitter
+  - Real-time collaboration with Socket.io WebSockets
+  - Hybrid processing approach:
+    - AWS Step Functions for document processing and PII workflows
+    - BullMQ for application-level tasks (notifications, API sync)
+    - WebSockets for live updates and presence
+  - CQRS pattern support for read/write separation (future)
+
+#### Integration Infrastructure
+- **Financial Data Integration**
+  - Dedicated integration modules (QuilttModule, RealEstateModule)
+  - HttpModule with circuit breakers for external APIs
+  - WebSocket Gateway for real-time updates
+  - Webhook controllers with signature validation
+  - Queue processors for async data synchronization
+  - Data transformation with class-transformer
+  - Retry logic with exponential backoff
+- **Email Service Integration**
+  - SendGrid for transactional emails
+  - Template management for referral campaigns
+  - Bounce and complaint handling
+  - Email analytics and tracking
+- **SMS Service Integration**
+  - Twilio for SMS delivery and phone verification
+  - WhatsApp Business API for international support
+  - Voice call backup for verification
+  - Phone number validation and formatting
+
+#### Security and Authentication
+- **Authentication and Authorization**
+  - AWS Cognito integration via Nest.js guards
+  - JWT validation with @nestjs/jwt and @nestjs/passport
+  - Multi-tenant isolation via TenantIsolationGuard
+  - FFC membership validation via FfcMembershipGuard
+  - Asset-level permissions via AssetPermissionsGuard
+  - Role-based access control (RBAC) with custom decorators
+  - Multi-factor authentication (2FA) via Cognito
+  - Session management with Redis store
+- **Data Protection**
+  - Encryption at rest and in transit
+  - PII masking and data anonymization
+  - GDPR and CCPA compliance
+  - Audit logging for all data access
+- **API Security**
+  - AWS API Gateway for centralized API management
+  - Multi-layer rate limiting (Gateway + Application)
+  - Usage plans and quotas for different tiers
+  - API key management for B2B integrations
+  - AWS WAF integration for DDoS protection
+  - SQL injection and XSS prevention
+  - Input validation with class-validator and DTOs
+  - Request sanitization with custom pipes
+  - CORS configuration at Gateway and application levels
+  - Helmet.js integration for security headers
+  - API versioning and deprecation management
+
+### AWS Cloud Migration Roadmap
+
+#### Phase 1: Basic Cloud Infrastructure (Cost-Optimized MVP)
+- **Content Delivery**
+  - CloudFront for global CDN
+  - S3 for static asset storage
+  - Route 53 for DNS management
+  - SSL/TLS certificate management
+- **Application Hosting**
+  - Amplify for frontend CI/CD and hosting
+  - API Gateway for secure, scalable API endpoints
+  - ECS Fargate (1-2 instances) with in-memory caching
+  - Lambda functions for serverless operations
+- **Caching Strategy**
+  - In-memory caching within Nest.js instances (no Redis for MVP)
+  - Sticky sessions via ALB for cache consistency
+  - 5-minute TTL for permissions and FFC memberships
+  - Cost savings: $200-500/month vs Redis
+
+#### Phase 2: Scaling Infrastructure (10K+ Families)
+- **Container Orchestration**
+  - EKS (Elastic Kubernetes Service) for container management
+  - Fargate for serverless container execution
+  - Docker containerization for all services
+  - Auto-scaling based on demand (3+ instances)
+- **Database Services**
+  - RDS PostgreSQL for development and testing
+  - Aurora PostgreSQL for production scalability
+  - Migration from in-memory to Redis when needed:
+    - ElastiCache Redis for shared cache across instances
+    - Gradual migration path built into cache module
+  - Database read replicas for reporting
+
+### API Management and Security
+
+#### API Gateway Features
+- **Rate Limiting and Throttling**
+  - Per-endpoint rate limits (e.g., 5 login attempts per 15 minutes)
+  - Burst capacity for traffic spikes
+  - Per-user and per-IP throttling
+- **Usage Plans and Tiers**
+  - Basic: 10K requests/day
+  - Pro: 100K requests/day
+  - Enterprise: Custom limits
+- **API Key Management**
+  - Secure key generation for partners
+  - Usage tracking and analytics
+  - Automatic key rotation
+- **Cost Protection**
+  - Request quotas prevent runaway costs
+  - Real-time monitoring and alerts
+  - Automatic blocking of abusive clients
+
+### Security and Compliance
+
+#### Compliance Frameworks
+- **SOC 1 & SOC 2 Compliance**
+  - Regular third-party audits
+  - Control implementation and monitoring
+  - Risk assessment and mitigation
+  - Continuous compliance monitoring
+- **Industry Standards**
+  - PCI DSS for payment processing
+  - GDPR for data protection
+  - CCPA for California privacy rights
+  - HIPAA considerations for health directives
+- **Penetration Testing**
+  - Regular security assessments
+  - Vulnerability scanning and remediation
+  - Third-party security audits
+  - Bug bounty program considerations
+
+#### Security Infrastructure
+- **Vanta Integration**
+  - Continuous compliance monitoring
+  - Automated security assessments
+  - Policy management and enforcement
+  - Audit trail maintenance
+- **Access Controls**
+  - Two-factor authentication enforcement
+  - Single sign-on (SSO) integration
+  - Session management and timeout
+  - IP whitelisting and geo-blocking
+- **Data Protection**
+  - Context-aware access controls
+  - Dynamic PII masking
+  - Data loss prevention (DLP)
+  - Encryption key management
+- **Network Security**
+  - VPC segmentation and isolation
+  - Network access control lists (NACLs)
+  - Security groups and firewall rules
+  - VPN access for administrative functions
+
+### Performance Requirements
+
+#### API Performance Targets
+- **Response Times**
+  - p50: < 100ms
+  - p95: < 200ms
+  - p99: < 500ms
+- **Throughput**
+  - 10,000 concurrent users
+  - 100 financial sync operations/second
+  - 5,000 concurrent WebSocket connections per instance
+
+#### Real-Time Performance
+- **WebSocket Latency**
+  - Message delivery: < 100ms
+  - Presence updates: < 50ms
+  - Document progress: real-time streaming
+- **Collaboration Features**
+  - Live asset updates within 200ms
+  - Instant notification delivery
+  - Presence detection within 1 second
+
+#### Frontend Performance
+- **Page Load Times**
+  - First Contentful Paint (FCP): < 1.5s
+  - Time to Interactive (TTI): < 3.5s
+  - Cumulative Layout Shift (CLS): < 0.1
+- **Mobile Performance**
+  - Touch response: < 100ms
+  - Smooth scrolling: 60fps
+  - Offline capability for critical features
+
+#### Database Performance
+- **Query Performance**
+  - Simple queries: < 10ms
+  - Complex queries: < 50ms
+  - Bulk operations: < 500ms
+- **Connection Management**
+  - Connection pool: 100-500 connections
+  - Query timeout: 30s
+  - Transaction timeout: 60s
+
+## Database Schema
+
+**Complete database schema designs are documented in DB-architecture.md and the model files in docs/requirements/DB/model/**
+
+### Key Components:
+- **Multi-Tenant Core Schemas**: Tenants, Personas, FFCs, Contact/Communication
+- **Enhanced Asset Management**: 13 asset categories with ownership and permissions
+- **Invitation & Verification**: Dual-channel verification system
+- **Audit & Compliance**: Comprehensive audit trails and security measures
+- **Performance Indexes**: Optimized for multi-tenant operations
+
+### Database Documentation Locations:
+- **Complete Schema**: DB-architecture.md (72 tables and 69 stored procedures)
+- **Detailed Models**: docs/requirements/DB/model/ folder
+  - Core tables and relationships (files 4-9)
+  - Authentication and security procedures (files 3, 10-11)
+  - Asset management procedures (files 7-8)
+  - Payment and subscription system (file 12)
+  - Integration procedures (file 13)
+- **SQL Scripts**: docs/requirements/DB/sql scripts/ folder
+  - Database creation and structure
+  - All stored procedures and functions
+  - Individual SQL files for each procedure
+
+**See DB-architecture.md for complete table definitions, triggers, constraints, and indexes.**
+
+## 📈 Success Metrics
+
+> **🎯 North Star**: Enable 64,000 families to successfully manage their inheritance planning by Year 3, generating $12.8M ARR.
+
+**Related Sections:**
+- 🎯 [Implementation Phases](#implementation-phases) - Feature-metric alignment
+- 📈 [Strategic Insights](#strategic-insights) - Business model validation
+- 🚨 [Risk Mitigation](#risk-mitigation) - Risk-metric relationships
+- 📋 [Epic Structure](#epic-structure--implementation-roadmap) - Feature success tracking
+
+---
+
+### Launch Metrics (Day 1-30)
+- **Registration Completion Rate**: >85%
+  - Measured from landing page to verified account
+  - A/B test onboarding variations
+- **FFC Creation Rate**: >70% of registered users
+  - Time from registration to first FFC
+  - Track abandonment points
+- **First Asset Added**: >60% of FFCs
+  - Manual entry vs. import usage
+  - Category distribution analysis
+- **Member Invites Sent**: Average 3 per FFC
+  - Dual-channel verification completion rate
+  - Acceptance rate tracking
+  - Time to acceptance
+- **Invite Acceptance Rate**: >40%
+  - By relationship type
+  - Re-invitation success
+- **Phone Verification Success**: >90%
+  - SMS delivery rate
+  - Code entry success rate
+  - International vs domestic performance
+
+### Growth Metrics (Day 31-90)
+- **Weekly Active Family Circles (WAFCs)**: 60%
+  - Definition: 2+ members, 3+ actions/week
+  - Growth target: 10% WoW
+- **Assets per FFC**: Average 5+
+  - Distribution by category
+  - Value concentration analysis
+- **Landing Page Performance**:
+  - Conversion rate >2%
+  - Page load time <2 seconds
+  - A/B test winners implemented
+- **Marketing Independence**: 100% of content updates by marketing team
+- **Asset Permission Changes**: Track frequency and patterns
+- **Security Metrics**: Zero successful phishing attempts
+
+### Subscription & Revenue Metrics
+- **Free Plan Adoption**: 100% of new FFCs (no payment friction)
+- **Service Attach Rate**: 30% purchase Estate Capture Service within 90 days
+- **Payment Success Rate**: >98% for one-time services
+- **Time to First Purchase**: Average <30 days from registration
+- **Revenue per FFC**: Track one-time service revenue (target $90/FFC by Day 90)
+- **Zero Payment Abandonment**: No users blocked by payment requirements at signup
+
+### North Star Metric
+**Weekly Active Family Circles (WAFCs)**
+- **Definition**: FFCs with 2+ members and 3+ platform actions per week
+- **Target**: 50% of all FFCs are WAFCs by Day 90
+- **Growth**: 10% week-over-week increase in WAFCs
+- **Why it matters**: Indicates true platform value and stickiness
+
+### Business KPIs
+
+**Platform Foundation Success**
+- **Target**: 95% successful family onboarding completion
+- **Measurement**: End-to-end flow completion rate
+- **Sub-metrics**:
+  - Setup abandonment: <5%
+  - Time to complete: <15 minutes
+  - User satisfaction: >4.0/5
+
+**Security Performance**
+- **Verification Success Rate**: >90%
+- **Phone Verification Completion**: >85%
+- **False Positive Rate**: <1%
+- **Security Incident Rate**: 0
+
+**Marketing Performance**
+- **Landing Page Load Time**: <2 seconds
+- **Form Conversion Rate**: >2%
+- **Content Update Frequency**: Daily capability
+- **A/B Test Velocity**: 2+ tests per month
+
+## Risk Mitigation
+
+### Risk Scoring Matrix
+
+| Risk | Probability | Impact | Score | Priority | Mitigation Strategy |
+|------|-------------|--------|-------|----------|-------------------|
+| Phone Verification Delivery | Medium (40%) | High | 16 | P0 | Multiple SMS providers, voice backup, WhatsApp integration |
+| Builder.io Performance Impact | Medium (30%) | Medium | 9 | P1 | CDN optimization, fallback content, performance monitoring |
+| Asset Permission Complexity | High (60%) | Medium | 18 | P0 | Clear UI, extensive testing, user education, progressive disclosure |
+| Invitation Fraud/Abuse | Low (20%) | High | 12 | P1 | Rate limiting, phone verification, audit trails, manual review |
+| International SMS Costs | High (70%) | Low | 7 | P2 | WhatsApp backup, voice alternatives, cost monitoring |
+
+### Security Risks
+
+#### Phone Verification System
+**Risk**: SMS delivery failures or phone number spoofing  
+**Mitigation**:
+- Multi-provider SMS strategy (Twilio primary, backup providers)
+- Voice call verification as backup
+- WhatsApp Business API for international
+- Rate limiting and abuse detection
+- Complete audit trail for all verification attempts
+
+#### Asset Permission System
+**Risk**: Complex permissions leading to user errors or security gaps  
+**Mitigation**:
+- Progressive disclosure of advanced features
+- Clear visual indicators for permission levels
+- Default to secure permissions
+- Permission preview before saving
+- Extensive user testing and iterative improvement
+
+#### Invitation Security
+**Risk**: Phishing or unauthorized access attempts  
+**Mitigation**:
+- Dual-channel verification required
+- Unique tokens with expiration
+- Owner approval after verification
+- Comprehensive audit logging
+- Clear security messaging to users
+
+### Technical Risks
+
+#### Builder.io Integration
+**Risk**: Performance impact or service dependency  
+**Mitigation**:
+- CDN caching for all Builder.io content
+- Fallback static content for outages
+- Performance monitoring and alerting
+- Regular performance testing
+- Alternative CMS evaluation
+
+#### Database Performance
+**Risk**: Complex permission queries causing slowdowns  
+**Mitigation**:
+- Optimized indexes for permission checks
+- Query performance monitoring
+- Caching layer for frequently accessed data
+- Database scaling plan
+- Regular performance reviews
+
+### Business Risks
+
+#### User Adoption of Security Features
+**Risk**: Complex verification process reducing adoption  
+**Mitigation**:
+- Clear explanation of security benefits
+- Progressive onboarding
+- Support team training
+- User feedback collection
+- Iterative UX improvements
+
+#### Marketing Team Builder.io Learning Curve
+**Risk**: Delayed marketing capability due to tool complexity  
+**Mitigation**:
+- Comprehensive Builder.io training
+- Template library for common use cases
+- Dedicated support channel
+- Documentation and video tutorials
+- Gradual feature rollout
+
+### Early Warning System
+
+**Monitoring Triggers**:
+- SMS delivery rate <85% � Switch providers
+- Landing page load time >3s � Performance investigation
+- Permission errors >5/day � UI review
+- Failed verification attempts >10% � Security review
+- Asset creation abandonment >30% � UX analysis
+
 
 ## Conclusion
 
