@@ -1350,7 +1350,7 @@ GROUP BY qi.id, qi.persona_id, p.first_name, p.last_name, qi.quiltt_user_id,
 CREATE VIEW v_quiltt_financial_accounts AS
 SELECT 
     fa.id as asset_id,
-    a.asset_name,
+    a.name as asset_name,
     fa.institution_name,
     fa.account_type,
     fa.current_balance,

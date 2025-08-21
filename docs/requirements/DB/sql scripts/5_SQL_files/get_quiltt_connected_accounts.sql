@@ -11,7 +11,7 @@
 SELECT 
     fa.id,
     fa.asset_id,
-    a.asset_name,
+    a.name as asset_name,
     fa.institution_name,
     fa.account_type,
     fa.account_number_last_four,

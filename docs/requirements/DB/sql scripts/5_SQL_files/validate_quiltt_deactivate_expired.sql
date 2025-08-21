@@ -16,7 +16,7 @@ UPDATE quiltt_integrations SET
 WHERE id = $1::UUID
 RETURNING 
     id,
-    user_id,
+    persona_id,
     is_active,
     token_expires_at,
     updated_at;

@@ -14,8 +14,8 @@ SELECT
     p.user_id,
     p.first_name,
     p.last_name,
-    p.display_name,
-    p.persona_type,
+    COALESCE(p.nickname, p.first_name || ' ' || p.last_name) as display_name,
+    'living'::TEXT as persona_type,
     p.status,
     p.created_at,
     p.updated_at

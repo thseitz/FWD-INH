@@ -42,7 +42,8 @@ async function testStoredProcedures() {
     const userResult = await client.query(`
       SELECT u.id 
       FROM users u
-      LEFT JOIN quiltt_integrations qi ON qi.user_id = u.id AND qi.is_active = true
+      LEFT JOIN personas p ON p.user_id = u.id
+      LEFT JOIN quiltt_integrations qi ON qi.persona_id = p.id AND qi.is_active = true
       WHERE u.tenant_id = $1
       ORDER BY qi.id IS NOT NULL DESC, u.created_at
       LIMIT 1

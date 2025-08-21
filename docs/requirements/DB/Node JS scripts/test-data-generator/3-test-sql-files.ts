@@ -147,6 +147,8 @@ function generateTestParams(fileName: string, content: string, testData: any): a
         params.push(testData.planId);
       } else if (paramName.includes('payment') && paramName.includes('method')) {
         params.push(testData.paymentMethodId);
+      } else if (paramName.includes('quiltt') && paramName.includes('integration')) {
+        params.push(testData.quilttIntegrationId);
       } else {
         // Default to userId for unknown UUIDs
         params.push(testData.userId);
@@ -197,6 +199,8 @@ function generateTestParams(fileName: string, content: string, testData: any): a
         params.push(faker.person.fullName());
       } else if (fileName.includes('builder') && paramName.includes('space_id')) {
         params.push('test_space');
+      } else if (content.includes('p_account_last_four')) {
+        params.push(faker.string.numeric(4));  // Exactly 4 digits for account constraint
       } else {
         params.push(faker.lorem.word());
       }
@@ -333,6 +337,10 @@ async function testSqlFiles() {
     // Get payment method ID
     const pmResult = await client.query('SELECT id FROM payment_methods LIMIT 1');
     testData.paymentMethodId = pmResult.rows[0]?.id;
+    
+    // Get quiltt integration ID
+    const qiResult = await client.query('SELECT id FROM quiltt_integrations LIMIT 1');
+    testData.quilttIntegrationId = qiResult.rows[0]?.id;
     
     // Read all SQL files
     const files = fs.readdirSync(SQL_FILES_DIR)

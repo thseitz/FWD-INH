@@ -10,14 +10,15 @@
 -- Get active Quiltt integration for user
 
 SELECT 
-    id,
-    user_id,
-    access_token_encrypted,
-    token_expires_at,
-    sync_accounts,
-    sync_transactions,
-    last_sync_at,
-    is_active
-FROM quiltt_integrations
-WHERE user_id = $1::UUID 
-  AND is_active = TRUE;
+    qi.id,
+    qi.persona_id,
+    qi.access_token_encrypted,
+    qi.token_expires_at,
+    qi.sync_accounts,
+    qi.sync_transactions,
+    qi.last_sync_at,
+    qi.is_active
+FROM quiltt_integrations qi
+JOIN personas p ON qi.persona_id = p.id
+WHERE p.user_id = $1::UUID 
+  AND qi.is_active = TRUE;

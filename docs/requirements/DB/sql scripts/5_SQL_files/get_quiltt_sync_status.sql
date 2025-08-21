@@ -15,7 +15,8 @@ WITH integration_info AS (
     SELECT 
         qi.*
     FROM quiltt_integrations qi
-    WHERE qi.user_id = $1::UUID
+    JOIN personas p ON qi.persona_id = p.id
+    WHERE p.user_id = $1::UUID
     AND qi.tenant_id = COALESCE(
         CASE 
             WHEN current_setting('app.current_tenant_id', true) IS NULL OR current_setting('app.current_tenant_id', true) = ''

@@ -1770,7 +1770,7 @@ CREATE TABLE financial_accounts (
         (current_balance >= 0 OR current_balance IS NULL) AND
         (available_balance >= 0 OR available_balance IS NULL)
     ),
-    CONSTRAINT unique_quiltt_account UNIQUE (quiltt_account_id) WHERE quiltt_account_id IS NOT NULL,
+    -- Removed invalid UNIQUE constraint with WHERE clause - replaced with partial index
     CONSTRAINT quiltt_consistency CHECK (
         (is_quiltt_connected = TRUE AND quiltt_integration_id IS NOT NULL AND quiltt_account_id IS NOT NULL) OR
         (is_quiltt_connected = FALSE AND quiltt_integration_id IS NULL AND quiltt_account_id IS NULL)
@@ -2755,8 +2755,8 @@ CREATE TABLE quiltt_sessions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
-    CONSTRAINT valid_expiry CHECK (expires_at > created_at),
-    CONSTRAINT unique_active_session UNIQUE (persona_id) WHERE NOT is_used
+    CONSTRAINT valid_expiry CHECK (expires_at > created_at)
+    -- Removed invalid UNIQUE constraint with WHERE clause - replaced with partial index
 );
 
 -- ================================================================
@@ -2764,6 +2764,16 @@ CREATE TABLE quiltt_sessions (
 -- ================================================================
 
 -- These replace the invalid UNIQUE constraints with WHERE clauses
+
+-- Enforce uniqueness on non-null quiltt_account_id
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_financial_accounts_quiltt_account
+  ON financial_accounts (quiltt_account_id)
+  WHERE quiltt_account_id IS NOT NULL;
+
+-- Only one active (unused) session per persona
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_quiltt_sessions_active
+  ON quiltt_sessions (persona_id)
+  WHERE NOT is_used;
 CREATE UNIQUE INDEX unique_primary_email_per_entity ON usage_email (entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
 CREATE UNIQUE INDEX unique_primary_phone_per_entity ON usage_phone (entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
 CREATE UNIQUE INDEX unique_primary_address_per_entity ON usage_address (entity_type, entity_id, is_primary) WHERE is_primary = TRUE;
@@ -2841,7 +2851,7 @@ CREATE INDEX idx_life_insurance_asset ON life_insurance(asset_id);
 CREATE INDEX idx_personal_property_asset ON personal_property(asset_id);
 
 -- Integration indexes
-CREATE INDEX idx_quiltt_integrations_user ON quiltt_integrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_quiltt_integrations_persona ON quiltt_integrations(persona_id);
 CREATE INDEX idx_quiltt_webhook_logs_status ON quiltt_webhook_logs(processing_status) WHERE processing_status = 'pending';
 
 -- Event sourcing indexes

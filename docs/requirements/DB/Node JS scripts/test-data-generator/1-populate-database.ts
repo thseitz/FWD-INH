@@ -213,7 +213,7 @@ async function populateTestData(client: Client, tenantId: number) {
       `, [
         row.asset_id,
         faker.company.name() + ' Bank',
-        faker.helpers.arrayElement(['checking', 'savings', 'investment', 'retirement']),
+        faker.helpers.arrayElement(['checking', 'savings', 'investment', 'retirement_401k', 'retirement_ira', 'hsa']),
         faker.string.numeric(4),
         faker.number.float({ min: 1000, max: 100000, fractionDigits: 2 }),
         new Date(),

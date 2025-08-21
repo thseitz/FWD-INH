@@ -2366,9 +2366,10 @@ BEGIN
     v_tenant_id := current_tenant_id();
     
     -- Get active integration
-    SELECT id INTO v_integration_id
-    FROM quiltt_integrations
-    WHERE user_id = p_user_id AND is_active = TRUE;
+    SELECT qi.id INTO v_integration_id
+    FROM quiltt_integrations qi
+    JOIN personas p ON qi.persona_id = p.id
+    WHERE p.user_id = p_user_id AND qi.is_active = TRUE;
     
     IF v_integration_id IS NULL THEN
         RAISE EXCEPTION 'No active Quiltt integration found';
