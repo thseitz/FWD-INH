@@ -1,4 +1,4 @@
-# Builder.io × React Cards Integration Guide
+for the builder # Builder.io × React Cards Integration Guide
 
 Builder.io is a **visual CMS / page builder** that lets non-developers drag-and-drop content and then delivers it through an API or SDK into your frontend framework (like React).  
 
