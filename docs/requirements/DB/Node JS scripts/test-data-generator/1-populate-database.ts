@@ -320,6 +320,143 @@ async function populateTestData(client: Client, tenantId: number) {
     
     console.log(chalk.green('✓ Created integration configs'));
     
+    // 9. Create HEI assets for testing
+    const heiCategoryResult = await client.query('SELECT id FROM asset_categories WHERE code = $1', ['hei']);
+    const realEstateCategoryResult = await client.query('SELECT id FROM asset_categories WHERE code = $1', ['real_estate']);
+    
+    if (heiCategoryResult.rows.length > 0 && realEstateCategoryResult.rows.length > 0) {
+      for (let i = 0; i < 2; i++) {
+        // Create real estate asset first
+        const propertyResult = await client.query(`
+          INSERT INTO assets (
+            tenant_id, category_id, name, description, estimated_value, status, created_by, updated_by
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING id
+        `, [
+          tenantId,
+          realEstateCategoryResult.rows[0].id,
+          faker.location.streetAddress() + ', ' + faker.location.city(),
+          'Real Estate Property for HEI',
+          faker.number.float({ min: 300000, max: 800000, fractionDigits: 2 }),
+          'active',
+          users[0],
+          users[0]
+        ]);
+        
+        // Create address for the property
+        const addressResult = await client.query(`
+          INSERT INTO address (
+            tenant_id, address_line_1, city, state_province, postal_code, country, address_type
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id
+        `, [
+          tenantId,
+          faker.location.streetAddress(),
+          faker.location.city(),
+          faker.location.state({ abbreviated: true }),
+          faker.location.zipCode(),
+          'US',
+          'residential'
+        ]);
+
+        // Create real estate details
+        await client.query(`
+          INSERT INTO real_estate (
+            asset_id, property_type, property_address_id, parcel_number,
+            ownership_type, property_use
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          propertyResult.rows[0].id,
+          'single_family',
+          addressResult.rows[0].id,
+          'APN' + faker.string.alphanumeric(8),
+          'sole_ownership',
+          'primary_residence'
+        ]);
+        
+        // Create HEI asset
+        const heiAssetResult = await client.query(`
+          INSERT INTO assets (
+            tenant_id, category_id, name, description, estimated_value, status, created_by, updated_by
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING id
+        `, [
+          tenantId,
+          heiCategoryResult.rows[0].id,
+          'HEI Investment - ' + faker.location.streetAddress(),
+          'Home Equity Investment',
+          faker.number.float({ min: 50000, max: 200000, fractionDigits: 2 }),
+          'active',
+          users[0],
+          users[0]
+        ]);
+        
+        // Create HEI details with proper date ordering
+        const effectiveDate = faker.date.past({ years: 1 });
+        const valuationDate = faker.date.between({ 
+          from: new Date(effectiveDate.getTime() - 30 * 24 * 60 * 60 * 1000), // 30 days before
+          to: effectiveDate 
+        });
+        
+        await client.query(`
+          INSERT INTO hei_assets (
+            asset_id, amount_funded, equity_share_pct, effective_date, 
+            property_asset_id, valuation_amount, valuation_method, 
+            valuation_effective_date, source_system, source_application_id,
+            hei_status, created_by, updated_by
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        `, [
+          heiAssetResult.rows[0].id,
+          faker.number.float({ min: 50000, max: 200000, fractionDigits: 2 }),
+          faker.number.float({ min: 15, max: 25, fractionDigits: 2 }),
+          effectiveDate,
+          propertyResult.rows[0].id,
+          faker.number.float({ min: 300000, max: 800000, fractionDigits: 2 }),
+          'avm',
+          valuationDate,
+          'test_hei_system',
+          'APP-' + faker.string.alphanumeric(8),
+          'active',
+          users[0],
+          users[0]
+        ]);
+        
+        // Link property asset to persona
+        await client.query(`
+          INSERT INTO asset_persona (
+            tenant_id, asset_id, persona_id, ownership_type, ownership_percentage
+          )
+          VALUES ($1, $2, $3, $4, $5)
+        `, [
+          tenantId,
+          propertyResult.rows[0].id,
+          personas[i],
+          'owner',
+          100.00
+        ]);
+        
+        // Link HEI asset to persona  
+        await client.query(`
+          INSERT INTO asset_persona (
+            tenant_id, asset_id, persona_id, ownership_type, ownership_percentage
+          )
+          VALUES ($1, $2, $3, $4, $5)
+        `, [
+          tenantId,
+          heiAssetResult.rows[0].id,
+          personas[i],
+          'owner',
+          100.00
+        ]);
+      }
+      console.log(chalk.green('✓ Created HEI assets and properties'));
+    }
+    
     // Commit transaction
     await client.query('COMMIT');
     
@@ -333,6 +470,9 @@ async function populateTestData(client: Client, tenantId: number) {
         (SELECT COUNT(*) FROM personas WHERE tenant_id = $1) as personas,
         (SELECT COUNT(*) FROM fwd_family_circles WHERE tenant_id = $1) as ffcs,
         (SELECT COUNT(*) FROM assets WHERE tenant_id = $1) as assets,
+        (SELECT COUNT(*) FROM assets a JOIN asset_categories ac ON a.category_id = ac.id WHERE a.tenant_id = $1 AND ac.code = 'hei') as hei_assets,
+        (SELECT COUNT(*) FROM assets a JOIN asset_categories ac ON a.category_id = ac.id WHERE a.tenant_id = $1 AND ac.code = 'real_estate') as real_estate_assets,
+        (SELECT COUNT(*) FROM hei_assets ha JOIN assets a ON ha.asset_id = a.id WHERE a.tenant_id = $1) as hei_records,
         (SELECT COUNT(*) FROM subscriptions WHERE tenant_id = $1) as subscriptions,
         (SELECT COUNT(*) FROM plans WHERE tenant_id = $1) as plans,
         (SELECT COUNT(*) FROM payment_methods WHERE user_id IN (SELECT id FROM users WHERE tenant_id = $1)) as payment_methods
@@ -342,7 +482,10 @@ async function populateTestData(client: Client, tenantId: number) {
     console.log(chalk.gray('  Users: ' + summary.rows[0].users));
     console.log(chalk.gray('  Personas: ' + summary.rows[0].personas));
     console.log(chalk.gray('  FFCs: ' + summary.rows[0].ffcs));
-    console.log(chalk.gray('  Assets: ' + summary.rows[0].assets));
+    console.log(chalk.gray('  Assets (Total): ' + summary.rows[0].assets));
+    console.log(chalk.gray('  HEI Assets: ' + summary.rows[0].hei_assets));
+    console.log(chalk.gray('  Real Estate Assets: ' + summary.rows[0].real_estate_assets));
+    console.log(chalk.gray('  HEI Records: ' + summary.rows[0].hei_records));
     console.log(chalk.gray('  Subscriptions: ' + summary.rows[0].subscriptions));
     console.log(chalk.gray('  Plans: ' + summary.rows[0].plans));
     console.log(chalk.gray('  Payment Methods: ' + summary.rows[0].payment_methods));

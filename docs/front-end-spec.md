@@ -154,183 +154,546 @@ The FFC selector functions as a **viewing context filter** rather than an owners
 - Global search bar integrated into header
 - Additional Settings and Admin sections accessible
 
-## User Flows - Complete Epic Coverage
+## User Flows - Complete Epic Coverage (PRD-Aligned Order)
 
-### Flow 1: New Family Circle Creation with First Asset
+**User flows are organized to align with PRD Epic structure for consistent story order:**
 
-**User Goal:** Set up a new family circle and add the first asset to begin estate planning
+### Epic 1 Flows: Marketing Foundation & Landing Page
+- **Flow 1:** Builder.io Landing Page Management (Story 1.1)
+- **Flow 2:** Builder.io Dashboard Cards Integration (Story 1.1 related)
 
-**Entry Points:** 
-- Landing page "Get Started" CTA
-- Dashboard "Create New Family Circle" (for existing users)
+### Epic 2 Flows: FFC Onboarding Flow with Enhanced Security
+- **Flow 3:** User Registration & Email Verification (Story 2.1)
+- **Flow 4:** FFC Creation Wizard (Story 2.2)
+- **Flow 5:** Enhanced Member Invitation System (Story 2.3)
+- **Flow 6:** Phone Verification System (Story 2.4)
+- **Flow 7:** Owner Approval Workflow (Story 2.5)
 
-**Success Criteria:** 
-- Family circle created with verified owner
-- First asset successfully added with appropriate permissions
-- Family member invitation sent and pending
+### Epic 3 Flows: Comprehensive Asset Management System
+- **Flow 8:** Asset Category Infrastructure (Story 3.1)
+- **Flow 9:** Asset-Persona Ownership Model (Story 3.2)
+- **Flow 10:** Document Upload with PII Protection (Story 3.3)
+- **Flow 11:** Individual Asset Permissions (Story 3.4)
+- **Flow 12:** Asset Dashboard & Visualization (Story 3.5)
+- **Flow 13:** HEI Integration & Asset Management (Story 3.6)
+- **Flow 14:** Free Plan Onboarding (Story 3.7)
+- **Flow 15:** One-Time Service Purchase (Story 3.8)
+- **Flow 16:** Dynamic UI for Plan Types (Story 3.9)
 
-#### Flow Diagram
+### Epic 4 Flows: Advanced Features & Integrations
+- **Flow 17:** Twilio SMS 2FA Integration (Story 4.1)
+- **Flow 18:** Quiltt API Integration for Financial Accounts (Story 4.2)
+- **Flow 19:** Advanced Search & Filtering System (Story 4.5)
+- **Flow 20:** Comprehensive Reporting & Analytics (Story 4.6)
+
+### Epic 5 Flows: Multi-Language Support
+- **Flow 21:** Spanish Language Foundation (Story 5.1)
+
+### Epic 6 Flows: SOC 2 Compliance & Trust Management Platform
+- **Flow 22:** SOC 2 Compliance & Trust Management Platform (Stories 6.1-6.6)
+
+### Epic 7 Flows: Performance Optimization
+- **Flow 23:** React Performance Optimization & User Experience Enhancement (Stories 7.1-7.7)
+
+# Epic 1: Marketing Foundation & Landing Page
+
+### Flow 1: Builder.io Landing Page Management (Epic 1: Story 1.1)
+
+**User Goal:** Enable marketing team to independently create and manage landing page content through Builder.io visual editor, providing dynamic content areas without developer intervention
+
+**Entry Points:**
+- Marketing team accessing Builder.io CMS interface
+- Landing page visitors encountering Builder.io managed content spaces
+- Admin dashboard managing Builder.io content models and components
+- Developer interface registering new components with Builder.io
+
+**Success Criteria:**
+- Marketing team can create and edit landing page content within 15 minutes
+- Landing pages load with Builder.io content in under 2 seconds
+- Fallback content displays seamlessly when Builder.io is unavailable
+- All content updates are immediately visible without code deployments
+
+#### Flow Diagram - Builder.io Landing Page Management
 
 ```mermaid
 graph TD
-    A[Landing Page] --> B[Sign Up Form]
-    B --> C[Email Verification]
-    C --> D[Phone Verification SMS]
-    D --> E[Family Circle Creation Wizard]
-    E --> F[Owner Profile Setup]
-    F --> G[Dashboard with Welcome Cards]
-    G --> H[Add First Asset Card]
-    H --> I[Asset Category Selection - All 13 Types]
-    I --> J[Dynamic UI Collection Mask Form - Mandatory Fields Only]
-    J --> K[Ownership Assignment]
-    K --> L[Permission Settings]
-    L --> M[Document Upload Optional]
-    M --> N[Invite Family Member Card]
-    N --> O[Member Invitation Form]
-    O --> P[Dual-Channel Verification]
-    P --> Q[Success Dashboard with Asset & Pending Invitation]
+    A[Marketing Team] --> B[Builder.io CMS Access]
+    B --> C[Page Model Selection]
+    C --> D[Visual Page Editor]
+    D --> E[Drag & Drop Components]
+    E --> F[Configure Component Content]
+    F --> G[Preview Changes]
+    G --> H{Content Approved?}
+    
+    H -->|No| I[Edit Content]
+    I --> F
+    H -->|Yes| J[Publish Content]
+    J --> K[Builder.io API Storage]
+    
+    %% Frontend Rendering Path
+    L[Landing Page Request] --> M[React App Bootstrap]
+    M --> N[Builder.io API Call]
+    N --> O{Content Available?}
+    
+    O -->|Yes| P[Render Builder Content]
+    O -->|No/Timeout| Q[Fallback Content Display]
+    
+    P --> R[BuilderComponent Rendering]
+    R --> S[Registered Component Lookup]
+    S --> T[React Component Render]
+    T --> U[Dynamic Landing Page]
+    
+    Q --> V[Static Fallback Content]
+    V --> U
+    
+    %% Component Registration Flow
+    W[Developer] --> X[Create React Component]
+    X --> Y[Register with Builder.io]
+    Y --> Z[Define Component Inputs]
+    Z --> AA[Component Available in CMS]
+    AA --> E
+    
+    %% Performance & Caching
+    K --> BB[CDN Distribution]
+    BB --> CC[Content Caching]
+    CC --> N
 ```
 
-#### UI Collection Mask Form Implementation (Step J)
+#### Builder.io Landing Page Integration UX
 
-**Dynamic Form Generation for First Asset:**
-When users select an asset category (Step I), the system fetches the UI Collection Mask configuration for that asset type and renders a streamlined form showing only mandatory fields for quick asset creation.
+**Marketing Team Experience:**
+1. **CMS Access:** Secure login to Builder.io with role-based permissions
+2. **Page Model Selection:** Choose from pre-configured page templates (Home, About, Services, etc.)
+3. **Visual Editor:** Drag-and-drop interface with real-time preview
+4. **Component Library:** Access to registered Forward components (cards, grids, forms, CTAs)
+5. **Content Configuration:** Fill in component inputs (text, images, links, colors)
+6. **Preview & Testing:** Multi-device preview with content validation
+7. **Publishing:** One-click publish with immediate content deployment
+8. **Version Control:** Content history and rollback capabilities
+
+**Registered Component Library for Marketing:**
+- **Hero Section Component:** Main landing page hero with title, subtitle, CTA, and background
+- **Feature Cards Grid:** Showcase platform features with icons, descriptions, and links
+- **Testimonial Carousel:** Customer testimonials with photos and company information
+- **FAQ Accordion:** Expandable FAQ sections with rich text content
+- **Service Showcase Cards:** $299 Estate Capture Service and other offerings
+- **Trust Indicators:** Security badges, compliance certifications, customer logos
+- **Call-to-Action Sections:** Sign-up prompts with customizable messaging
+- **Educational Content Cards:** HEI education, estate planning guides, platform tutorials
+
+#### Landing Page Spaces & Content Areas
+
+**Dynamic Content Spaces:**
+1. **Landing Page Hero:** Marketing controls headline, value proposition, and CTA
+2. **Feature Highlights:** Configurable cards showcasing platform capabilities
+3. **Service Marketplace:** Dynamic promotion of Estate Capture and other services
+4. **Trust & Security Section:** Compliance badges, security certifications, testimonials
+5. **Educational Resources:** HEI education content, estate planning guides
+6. **Pricing & Plans:** Service pricing with marketing flexibility
+7. **FAQ & Support:** Frequently asked questions with marketing-controlled answers
+
+**Content Management Capabilities:**
+- **Text Content:** Headlines, descriptions, button text, FAQ answers
+- **Visual Assets:** Hero images, service icons, testimonial photos, backgrounds
+- **Link Management:** CTA destinations, navigation links, resource downloads
+- **Styling Options:** Color schemes, typography sizes, spacing adjustments
+- **A/B Testing:** Version comparison and performance tracking
+- **Scheduling:** Content publication timing and campaign coordination
+
+#### Performance & Fallback Strategy
+
+**Marketing Independence Benefits:**
+- **No Developer Dependency:** Marketing team creates content without technical assistance
+- **Rapid Iteration:** A/B testing and campaign updates within minutes
+- **Campaign Coordination:** Time-sensitive promotions and seasonal content
+- **Brand Consistency:** Approved component library ensures design system compliance
+- **Performance Tracking:** Analytics integration for content effectiveness measurement
+
+### Flow 2: Builder.io Dashboard Cards Integration (Epic 1: Story 1.1 related)
+
+**User Goal:** Display educational and marketing cards within user dashboards that marketing team can control and update independently, providing timely information and service promotion without code deployments
+
+**Entry Points:**
+- User dashboard loading with Builder.io card content areas
+- Marketing team managing dashboard card content in Builder.io CMS
+- Admin interface configuring which Builder.io models appear in different dashboard contexts
+- Analytics tracking card interaction effectiveness
+
+**Success Criteria:**
+- Dashboard cards load with Builder.io content in under 1 second
+- Marketing team can update card content within 10 minutes
+- Cards respect user context (plan type, assets, family status)
+- Fallback cards display when Builder.io content unavailable
+- Card interactions tracked for marketing effectiveness
+
+#### Flow Diagram - Builder.io Dashboard Cards Integration
+
+```mermaid
+graph TD
+    A[User Dashboard Load] --> B[Identify User Context]
+    B --> C[FFC Status, Plan Type, Asset Categories]
+    C --> D[Builder.io Card Content Request]
+    D --> E[Context-Aware Content API Call]
+    E --> F{Builder.io Content Available?}
+    
+    F -->|Yes| G[Render Builder.io Cards]
+    F -->|No/Timeout| H[Fallback Dashboard Cards]
+    
+    G --> I[Card Content Display]
+    H --> I
+    I --> J[User Card Interactions]
+    J --> K[Analytics Tracking]
+    
+    %% Marketing Content Management
+    L[Marketing Team] --> M[Builder.io CMS Dashboard]
+    M --> N[Card Model Selection]
+    N --> O[Target Audience Configuration]
+    O --> P[Card Content Creation]
+    P --> Q[Educational/Marketing Content]
+    Q --> R[Preview & Approval]
+    R --> S{Content Approved?}
+    
+    S -->|No| T[Edit Content]
+    T --> Q
+    S -->|Yes| U[Publish Cards]
+    U --> V[Content Distribution]
+    V --> E
+    
+    %% Context Targeting
+    B --> W[User Segmentation Logic]
+    W --> X[New Users, HEI Customers, Asset-Rich Families]
+    X --> Y[Targeted Content Request]
+    Y --> E
+    
+    %% Analytics & Optimization
+    K --> Z[Card Performance Data]
+    Z --> AA[Click-through Rates, Engagement Time]
+    AA --> BB[Marketing Analytics Dashboard]
+    BB --> CC[Content Optimization Insights]
+    CC --> P
+```
+
+# Epic 2: FFC Onboarding Flow with Enhanced Security
+
+### Flow 3: User Registration & Email Verification (Story 2.1)
+
+**User Goal:** Complete basic user registration with email verification, establishing account foundation for FFC onboarding
+
+**Entry Points:**
+- Landing page "Get Started" or "Sign Up" buttons
+- Marketing campaign direct links
+- Organic registration from referral sources
+- Professional advisor invitation links
+
+**Success Criteria:**
+- User account created with verified email address
+- Strong password requirements enforced
+- Security foundation established for subsequent onboarding steps
+- Clear progression path to next verification step
+
+#### Flow Diagram - User Registration & Email Verification
+
+```mermaid
+graph TD
+    A[Landing Page / Registration Entry] --> B[Registration Form Display]
+    B --> C[Basic Information Collection]
+    C --> D[Email, Password, Name Entry]
+    D --> E[Client-Side Validation]
+    E --> F{Form Valid?}
+    
+    F -->|No| G[Display Validation Errors]
+    G --> D
+    F -->|Yes| H[Submit Registration Request]
+    H --> I[Account Creation Processing]
+    I --> J{Email Already Exists?}
+    
+    J -->|Yes| K[Email Conflict Error]
+    K --> L[Login Option Provided]
+    L --> M[Redirect to Login]
+    
+    J -->|No| N[Create User Account]
+    N --> O[Generate Email Verification Token]
+    O --> P[Send Verification Email]
+    P --> Q[Registration Success Page]
+    Q --> R[Email Verification Instructions]
+    
+    %% Email Verification Flow
+    R --> S[User Checks Email]
+    S --> T[Click Verification Link]
+    T --> U[Token Validation]
+    U --> V{Token Valid?}
+    
+    V -->|No| W[Invalid/Expired Token Error]
+    W --> X[Resend Verification Option]
+    X --> O
+    
+    V -->|Yes| Y[Account Verification Complete]
+    Y --> Z[Login Session Created]
+    Z --> AA[Redirect to Phone Verification Flow]
+```
+
+#### Registration Form Design & UX
 
 **Form Structure:**
-1. **Base Asset Fields** (mandatory only):
-   - Asset name (text field)
-   - Current value (currency field with auto-formatting)
-   
-2. **Asset Type Fields** (mandatory only):
-   - Varies by selected category (e.g., for Real Estate: Property Type enum dropdown, Property Address text field)
+1. **Core Account Information:**
+   - Email address (primary identifier)
+   - Secure password (12+ characters, complexity requirements)
+   - Full name (first, last)
+   - Terms of service and privacy policy acceptance
 
-**User Experience Benefits:**
-- **Reduced Cognitive Load**: Only 3-5 essential fields visible during onboarding
-- **Smart Field Types**: Currency auto-formats, enums show relevant choices
-- **Fast Completion**: Core asset information captured in under 2 minutes
-- **Progressive Path**: Clear indication that advanced fields can be added later
+2. **Password Requirements:**
+   - Minimum 12 characters
+   - Must include uppercase, lowercase, number, and special character
+   - Real-time strength indicator
+   - Password confirmation field
 
-**Technical Implementation:**
-- Single API call: `GET /ui-collection-mask/asset-form/{assetType}?mode=mandatory`
-- Form renders dynamically based on field_type configuration
-- Real-time validation with field-specific error messages
-- Draft save capability if user abandons flow
+3. **Client-Side Validation:**
+   - Real-time email format validation
+   - Password strength meter with requirements checklist
+   - Immediate feedback on field completion
+   - Submit button disabled until all requirements met
 
-**Advanced Fields Access:**
-After completing the mandatory form, users see a "Add More Details Later" hint card on their dashboard, encouraging them to return and complete optional fields when ready.
+**Email Verification Experience:**
+- **Immediate Confirmation:** "Check your email" page with clear next steps
+- **Email Content:** Professional verification email with clear call-to-action
+- **Token Security:** Time-limited tokens (24 hours) with single-use enforcement
+- **Resend Capability:** Easy resend option if email not received
+- **Mobile Optimization:** Verification links work seamlessly on mobile devices
 
-#### Edge Cases & Error Handling:
-- SMS delivery failure → Voice call backup option
-- Email verification timeout → Resend with extended window
-- Incomplete asset information → Save as draft card on dashboard
-- Permission conflicts → Visual permission matrix with warnings
+#### Security & Privacy Features
 
-### Flow 2: Asset Permission Management (Mobile-First)
+**Account Protection:**
+- **Rate Limiting:** Prevent spam registration attempts
+- **Email Validation:** Domain verification and disposable email detection
+- **Password Hashing:** Secure bcrypt hashing with appropriate rounds
+- **Session Security:** Secure session tokens with proper expiration
 
-**User Goal:** Asset owners with edit rights modify who can view a specific family asset
+**Privacy Compliance:**
+- **Data Minimization:** Collect only essential information at registration
+- **Terms Acknowledgment:** Clear consent for data processing
+- **Privacy Policy:** Transparent data usage disclosure
+- **Cookie Consent:** GDPR-compliant cookie usage notification
 
-**Entry Points:**
-- Asset detail card "Manage Permissions" action (only visible to users with edit rights)
-- Asset settings menu for co-owners
+#### Error Handling & Edge Cases
 
-**Success Criteria:**
-- Permissions updated with clear visual confirmation
-- All personas with edit rights notified of changes
-- Audit trail created for compliance
+**Common Registration Issues:**
+- **Email Format Errors:** Real-time validation with helpful formatting hints
+- **Password Strength Issues:** Progressive strength indicator with specific guidance
+- **Duplicate Email:** Clear messaging with login redirection option
+- **Server Errors:** Graceful error handling with retry mechanisms
 
-**Access Control:** Only personas with edit rights on the asset can access this flow. This includes the original asset creator, co-owners granted edit rights, advisors who set up the account, or Forward concierge team.
+**Email Verification Issues:**
+- **Email Delivery Delays:** Patient waiting messaging with resend option
+- **Token Expiration:** Clear expiration messaging with easy re-verification
+- **Email Client Issues:** Alternative verification instructions for different email providers
+- **Spam Filter Problems:** Guidance for checking spam folders and whitelisting
 
-#### Flow Diagram
+**Accessibility Features:**
+- **Screen Reader Support:** Proper ARIA labels and form field descriptions
+- **Keyboard Navigation:** Full keyboard accessibility for all form elements
+- **High Contrast Support:** Color schemes that work for visually impaired users
+- **Clear Error Messages:** Descriptive error messages linked to specific fields
 
-```mermaid
-graph TD
-    A[Asset Card on Dashboard] --> B[Tap Asset Card]
-    B --> C[Asset Detail Expandable View]
-    C --> D[Permissions Card in Stack - Edit Rights Required]
-    D --> E[Current Permissions Matrix]
-    E --> F[Edit Permissions Action]
-    F --> G[Member Selection Cards]
-    G --> H[Permission Level Selection - View/Edit Only]
-    H --> I[Preview Changes Card]
-    I --> J[Update Applied]
-    J --> K[Success Animation]
-    K --> L[Updated Permissions Matrix]
-    L --> M[Notification Sent to All Edit Rights Holders]
-```
+### Flow 4: FFC Creation Wizard (Story 2.2)
 
-### Flow 3: Document Upload with PII Protection
-
-**User Goal:** Upload sensitive financial documents while ensuring automatic PII protection for family viewing
-
-**Entry Points:**
-- Asset card "Add Documents" action
-- Missing documentation alert card action
-
-**Success Criteria:**
-- Document uploaded and processed successfully
-- PII automatically detected and masked
-- Original and masked versions available with appropriate permissions
-
-#### Flow Diagram
-
-```mermaid
-graph TD
-    A[Asset Detail View] --> B[Add Documents Button]
-    B --> C[Document Upload Interface]
-    C --> D[File Selection - Multiple Files Supported]
-    D --> E[Document Type Classification]
-    E --> F[Upload Progress with Encryption]
-    F --> G[AWS Step Functions Orchestration]
-    G --> H[AWS Comprehend PII Detection]
-    H --> I[PII Confidence Scoring]
-    I --> J{PII Detected?}
-    J -->|Yes| K[Automatic Masking Applied]
-    J -->|No| L[Document Ready - No Masking Needed]
-    K --> M[Dual Storage: Original + Masked Versions]
-    M --> N[Processing Complete Notification]
-    L --> N
-    N --> O[Document Available in Asset View]
-    O --> P[Permission-Based Access Control]
-    P --> Q{User Permission Level?}
-    Q -->|Edit Rights| R[Access to Original + Masked]
-    Q -->|View Only| S[Access to Masked Version Only]
-    R --> T[Document Viewer with Toggle Option]
-    S --> U[Document Viewer - Masked Only]
-```
-
-#### PII Processing UX Details
-
-**Upload Experience:**
-- **Drag & Drop Interface**: Visual drop zone with file type indicators
-- **Progress Feedback**: Real-time upload progress with encryption status
-- **Batch Processing**: Multiple documents processed simultaneously
-- **Smart Categorization**: Auto-suggest document types based on filename/content
-
-**Processing States:**
-- **Uploading**: Progress bar with encryption confirmation
-- **Processing**: AWS Step Functions status with estimated completion time
-- **PII Detection**: Visual indicator showing AI analysis in progress
-- **Ready**: Completion notification with access level summary
-
-**Permission-Aware Display:**
-- **Edit Rights Users**: Toggle between original/masked versions
-- **View Only Users**: Seamless access to masked version only
-- **Processing Status**: Clear indicators for documents still being processed
-- **Error Handling**: Retry options for failed PII detection or processing errors
-
-#### Edge Cases & Error Handling:
-- Upload failure → Retry with progress preservation
-- PII detection timeout → Manual review workflow triggered
-- Large file processing → Background processing with notification
-- Unsupported file types → Clear error message with supported formats list
-
-### Flow 4: Complete 13 Asset Categories Creation & Management
-
-**User Goal:** Create and manage assets using progressive data collection - starting with essential attributes and expanding to comprehensive details through UI or API enhancement
+**User Goal:** Guide users through creating their Family Financial Circle (FFC) with appropriate structure for their family situation
 
 **Entry Points:** 
+- Post-phone verification redirection
+- Direct navigation to FFC setup from onboarding checklist
+- Fresh account login without existing FFC
+
+**Success Criteria:**
+- FFC created with appropriate family structure
+- Clear family hierarchy and ownership established
+- Initial persona (self) created and linked to FFC
+- Foundation set for adding family members and assets
+
+#### Flow Diagram - FFC Creation Wizard
+
+```mermaid
+graph TD
+    A[Phone Verification Complete] --> B[FFC Creation Welcome]
+    B --> C[Family Structure Question]
+    C --> D{Family Type?}
+    
+    D -->|Individual| E[Single Person FFC Setup]
+    D -->|Couple| F[Couple FFC Setup]
+    D -->|Family with Children| G[Multi-Generation FFC Setup]
+    
+    E --> H[FFC Name Entry]
+    F --> H
+    G --> H
+    
+    H --> I[Owner Persona Creation]
+    I --> J[Self-Profile Setup]
+    J --> K[Initial Permissions Configuration]
+    K --> L[FFC Creation Complete]
+    L --> M[Welcome to Dashboard]
+```
+
+**FFC Setup Experience:**
+
+1. **Family Structure Selection:**
+   - Individual/single person setup
+   - Couple/partnership setup  
+   - Multi-generational family setup
+   - Each path customizes subsequent steps
+
+2. **FFC Naming & Branding:**
+   - Default name suggestions based on family structure
+   - Custom name entry with validation
+   - Optional description field
+   - Privacy level selection (private/invite-only/etc.)
+
+3. **Owner Persona Creation:**
+   - Self-profile as primary owner
+   - Basic demographic information
+   - Role designation (head of household, co-owner, etc.)
+   - Initial permission level assignment
+
+4. **Foundation for Growth:**
+   - Clear next steps for adding family members
+   - Asset addition preparation
+   - Security settings overview
+   - Invitation system introduction
+
+### Flow 5: Enhanced Member Invitation System (Story 2.3)
+
+**User Goal:** Invite family members to join the FFC with appropriate permission levels and verification requirements
+
+**Entry Points:**
+- FFC Dashboard "Invite Family Member" action
+- Member management screen
+- Onboarding completion prompt
+
+**Success Criteria:**
+- Family member invited with clear expectations
+- Appropriate permission level assigned
+- Secure invitation delivery and verification
+- New member onboarding experience initiated
+
+#### Flow Diagram - Member Invitation System
+
+```mermaid
+graph TD
+    A[Invite Member Action] --> B[Invitation Form]
+    B --> C[Member Information Entry]
+    C --> D[Relationship Definition]
+    D --> E[Permission Level Selection]
+    E --> F[Custom Message Option]
+    F --> G[Invitation Review]
+    G --> H[Send Invitation]
+    H --> I[Secure Invitation Email]
+    I --> J[Member Receives Invitation]
+    J --> K[Member Clicks Join Link]
+    K --> L[Invitation Verification]
+    L --> M{Valid Invitation?}
+    
+    M -->|No| N[Invalid Invitation Error]
+    M -->|Yes| O[Member Registration/Login]
+    O --> P[Family Relationship Confirmation]
+    P --> Q[Accept Invitation]
+    Q --> R[Welcome to FFC]
+    R --> S[Permission-Based Dashboard Access]
+```
+
+### Flow 6: Phone Verification System (Story 2.4)
+
+**User Goal:** Complete phone number verification using SMS-based authentication
+
+**Entry Points:**
+- Post-email verification redirect
+- Security settings phone update
+- Account recovery process
+
+**Success Criteria:**
+- Phone number verified via SMS code
+- Backup verification methods available
+- Security foundation enhanced for account access
+- Clear progression to FFC creation
+
+#### Flow Diagram - Phone Verification
+
+```mermaid
+graph TD
+    A[Email Verification Complete] --> B[Phone Verification Required]
+    B --> C[Phone Number Entry]
+    C --> D[Phone Format Validation]
+    D --> E[SMS Code Request]
+    E --> F[Send Verification SMS]
+    F --> G[Code Entry Interface]
+    G --> H[Code Validation]
+    H --> I{Code Valid?}
+    
+    I -->|No| J[Invalid Code Error]
+    J --> K[Retry Option]
+    K --> G
+    
+    I -->|Yes| L[Phone Verification Complete]
+    L --> M[Security Status Updated]
+    M --> N[Redirect to FFC Creation]
+    
+    %% Alternative Methods
+    E --> O[Voice Call Option]
+    O --> P[Automated Voice Call]
+    P --> G
+```
+
+### Flow 7: Owner Approval Workflow (Story 2.5)
+
+**User Goal:** Enable FFC owners to approve sensitive actions and member requests with proper verification
+
+**Entry Points:**
+- Member invitation acceptance
+- Asset permission changes
+- Sensitive document access requests
+- FFC structural changes
+
+**Success Criteria:**
+- Owner notified of approval request
+- Secure approval mechanism provided
+- Clear audit trail maintained
+- Appropriate access granted upon approval
+
+#### Flow Diagram - Owner Approval Workflow  
+
+```mermaid
+graph TD
+    A[Approval Required Action] --> B[Owner Notification]
+    B --> C[Approval Request Details]
+    C --> D[Owner Identity Verification]
+    D --> E{Verification Method?}
+    
+    E -->|SMS| F[SMS Verification Code]
+    E -->|Email| G[Email Verification Link]
+    E -->|In-App| H[In-App Authentication]
+    
+    F --> I[Code Entry]
+    G --> I
+    H --> I
+    
+    I --> J[Owner Decision Interface]
+    J --> K{Approve or Deny?}
+    
+    K -->|Approve| L[Action Approved]
+    K -->|Deny| M[Action Denied]
+    
+    L --> N[Requestor Notification]
+    M --> N
+    N --> O[Audit Log Entry]
+    O --> P[Process Complete]
+```
+
+# Epic 3: Comprehensive Asset Management System
+
+### Flow 8: Asset Category Infrastructure (Story 3.1)
+
+**User Goal:** Create and manage assets using progressive data collection across all 13 asset categories with reduced and advanced attribute sets
+
+**Entry Points:**
 - Dashboard "Add Asset" quick action
-- Assets screen category-specific "Add" buttons  
+- Assets screen category-specific "Add" buttons
 - API-driven asset creation (Quillt, Estate Ingestion services)
 - Bulk import interface for multiple assets
 
@@ -340,7 +703,7 @@ graph TD
 - Seamless transition between manual entry and API-enhanced data
 - Visual progress indicators showing data completeness
 
-#### Flow Diagram - UI Collection Mask System with API-First Integration
+#### Flow Diagram - Asset Category Infrastructure
 
 ```mermaid
 graph TD
@@ -354,29 +717,280 @@ graph TD
     D -->|HEI/Loans| E3[HEI/Loans Selected]
     D -->|Other 10 Categories| E4[Other Asset Types...]
     
-    %% Financial Accounts - API First Path
+    %% API Integration Path
     E1 --> F1{API Integration Available?}
-    F1 -->|Yes - Quillt Available| G1[Connect Bank Account - Primary Option]
-    F1 -->|No/User Prefers Manual| H1[Manual Financial Account Entry]
+    F1 -->|Yes - Quillt Available| G1[Connect Bank Account Option]
+    F1 -->|No/User Prefers Manual| H1[Manual Entry Form]
     
-    %% Quillt Embedded Connector Flow
-    G1 --> I1[React Embedded Quillt Connector Takes Over Screen]
-    I1 --> J1[User Authenticates with Bank via Quillt]
-    J1 --> K1[Nest.js Middleware Presents Token to Bank]
-    K1 --> L1[Bank Returns Authentication Key]
-    L1 --> M1[Quillt Field Configuration - User/Admin Sets Collection Fields]
-    M1 --> N1[API Data Integration Workflow]
-    N1 --> O1[Complete Asset Data from API]
-    O1 --> P1[Asset Created - API Enhanced Status]
+    E2 --> F2{Property Data Available?}
+    F2 -->|Yes| G2[Property API Enhancement]
+    F2 -->|No| H2[Manual Property Entry]
     
-    %% Fallback to Manual if API Fails/Unavailable
-    G1 -->|Connection Failed| Q1[API Connection Failed - Fallback to Manual]
-    Q1 --> H1
+    %% Form Generation Path
+    H1 --> I[UI Collection Mask Applied]
+    H2 --> I
+    E3 --> I
+    E4 --> I
     
-    %% Real Estate - API First Path with Address Collection
-    E2 --> F2{Zillow Integration Available?}
-    F2 -->|Yes - Zillow Available| G2[Connect Property via Address - Primary Option]
-    F2 -->|No/User Prefers Manual| H2[Manual Real Estate Entry]
+    I --> J[Dynamic Form Generation]
+    J --> K[Required Fields First]
+    K --> L[Progressive Disclosure for Optional Fields]
+    L --> M[Asset Created Successfully]
+```
+
+**Asset Category Infrastructure Details:**
+
+**All 13 Asset Categories Supported:**
+1. **Valuables** (Art, Collectibles, Jewelry, Antiques)
+2. **Real Estate** (Primary residence, Investment, Commercial, Land)
+3. **Financial Accounts** (Investment, Bank, Retirement, College savings)
+4. **Loans** (HEI via API, Interfamily loans, Mortgages)
+5. **Life Insurance** (Term, Whole, Universal, Variable)
+6. **Digital Assets** (Intellectual Property, Cryptocurrency, Digital accounts)
+7. **Ownership Interests** (Business equity, Franchises, Partnerships)
+8. **Recurring Income** (Royalties, Pensions, Rental income)
+9. **Operational Property** (Vehicles, Boats, Equipment, Appliances)
+10. **Inventory** (Business stock, Collections, Commodities)
+11. **Personal Property** (Furniture, Electronics, Personal items)
+12. **Intangible Assets** (Patents, Trademarks, Copyrights)
+13. **Other Assets** (Miscellaneous valuable items)
+
+### Flow 9: Asset-Persona Ownership Model (Story 3.2)
+
+**User Goal:** Establish clear ownership relationships between family personas and assets with appropriate permission levels
+
+**Entry Points:**
+- Asset creation completion
+- Existing asset ownership modification
+- Family member addition requiring asset access
+
+**Success Criteria:**
+- Clear asset ownership assigned to specific personas
+- Permission levels properly configured
+- Family members understand their access rights
+- Audit trail maintained for ownership changes
+
+### Flow 10: Document Upload with PII Protection (Story 3.3)
+
+**User Goal:** Upload asset-related documents with automatic PII detection and masking for privacy protection
+
+**Entry Points:**
+- Asset detail "Add Documents" action
+- Document management section
+- Bulk document upload interface
+
+**Success Criteria:**
+- Documents uploaded securely with encryption
+- PII automatically detected and masked
+- Permission-based access to original vs masked versions
+- Clear processing status and completion feedback
+
+### Flow 11: Individual Asset Permissions (Story 3.4)
+
+**User Goal:** Configure granular permission levels for specific assets and family members
+
+**Entry Points:**
+- Asset detail permission settings
+- Family member role configuration
+- Permission audit and review interface
+
+**Success Criteria:**
+- Fine-grained permission control established
+- Clear visibility into who can access what
+- Permission changes properly communicated
+- Security compliance maintained
+
+### Flow 12: Asset Dashboard & Visualization (Story 3.5)
+
+**User Goal:** View comprehensive asset overview with visual representations and key metrics
+
+**Entry Points:**
+- Main dashboard navigation
+- Asset portfolio summary access
+- Financial reporting interface
+
+**Success Criteria:**
+- Clear visual representation of asset portfolio
+- Key metrics and values prominently displayed
+- Filtering and sorting capabilities functional
+- Mobile-responsive visualization quality
+
+### Flow 13: HEI Integration & Asset Management (Story 3.6)
+
+**User Goal:** Seamlessly manage HEI (Home Equity Investment) assets with specialized interfaces and real-time data
+
+**Entry Points:**
+- HEI customer onboarding completion
+- Existing HEI asset management
+- HEI service marketplace
+
+**Success Criteria:**
+- HEI assets properly integrated and displayed
+- Real-time HEI data synchronization
+- Specialized HEI management interfaces
+- Clear HEI-specific documentation and reporting
+
+### Flow 14: Free Plan Onboarding (Story 3.7)
+
+**User Goal:** Access full platform capabilities through free unlimited plan without payment barriers
+
+**Entry Points:**
+- New user registration completion
+- Plan selection interface
+- Service marketplace discovery
+
+**Success Criteria:**
+- Full access to all core features without payment
+- Clear understanding of plan benefits
+- Service marketplace appropriately presented
+- Smooth transition to paid services if desired
+
+### Flow 15: One-Time Service Purchase (Story 3.8)
+
+**User Goal:** Purchase professional services like Estate Capture Service through integrated payment flow
+
+**Entry Points:**
+- Service marketplace browsing
+- Professional service recommendations
+- Estate planning workflow
+
+**Success Criteria:**
+- Secure payment processing through Stripe
+- Clear service details and expectations
+- Professional service successfully initiated
+- Payment confirmation and service tracking
+
+### Flow 16: Dynamic UI for Plan Types (Story 3.9)
+
+**User Goal:** Experience adaptive interface that adjusts based on current plan type and service purchases
+
+**Entry Points:**
+- Plan changes and upgrades
+- Service purchase completion
+- Feature access attempts
+
+**Success Criteria:**
+- UI dynamically adapts to plan capabilities
+- Clear indication of available vs premium features
+- Smooth upgrade paths when needed
+- Consistent experience across plan types
+
+# Epic 4: Advanced Features & Integrations
+
+### Flow 17: Twilio SMS 2FA Integration (Story 4.1)
+
+**User Goal:** Enhanced security through SMS-based two-factor authentication for sensitive operations
+
+**Entry Points:**
+- Sensitive action initiation
+- Security settings configuration
+- Account recovery processes
+
+**Success Criteria:**
+- Reliable SMS delivery through Twilio
+- Secure 2FA code generation and validation
+- Backup authentication methods available
+- Clear user guidance throughout process
+
+### Flow 18: Quiltt API Integration for Financial Accounts (Story 4.2)
+
+**User Goal:** Connect bank accounts seamlessly through Quiltt with automatic data synchronization
+
+**Entry Points:**
+- Financial account addition
+- Account connection interface
+- Data synchronization management
+
+**Success Criteria:**
+- Secure bank account connection
+- Real-time account data synchronization
+- Graceful fallback to manual entry
+- Clear connection status and management
+
+### Flow 19: Advanced Search & Filtering System (Story 4.5)
+
+**User Goal:** Quickly locate assets, documents, and family information using intelligent search capabilities
+
+**Entry Points:**
+- Global search interface
+- Asset browsing and filtering
+- Document discovery needs
+
+**Success Criteria:**
+- Fast and accurate search results
+- Intelligent filtering options
+- Search history and saved searches
+- Mobile-optimized search experience
+
+### Flow 20: Comprehensive Reporting & Analytics (Story 4.6)
+
+**User Goal:** Generate detailed reports for personal planning and professional compliance
+
+**Entry Points:**
+- Reporting dashboard access
+- Professional advisor requirements
+- Compliance documentation needs
+
+**Success Criteria:**
+- Comprehensive report generation
+- Professional-quality output
+- Customizable report parameters
+- Export capabilities for various formats
+
+# Epic 5: Multi-Language Support
+
+### Flow 21: Spanish Language Foundation (Story 5.1)
+
+**User Goal:** Access platform in Spanish with culturally appropriate content and full functionality
+
+**Entry Points:**
+- Language selection during registration
+- Language settings modification
+- Spanish-speaking user referrals
+
+**Success Criteria:**
+- Complete Spanish translation
+- Cultural adaptation for US Spanish-speaking market
+- All features functional in Spanish
+- Professional service integration maintained
+
+# Epic 6: SOC 2 Compliance & Trust Management Platform
+
+### Flow 22: SOC 2 Compliance & Trust Management Platform (Stories 6.1-6.6)
+
+**User Goal:** Demonstrate platform security and compliance through transparent trust center
+
+**Entry Points:**
+- Security inquiry from prospects
+- Compliance documentation requests
+- Trust center public access
+
+**Success Criteria:**
+- Transparent security information display
+- Automated compliance reporting
+- Professional confidence in platform security
+- Clear security questionnaire responses
+
+# Epic 7: Performance Optimization
+
+### Flow 23: React Performance Optimization & User Experience Enhancement (Stories 7.1-7.7)
+
+**User Goal:** Experience fast, responsive interface optimized for multi-generational users
+
+**Entry Points:**
+- All user interactions
+- Page loading and navigation
+- Mobile device usage
+
+**Success Criteria:**
+- Sub-2-second page load times
+- Smooth animations and transitions
+- Optimized mobile performance
+- Accessibility compliance maintained
+
+## Legacy Content Archive
+
+*Note: The following sections contain detailed content from the original flows that can be extracted and integrated into the appropriate Epic-aligned flows above as needed for comprehensive implementation.*
     
     %% Zillow Address-Based Integration Flow
     G2 --> I2[Property Address Collection Form]
@@ -945,7 +1559,1129 @@ graph TD
 - **Data Protection:** Clear explanation of encryption, backup, and privacy practices
 - **Incident Transparency:** Public security incident log with resolution details (when appropriate)
 
-### Flow 10: Multi-Language Support & Localization System
+### Flow 10: Enhanced Quiltt Financial Asset Flow
+
+**User Goal:** Connect bank accounts through Quiltt integration with seamless fallback to manual entry, providing real-time account data with automatic synchronization
+
+**Entry Points:**
+- Assets screen "Add Financial Account" with prominent "Connect Bank Account" option
+- Dashboard "Quick Add Asset" selecting Financial Accounts category
+- Empty state card for Financial Accounts with "Connect Banking" CTA
+
+**Success Criteria:**
+- Users can successfully connect multiple bank accounts through Quiltt in under 3 minutes
+- Failed connections gracefully fallback to manual entry without data loss
+- Connected accounts display real-time balances with clear API enhancement indicators
+- Users understand the difference between manual and API-connected accounts
+
+#### Flow Diagram - Enhanced Quiltt Financial Asset Flow
+
+```mermaid
+graph TD
+    A[Assets Dashboard] --> B[Add Financial Account Action]
+    B --> C[Connection Method Selection]
+    C --> D{User Choice}
+    
+    %% Primary Path - Quiltt Connection
+    D -->|Connect Bank Account| E[Quiltt Integration Primary Option]
+    E --> F[Create Banking Session API Call]
+    F --> G[Quiltt React Connector Takeover]
+    G --> H[Bank Institution Selection]
+    H --> I[User Authenticates with Bank]
+    I --> J[Account Selection - Multiple Accounts]
+    J --> K[Quiltt Field Configuration]
+    K --> L[Token Exchange via Nest.js Middleware]
+    L --> M[Webhook Processing]
+    M --> N[Multiple Financial Assets Created]
+    N --> O[Dashboard Updated with Connected Accounts]
+    
+    %% Fallback Path - Manual Entry
+    D -->|Enter Manually| P[Manual Financial Account Entry]
+    E -->|Connection Failed| Q[Connection Error Handling]
+    Q --> R[Graceful Fallback to Manual Entry]
+    R --> P
+    
+    %% Manual Entry Flow
+    P --> S[UI Collection Mask Form - Financial Accounts]
+    S --> T[Mandatory Fields - Account Name, Value, Institution]
+    T --> U[Optional Advanced Fields]
+    U --> V[Single Financial Asset Created]
+    V --> W[Dashboard Updated with Manual Account]
+    
+    %% Post-Creation Enhancement
+    W --> X[API Enhancement Available Badge]
+    O --> Y[API Enhanced Status Badge]
+    X --> Z[Connect to Quiltt Later Option]
+    Z --> F
+    
+    %% Connection Status Management
+    Y --> AA[Real-time Balance Updates]
+    Y --> BB[Sync Status Indicators]
+    Y --> CC[Connection Health Monitoring]
+    BB --> DD[Manual Sync Trigger]
+    CC --> EE[Reconnection Flow if Needed]
+```
+
+#### Quiltt Integration UX Experience
+
+**Connection Method Selection:**
+- **Primary CTA:** "Connect Your Bank Account" with Quiltt branding and security badges
+- **Secondary Option:** "Enter Account Manually" as clear alternative
+- **Value Proposition:** "Automatic balance updates, secure OAuth connection, 5,000+ banks supported"
+- **Security Indicators:** Bank-level encryption, read-only access, no credential storage
+
+**Quiltt Connector Takeover Experience:**
+1. **Session Creation:** Loading state while creating secure session token
+2. **Quiltt UI Integration:** React connector takes full screen with Forward branding context
+3. **Bank Selection:** User searches/selects from 5,000+ supported financial institutions
+4. **OAuth Authentication:** Secure redirect to bank's login system
+5. **Account Selection:** Multi-select interface for choosing accounts to connect (checking, savings, investment)
+6. **Field Configuration:** User/admin configures which account details to sync automatically
+7. **Connection Confirmation:** Success state showing connected accounts count
+8. **Asset Creation:** Automatic creation of individual financial account assets for each connected account
+
+**Connection Status & Management:**
+- **Connected Account Badges:** "🔗 Quiltt Connected" with last sync timestamp
+- **Manual Account Indicators:** "📝 Manual Entry" with "Connect Banking" upgrade option
+- **Sync Status Display:** Real-time status, last successful sync, any connection issues
+- **Balance Update Animations:** Smooth number transitions when balances update
+- **Connection Health:** Green/yellow/red status indicators for connection quality
+
+**Error Handling & Fallback:**
+- **Connection Timeout:** "Unable to connect to [Bank Name]. Let's add this account manually."
+- **Authentication Failure:** "Bank authentication unsuccessful. Retry or enter manually?"
+- **Partial Success:** "2 of 3 accounts connected successfully. Add remaining account manually?"
+- **No Accounts Selected:** "No accounts were selected. Choose accounts or continue manually."
+- **Session Expiry:** "Banking session expired. Start over or enter account details manually?"
+
+#### Post-Connection Asset Management
+
+**Multi-Account Creation:**
+- Individual asset cards created for each connected account (e.g., "Chase Checking", "Chase Savings", "Chase Investment")
+- Automatic naming convention: "[Institution] [Account Type]" with ability to customize
+- 100% ownership automatically assigned to connecting persona
+- Account-specific metadata (account number last 4, account type, balance, sync status)
+
+**Ongoing Sync Management:**
+- **Automatic Sync:** Daily balance updates with configurable frequency
+- **Manual Sync:** "Refresh Now" button for immediate balance updates
+- **Sync Conflict Resolution:** Handle discrepancies between Quiltt and manual overrides
+- **Historical Data:** Balance history charts showing sync-updated values over time
+
+**Enhancement Opportunities:**
+- **Manual Account Upgrade:** "Connect this account to banking for automatic updates"
+- **Additional Institution:** "Connect another bank" CTA on financial accounts overview
+- **Data Quality Improvement:** "Enhanced details available via banking connection"
+
+#### Edge Cases & Error Recovery
+
+**Session Management:**
+- **Token Expiration:** 15-minute session tokens with automatic cleanup
+- **Concurrent Sessions:** Prevent multiple active banking sessions per user
+- **Session Recovery:** Resume interrupted connections where possible
+
+**Account Deduplication:**
+- **Existing Manual Accounts:** Detect and offer to upgrade manually entered accounts
+- **Re-connection:** Handle re-connecting previously connected accounts
+- **Institution Changes:** Manage accounts when bank mergers/name changes occur
+
+**Privacy & Security:**
+- **Credential Isolation:** No bank credentials stored in Forward system
+- **Token Encryption:** All Quiltt tokens encrypted at rest using AWS KMS
+- **Access Scope:** Read-only account access with clear permission explanations
+- **Audit Trail:** Complete log of all banking connections and sync activities
+
+### Flow 11: HEI Integration & Asset Management
+
+**User Goal:** Seamlessly onboard HEI (Home Equity Investment) customers with pre-populated real estate and loan assets, providing comprehensive HEI asset management capabilities
+
+**Entry Points:**
+- External HEI system API ingestion (automated)
+- Customer self-registration with HEI lookup during signup
+- Admin manual HEI ingestion interface
+- Email invitation from completed HEI processing
+
+**Success Criteria:**
+- HEI customers can access their complete HEI information immediately upon platform entry
+- Real estate and HEI loan assets are properly linked and display comprehensive data
+- All HEI-related documents are securely stored with appropriate access controls
+- HEI customers can rename their FFC and continue using platform normally
+
+#### Flow Diagram - HEI Integration & Asset Management
+
+```mermaid
+graph TD
+    A[External HEI System] --> B[POST /ingest/hei API Call]
+    B --> C[HEI Data Validation & Processing]
+    C --> D[Real Estate Asset Creation]
+    D --> E[HEI Loan Asset Creation]
+    E --> F[Persona Creation - HEI Owner]
+    F --> G[FFC Creation - Default Name]
+    G --> H[Asset-Persona Ownership Links]
+    H --> I[Document Upload & PII Processing]
+    I --> J[Invitation Email Generation]
+    J --> K[Email Sent to HEI Customer]
+    
+    %% Customer Response Path
+    K --> L[Customer Receives Invitation]
+    L --> M{Customer Action}
+    M -->|Clicks Invite Link| N[Platform Signup/Login]
+    M -->|Self-Registers Later| O[Self-Registration Flow]
+    
+    %% Invitation Acceptance Path
+    N --> P[Account Creation/Login]
+    P --> Q[FFC Access Granted]
+    Q --> R[HEI Dashboard Display]
+    
+    %% Self-Registration Path
+    O --> S[Standard Registration Form]
+    S --> T[HEI Question: "Have you completed an HEI with us?"]
+    T --> U{User Response}
+    U -->|No| V[Standard Platform Onboarding]
+    U -->|Yes| W[HEI Lookup Interface]
+    
+    W --> X[User Provides Loan Number/Identifier]
+    X --> Y[HEI Record Search]
+    Y --> Z{Match Found?}
+    Z -->|Yes| AA[Link Account to Existing Persona/FFC]
+    Z -->|No| BB[No Match - Continue Standard Registration]
+    
+    AA --> R
+    BB --> V
+    
+    %% HEI Dashboard Experience
+    R --> CC[Real Estate Asset Card]
+    R --> DD[HEI Loan Asset Card]
+    R --> EE[Document Library Access]
+    R --> FF[FFC Rename Capability]
+    
+    %% Asset Management Actions
+    CC --> GG[Property Details & Valuation]
+    DD --> HH[Loan Terms & Payment Status]
+    EE --> II[Secure Document Viewing with PII Protection]
+    FF --> JJ[Custom FFC Name Setting]
+    
+    %% Ongoing HEI Management
+    GG --> KK[Property Value Updates]
+    HH --> LL[Loan Balance Tracking]
+    II --> MM[Document Version Management]
+    JJ --> NN[Family Member Invitations]
+```
+
+#### HEI API Ingestion Experience
+
+**External System Integration:**
+- **Idempotent API:** `POST /ingest/hei` with Idempotency-Key header for safe re-runs
+- **Comprehensive Data:** Property details, HEI terms, owner information, required documents
+- **Automatic Asset Creation:** Creates linked real estate and HEI loan assets
+- **Document Processing:** Uploads and processes all HEI-related documents with PII protection
+- **FFC Generation:** Creates default-named FFC ("HEI Circle - [Applicant Name]")
+
+**Data Ingestion Flow:**
+1. **Property Asset Creation:**
+   - Real estate asset with address, parcel number, valuation details
+   - Property type, use classification, ownership structure
+   - Automatic geographic and tax jurisdiction detection
+
+2. **HEI Loan Asset Creation:**
+   - Loan type: "HEI" with specific terms and conditions
+   - Funded amount, equity share percentage, effective date
+   - Maturity terms, fee structure, capital stack details
+   - Automatic linking to associated real estate asset
+
+3. **Owner Persona & FFC Setup:**
+   - Persona creation with minimal required information
+   - FFC creation with default naming convention
+   - 100% asset ownership assignment to HEI persona
+   - Email invitation generation and delivery
+
+**Required Document Package Processing:**
+- **Executed HEI Agreement:** Primary contract document with full terms
+- **Recorded Security Instrument:** Deed of trust, memorandum, or lien notice
+- **Title Package:** Preliminary title report and related documentation
+- **Valuation Report:** AVM certificate, BPO report, or full appraisal
+- **Closing Disclosure:** Final settlement statement and funding details
+- **Optional Documents:** Tax bills, HOA statements, insurance declarations
+
+#### Customer Self-Registration & HEI Linking
+
+**Enhanced Registration Form:**
+- **Standard Fields:** Name, email, password, phone verification
+- **HEI Question:** "Have you completed a Home Equity Investment (HEI) with us already?"
+- **Progressive Disclosure:** HEI lookup fields only appear if "Yes" selected
+- **Lookup Options:** Loan number, property address, or applicant name search
+- **Validation & Matching:** Real-time search against existing HEI records
+
+**HEI Lookup Interface:**
+- **Primary Identifier:** Loan number input with format validation
+- **Alternative Search:** Property address autocomplete with validation
+- **Applicant Verification:** Name and contact information confirmation
+- **Match Confidence:** Display match confidence and multiple potential matches
+- **No Match Handling:** Clear path to continue without HEI linking
+
+**Account Linking Process:**
+1. **Identity Verification:** Match user details against HEI persona data
+2. **Account Association:** Link user account to existing persona and FFC
+3. **Access Grant:** Immediate access to HEI assets and documents
+4. **Onboarding Completion:** Skip standard onboarding, direct to HEI dashboard
+5. **FFC Customization:** Immediate option to rename FFC from default
+
+#### HEI Dashboard & Asset Management
+
+**Real Estate Asset Display:**
+- **Property Overview Card:** Address, property type, current estimated value
+- **Valuation History:** Timeline of property valuations with sources (Zillow, appraisal, etc.)
+- **Property Details:** Square footage, lot size, year built, bedrooms, bathrooms
+- **Tax & HOA Information:** Current tax assessment, HOA dues, jurisdiction details
+- **Enhancement Options:** Connect to Zillow for ongoing value updates
+
+**HEI Loan Asset Display:**
+- **Loan Summary Card:** Funded amount, equity share, effective date, current status
+- **Terms & Conditions:** Detailed loan terms, fees, maturity conditions
+- **Capital Stack Visualization:** First mortgage, junior liens, HEI position, CLTV
+- **Payment Status:** Current standing, any required actions or notifications
+- **Servicing Information:** Monitoring policy, notification contacts, reporting schedule
+
+**Document Library Interface:**
+- **Categorized Documents:** Organized by type (agreement, title, financial, legal)
+- **PII Protection:** Automatic masking for family members without edit rights
+- **Version Control:** Track document updates and amendments over time
+- **Secure Access:** Download/view controls based on user permissions
+- **Search Capability:** OCR-based search within document content
+
+**FFC Management for HEI Customers:**
+- **Rename FFC:** Clear interface to change from default "HEI Circle" name
+- **Family Invitations:** Standard invitation flow for family members
+- **Asset Sharing:** Configure who can view/edit HEI-related assets
+- **Document Permissions:** Control access to sensitive HEI documents
+
+#### HEI-Specific Asset Category Features
+
+**Standalone HEI Asset Category:**
+- **Dedicated Category:** HEI/Loans appears as distinct asset category
+- **HEI-Specific Fields:** Equity share percentage, maturity terms, monitoring requirements
+- **Property Linkage:** Clear visual connection to associated real estate asset
+- **Performance Tracking:** Loan performance metrics and alerts
+
+**Enhanced Real Estate Integration:**
+- **HEI-Enhanced Properties:** Properties with HEI liens show enhanced detail level
+- **Value Monitoring:** Automated property value tracking for HEI requirements
+- **Equity Calculations:** Real-time equity position calculations
+- **Market Analysis:** Enhanced market data for HEI-secured properties
+
+**Document Management Enhancements:**
+- **HEI Document Types:** Specialized document categories for HEI paperwork
+- **Recording Tracking:** Monitor recorded instruments and their status
+- **Compliance Documentation:** Track required ongoing documentation
+- **Amendment Processing:** Handle HEI agreement amendments and modifications
+
+#### Error Handling & Edge Cases
+
+**API Ingestion Errors:**
+- **Duplicate Prevention:** Idempotency checks prevent duplicate asset creation
+- **Partial Failures:** Handle cases where some data ingests but documents fail
+- **Data Validation:** Comprehensive validation with clear error reporting
+- **Retry Mechanisms:** Automatic retry for transient failures
+
+**Customer Registration Issues:**
+- **Multiple Matches:** Interface for resolving multiple potential HEI matches
+- **No Match Found:** Clear messaging with support contact information
+- **Partial Information:** Handle cases with incomplete HEI lookup data
+- **Email Mismatches:** Process for handling different email addresses
+
+**Ongoing Maintenance:**
+- **Asset Updates:** Handle property value changes, loan modifications
+- **Document Expiration:** Alert for expiring insurance, legal documents
+- **Connection Monitoring:** Track API connections and data freshness
+- **Support Integration:** Clear escalation path for HEI-related issues
+
+### Flow 12: Enhanced Registration Flow with HEI Integration
+
+**User Goal:** Complete platform registration with streamlined HEI detection and linking, ensuring HEI customers can immediately access their assets while standard users proceed through normal onboarding
+
+**Entry Points:**
+- Landing page "Get Started" or "Sign Up" buttons
+- HEI invitation email direct link
+- Organic registration from marketing channels
+- Referral links from existing users
+
+**Success Criteria:**
+- HEI customers are automatically detected and linked to existing assets during registration
+- Standard registration remains simple and unimpeded for non-HEI users
+- Clear progression path regardless of HEI status
+- Seamless transition to appropriate dashboard experience
+
+#### Flow Diagram - Enhanced Registration Flow
+
+```mermaid
+graph TD
+    A[Landing Page / Registration Entry] --> B[Registration Form Display]
+    B --> C[Standard Registration Fields]
+    C --> D[Email, Password, Name, Phone]
+    D --> E[Email Verification]
+    E --> F[Phone Verification - SMS]
+    F --> G[HEI Integration Question]
+    
+    G --> H["Have you completed a Home Equity Investment (HEI) with us already?"]
+    H --> I{User Response}
+    
+    %% Standard Path - No HEI
+    I -->|No| J[Standard Platform Onboarding]
+    J --> K[FFC Creation Wizard]
+    K --> L[Welcome Dashboard]
+    L --> M[First Asset Addition Flow]
+    
+    %% HEI Path - Yes Response
+    I -->|Yes| N[HEI Lookup Interface]
+    N --> O[HEI Identifier Collection]
+    O --> P[Loan Number / Property Address Input]
+    P --> Q[HEI Record Search]
+    Q --> R{Match Found?}
+    
+    %% HEI Match Found
+    R -->|Yes - Single Match| S[HEI Match Confirmation]
+    R -->|Yes - Multiple Matches| T[HEI Match Selection]
+    R -->|No Match| U[No HEI Match Found]
+    
+    %% HEI Linking Process
+    S --> V[Identity Verification]
+    T --> W[User Selects Correct Match]
+    W --> V
+    V --> X[Link Account to HEI Persona/FFC]
+    X --> Y[HEI Dashboard Access Granted]
+    
+    %% No Match Fallback
+    U --> Z["No matching HEI found. Continue with standard setup?"]
+    Z --> AA{User Choice}
+    AA -->|Continue Standard| J
+    AA -->|Contact Support| BB[Support Contact Information]
+    
+    %% Post-Registration Experience
+    Y --> CC[HEI Assets Dashboard]
+    CC --> DD[FFC Rename Option]
+    CC --> EE[Complete HEI Asset View]
+    
+    %% Standard Registration Success
+    M --> FF[Standard Asset Management]
+    
+    %% Error Handling
+    BB --> GG[Support Ticket Creation]
+    GG --> HH[Manual HEI Linking Process]
+```
+
+#### Enhanced Registration Form Design
+
+**Progressive Registration Structure:**
+1. **Core Account Information** (Always Visible):
+   - Email address (primary identifier)
+   - Secure password (12+ characters, complexity requirements)
+   - Full name (first, last)
+   - Phone number (for SMS verification)
+
+2. **Verification Steps** (Sequential):
+   - Email verification with confirmation link
+   - SMS verification with 6-digit code
+   - Account lockout protection (5 failed attempts)
+
+3. **HEI Integration Question** (Post-Verification):
+   - Clear, prominent question about existing HEI
+   - Educational tooltip explaining what HEI means
+   - Progressive disclosure - only shows HEI fields if "Yes" selected
+
+**HEI Question Design & UX:**
+- **Question Text:** "Have you completed a Home Equity Investment (HEI) with us already?"
+- **Help Text:** "An HEI is a home equity investment where we've provided funding in exchange for a share of your property's future value."
+- **Visual Design:** Card-based selection with clear Yes/No options
+- **Progressive Enhancement:** HEI lookup fields animate in if "Yes" selected
+- **Reversible Choice:** Users can change their selection without losing progress
+
+#### HEI Lookup & Verification Interface
+
+**Primary Lookup Methods:**
+1. **Loan Number Search:**
+   - Format guidance: "Enter your loan number (e.g., HEI-2024-001234)"
+   - Real-time format validation and suggestions
+   - Fuzzy matching for slight variations
+
+2. **Property Address Search:**
+   - Address autocomplete with validation
+   - Format: Street address, City, State, ZIP
+   - Geographic verification against HEI records
+
+3. **Applicant Name Search:**
+   - Full name matching with variations
+   - Handle common name variations and spellings
+   - Additional verification questions if multiple matches
+
+**Search Results & Matching:**
+- **Single Match Found:**
+  - Display property address and loan details for confirmation
+  - "Is this your HEI?" confirmation with property photo if available
+  - Clear proceed/back options
+
+- **Multiple Matches Found:**
+  - List potential matches with distinguishing information
+  - Property address, loan date, amount funded
+  - Radio button selection with "None of these" option
+
+- **No Match Found:**
+  - Clear "No matching HEI found" message
+  - Options: "Try different search terms" or "Continue without HEI"
+  - Support contact information for manual assistance
+  - No dead-end experience - always provide next steps
+
+#### Identity Verification & Account Linking
+
+**HEI Match Verification Process:**
+1. **Basic Information Confirmation:**
+   - Verify name matches HEI records
+   - Confirm email address (may differ from HEI records)
+   - Optional: Last 4 digits of phone number or SSN
+
+2. **Property Verification Questions:**
+   - Property address confirmation
+   - Approximate HEI amount or date
+   - Property type (single family, condo, etc.)
+
+3. **Account Linking Execution:**
+   - Create user account linked to existing persona
+   - Grant FFC access with appropriate permissions
+   - Preserve all existing HEI assets and documents
+
+**Security & Privacy Considerations:**
+- **Minimal Information Disclosure:** Only show necessary details for verification
+- **PII Protection:** Mask sensitive information during verification
+- **Audit Trail:** Log all HEI lookup and linking activities
+- **Fraud Prevention:** Flag suspicious linking attempts for manual review
+
+#### Post-Registration Experience Flows
+
+**HEI Customer Dashboard Entry:**
+1. **Immediate HEI Access:**
+   - Skip standard FFC creation wizard
+   - Direct access to existing HEI assets and documents
+   - Welcome message acknowledging HEI connection
+
+2. **FFC Customization:**
+   - Prominent "Rename your family circle" option
+   - Change from default "HEI Circle - [Name]" to custom name
+   - Explanation of FFC concept and benefits
+
+3. **HEI Asset Overview:**
+   - Real estate asset card with property details
+   - HEI loan asset card with terms and status
+   - Document library access with proper permissions
+   - Family invitation capabilities
+
+**Standard User Onboarding:**
+- **FFC Creation Wizard:** Standard family circle setup process
+- **First Asset Addition:** Guided flow to add initial asset
+- **Feature Discovery:** Introduction to platform capabilities
+- **Progressive Onboarding:** Gradual feature introduction over time
+
+#### Error Handling & Support Integration
+
+**Common Registration Issues:**
+- **Email Already Exists:** Clear messaging with login option
+- **Phone Verification Failures:** Voice call backup option
+- **HEI Lookup Timeouts:** Retry mechanisms with fallback to manual entry
+- **Partial Registration Completion:** Draft save and resume capability
+
+**HEI-Specific Error Scenarios:**
+- **Ambiguous Matches:** Human-friendly disambiguation with support escalation
+- **Technical Lookup Failures:** Graceful degradation with manual support option
+- **Email Mismatch:** Process for handling different contact information
+- **Already Linked HEI:** Handle cases where HEI was previously claimed
+
+**Support & Manual Resolution:**
+- **In-App Support:** Chat widget for immediate assistance
+- **Support Ticket Creation:** Structured form for HEI linking issues
+- **Admin Override Tools:** Backend tools for manual HEI linking
+- **Documentation & FAQs:** Self-service help for common scenarios
+
+**Success Metrics & Optimization:**
+- **Registration Completion Rate:** Track completion by HEI vs. standard users
+- **HEI Linking Success Rate:** Measure successful HEI matches and linkings
+- **Time to Dashboard:** Monitor registration flow duration
+- **Support Contact Rate:** Track how often users need manual assistance
+- **User Satisfaction:** Post-registration surveys for experience feedback
+
+### Flow 13: Builder.io Landing Page Management
+
+**User Goal:** Enable marketing team to independently create and manage landing page content through Builder.io visual editor, providing dynamic content areas without developer intervention
+
+**Entry Points:**
+- Marketing team accessing Builder.io CMS interface
+- Landing page visitors encountering Builder.io managed content spaces
+- Admin dashboard managing Builder.io content models and components
+- Developer interface registering new components with Builder.io
+
+**Success Criteria:**
+- Marketing team can create and edit landing page content within 15 minutes
+- Landing pages load with Builder.io content in under 2 seconds
+- Fallback content displays seamlessly when Builder.io is unavailable
+- All content updates are immediately visible without code deployments
+
+#### Flow Diagram - Builder.io Landing Page Management
+
+```mermaid
+graph TD
+    A[Marketing Team] --> B[Builder.io CMS Access]
+    B --> C[Page Model Selection]
+    C --> D[Visual Page Editor]
+    D --> E[Drag & Drop Components]
+    E --> F[Configure Component Content]
+    F --> G[Preview Changes]
+    G --> H{Content Approved?}
+    
+    H -->|No| I[Edit Content]
+    I --> F
+    H -->|Yes| J[Publish Content]
+    J --> K[Builder.io API Storage]
+    
+    %% Frontend Rendering Path
+    L[Landing Page Request] --> M[React App Bootstrap]
+    M --> N[Builder.io API Call]
+    N --> O{Content Available?}
+    
+    O -->|Yes| P[Render Builder Content]
+    O -->|No/Timeout| Q[Fallback Content Display]
+    
+    P --> R[BuilderComponent Rendering]
+    R --> S[Registered Component Lookup]
+    S --> T[React Component Render]
+    T --> U[Dynamic Landing Page]
+    
+    Q --> V[Static Fallback Content]
+    V --> U
+    
+    %% Component Registration Flow
+    W[Developer] --> X[Create React Component]
+    X --> Y[Register with Builder.io]
+    Y --> Z[Define Component Inputs]
+    Z --> AA[Component Available in CMS]
+    AA --> E
+    
+    %% Performance & Caching
+    K --> BB[CDN Distribution]
+    BB --> CC[Content Caching]
+    CC --> N
+```
+
+#### Builder.io Landing Page Integration UX
+
+**Marketing Team Experience:**
+1. **CMS Access:** Secure login to Builder.io with role-based permissions
+2. **Page Model Selection:** Choose from pre-configured page templates (Home, About, Services, etc.)
+3. **Visual Editor:** Drag-and-drop interface with real-time preview
+4. **Component Library:** Access to registered Forward components (cards, grids, forms, CTAs)
+5. **Content Configuration:** Fill in component inputs (text, images, links, colors)
+6. **Preview & Testing:** Multi-device preview with content validation
+7. **Publishing:** One-click publish with immediate content deployment
+8. **Version Control:** Content history and rollback capabilities
+
+**Registered Component Library for Marketing:**
+- **Hero Section Component:** Main landing page hero with title, subtitle, CTA, and background
+- **Feature Cards Grid:** Showcase platform features with icons, descriptions, and links
+- **Testimonial Carousel:** Customer testimonials with photos and company information
+- **FAQ Accordion:** Expandable FAQ sections with rich text content
+- **Service Showcase Cards:** $299 Estate Capture Service and other offerings
+- **Trust Indicators:** Security badges, compliance certifications, customer logos
+- **Call-to-Action Sections:** Sign-up prompts with customizable messaging
+- **Educational Content Cards:** HEI education, estate planning guides, platform tutorials
+
+**Developer Component Registration Process:**
+```tsx
+// Example: Register Hero Section Component
+import { Builder } from "@builder.io/react";
+
+const HeroSection = ({ title, subtitle, ctaText, ctaLink, backgroundImage }) => (
+  <section className="relative bg-gradient-to-b from-green-50 to-white py-20">
+    {backgroundImage && (
+      <div className="absolute inset-0 opacity-10">
+        <img src={backgroundImage} alt="" className="w-full h-full object-cover" />
+      </div>
+    )}
+    <div className="relative max-w-4xl mx-auto text-center px-4">
+      <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+        {title || "Secure Your Family's Future"}
+      </h1>
+      <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+        {subtitle || "Complete estate planning platform with HEI integration"}
+      </p>
+      <a 
+        href={ctaLink || "/signup"} 
+        className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors"
+      >
+        {ctaText || "Get Started Free"}
+      </a>
+    </div>
+  </section>
+);
+
+Builder.registerComponent(HeroSection, {
+  name: "HeroSection",
+  inputs: [
+    { name: "title", type: "string", defaultValue: "Secure Your Family's Future" },
+    { name: "subtitle", type: "longText", defaultValue: "Complete estate planning platform" },
+    { name: "ctaText", type: "string", defaultValue: "Get Started Free" },
+    { name: "ctaLink", type: "url", defaultValue: "/signup" },
+    { name: "backgroundImage", type: "file", allowedFileTypes: ["jpeg", "jpg", "png", "webp"] }
+  ]
+});
+```
+
+#### Landing Page Spaces & Content Areas
+
+**Dynamic Content Spaces:**
+1. **Landing Page Hero:** Marketing controls headline, value proposition, and CTA
+2. **Feature Highlights:** Configurable cards showcasing platform capabilities
+3. **Service Marketplace:** Dynamic promotion of Estate Capture and other services
+4. **Trust & Security Section:** Compliance badges, security certifications, testimonials
+5. **Educational Resources:** HEI education content, estate planning guides
+6. **Pricing & Plans:** Service pricing with marketing flexibility
+7. **FAQ & Support:** Frequently asked questions with marketing-controlled answers
+
+**Content Management Capabilities:**
+- **Text Content:** Headlines, descriptions, button text, FAQ answers
+- **Visual Assets:** Hero images, service icons, testimonial photos, backgrounds
+- **Link Management:** CTA destinations, navigation links, resource downloads
+- **Styling Options:** Color schemes, typography sizes, spacing adjustments
+- **A/B Testing:** Version comparison and performance tracking
+- **Scheduling:** Content publication timing and campaign coordination
+
+#### Performance & Fallback Strategy
+
+**Caching & Performance:**
+- **CDN Distribution:** Builder.io content served via global CDN
+- **Local Caching:** 10-minute browser cache for content stability
+- **Optimistic Loading:** Render layout immediately, populate content progressively
+- **Image Optimization:** Automatic image compression and responsive sizing
+- **Bundle Optimization:** Lazy load Builder.io SDK only when needed
+
+**Fallback Content Strategy:**
+```tsx
+const LandingPageWithFallback = () => {
+  const [builderContent, setBuilderContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        setLoading(false); // Trigger fallback after 3 seconds
+      }
+    }, 3000);
+    
+    builder.get("page", { url: window.location.pathname })
+      .toPromise()
+      .then(content => {
+        setBuilderContent(content);
+        setLoading(false);
+        clearTimeout(timeout);
+      })
+      .catch(() => {
+        setLoading(false);
+        clearTimeout(timeout);
+      });
+    
+    return () => clearTimeout(timeout);
+  }, []);
+  
+  if (loading) {
+    return <LandingPageSkeleton />; // Loading state
+  }
+  
+  return builderContent ? (
+    <BuilderComponent model="page" content={builderContent} />
+  ) : (
+    <StaticLandingPageFallback /> // Fallback content
+  );
+};
+```
+
+**Fallback Content Components:**
+- **Static Hero Section:** Pre-built hero with core messaging
+- **Essential Feature Cards:** Key platform features without customization
+- **Standard CTA Sections:** Default sign-up prompts and contact information
+- **Basic FAQ:** Core questions about the platform and services
+- **Contact Information:** Support channels and company information
+
+#### Marketing Independence Benefits
+
+**Content Autonomy:**
+- **No Developer Dependency:** Marketing team creates content without technical assistance
+- **Rapid Iteration:** A/B testing and campaign updates within minutes
+- **Campaign Coordination:** Time-sensitive promotions and seasonal content
+- **Brand Consistency:** Approved component library ensures design system compliance
+- **Performance Tracking:** Analytics integration for content effectiveness measurement
+
+**Campaign Management:**
+- **Seasonal Campaigns:** Holiday promotions, tax season messaging, education campaigns
+- **Service Promotions:** Feature Estate Capture Service based on market demand
+- **Educational Initiatives:** HEI education content targeting specific audiences
+- **Partnership Content:** Co-marketing with advisors and financial institutions
+- **Regulatory Updates:** Compliance messaging and security communication
+
+### Flow 14: Builder.io Dashboard Cards Integration
+
+**User Goal:** Display educational and marketing cards within user dashboards that marketing team can control and update independently, providing timely information and service promotion without code deployments
+
+**Entry Points:**
+- User dashboard loading with Builder.io card content areas
+- Marketing team managing dashboard card content in Builder.io CMS
+- Admin interface configuring which Builder.io models appear in different dashboard contexts
+- Analytics tracking card interaction effectiveness
+
+**Success Criteria:**
+- Dashboard cards load with Builder.io content in under 1 second
+- Marketing team can update card content within 10 minutes
+- Cards respect user context (plan type, assets, family status)
+- Fallback cards display when Builder.io content unavailable
+- Card interactions tracked for marketing effectiveness
+
+#### Flow Diagram - Builder.io Dashboard Cards Integration
+
+```mermaid
+graph TD
+    A[User Dashboard Load] --> B[Identify User Context]
+    B --> C[FFC Status, Plan Type, Asset Categories]
+    C --> D[Builder.io Card Content Request]
+    D --> E[Context-Aware Content API Call]
+    E --> F{Builder.io Content Available?}
+    
+    F -->|Yes| G[Render Builder.io Cards]
+    F -->|No/Timeout| H[Fallback Dashboard Cards]
+    
+    G --> I[Card Content Display]
+    H --> I
+    I --> J[User Card Interactions]
+    J --> K[Analytics Tracking]
+    
+    %% Marketing Content Management
+    L[Marketing Team] --> M[Builder.io CMS Dashboard]
+    M --> N[Card Model Selection]
+    N --> O[Target Audience Configuration]
+    O --> P[Card Content Creation]
+    P --> Q[Educational/Marketing Content]
+    Q --> R[Preview & Approval]
+    R --> S{Content Approved?}
+    
+    S -->|No| T[Edit Content]
+    T --> Q
+    S -->|Yes| U[Publish Cards]
+    U --> V[Content Distribution]
+    V --> E
+    
+    %% Context Targeting
+    B --> W[User Segmentation Logic]
+    W --> X[New Users, HEI Customers, Asset-Rich Families]
+    X --> Y[Targeted Content Request]
+    Y --> E
+    
+    %% Analytics & Optimization
+    K --> Z[Card Performance Data]
+    Z --> AA[Click-through Rates, Engagement Time]
+    AA --> BB[Marketing Analytics Dashboard]
+    BB --> CC[Content Optimization Insights]
+    CC --> P
+```
+
+#### Dashboard Card Categories & Content Types
+
+**Educational Cards:**
+1. **HEI Education Cards:**
+   - "Understanding Your HEI Investment" - explaining HEI concepts and benefits
+   - "Property Value Monitoring" - how HEI affects property value tracking
+   - "Exit Strategies Overview" - options when HEI matures or property sells
+   - "Capital Stack Explained" - understanding lien positions and equity shares
+
+2. **Estate Planning Education:**
+   - "Getting Started with Estate Planning" - for new users with minimal assets
+   - "Trust vs. Will Comparison" - when to use different estate planning tools
+   - "Tax Implications Guide" - estate tax considerations and strategies
+   - "Family Communication Tips" - discussing inheritance plans with family
+
+3. **Platform Feature Highlights:**
+   - "New Asset Category Added" - promoting recently enhanced features
+   - "Document PII Protection" - explaining security and privacy features
+   - "Mobile App Updates" - highlighting new mobile functionality
+   - "Integration Spotlight" - featuring Quiltt banking or other API connections
+
+**Marketing & Service Promotion Cards:**
+1. **Estate Capture Service Promotion:**
+   - "$299 Estate Capture Service" - comprehensive professional inventory
+   - "Professional Appraisal Services" - property and asset valuation options
+   - "Legal Document Review" - attorney-reviewed estate planning documents
+   - "Family Advisor Matching" - connecting with qualified financial advisors
+
+2. **Premium Feature Upsells:**
+   - "Advanced Reporting Suite" - detailed analytics and custom reports
+   - "Priority Support Access" - enhanced customer service options
+   - "Bulk Asset Management" - tools for families with extensive portfolios
+   - "Multi-Language Support" - highlighting Spanish language options
+
+3. **Seasonal & Contextual Promotions:**
+   - "Tax Season Estate Review" - timely estate planning reminders
+   - "Year-End Planning Checklist" - annual estate planning tasks
+   - "New Family Member?" - onboarding guides for growing families
+   - "Property Market Updates" - relevant real estate market information
+
+#### Context-Aware Card Targeting
+
+**User Segmentation Logic:**
+```tsx
+const getUserCardContext = (user, ffc, assets) => {
+  const context = {
+    userType: 'standard', // standard, hei_customer, advisor_sponsored
+    assetCount: assets.length,
+    hasRealEstate: assets.some(a => a.category === 'REAL_ESTATE'),
+    hasHEI: assets.some(a => a.category === 'LOANS' && a.type === 'HEI'),
+    planType: user.subscription?.type || 'free',
+    familySize: ffc.members.length,
+    registrationAge: Date.now() - user.createdAt,
+    lastActivity: user.lastLoginAt
+  };
+  
+  // Determine card targeting tags
+  const tags = [];
+  if (context.hasHEI) tags.push('hei_customer');
+  if (context.assetCount === 0) tags.push('new_user');
+  if (context.familySize === 1) tags.push('single_user');
+  if (context.assetCount > 10) tags.push('asset_rich');
+  if (context.registrationAge < 7 * 24 * 60 * 60 * 1000) tags.push('recently_registered');
+  
+  return { context, tags };
+};
+```
+
+**Targeted Content Delivery:**
+- **New Users (0-1 assets):** Focus on onboarding education and first asset creation
+- **HEI Customers:** HEI-specific education and related service promotions
+- **Asset-Rich Families (10+ assets):** Advanced features, reporting, and professional services
+- **Single Users:** Family invitation prompts and collaboration benefits
+- **Recently Registered:** Platform feature highlights and getting started guides
+- **Long-term Users:** New feature announcements and advanced service offerings
+
+#### Component Registration for Dashboard Cards
+
+**Educational Card Component:**
+```tsx
+const EducationalCard = ({ 
+  title, 
+  description, 
+  imageUrl, 
+  ctaText, 
+  ctaLink, 
+  cardType = 'education',
+  priority = 'normal'
+}) => (
+  <div className={`rounded-xl border p-4 ${
+    cardType === 'promotion' ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'
+  } ${priority === 'high' ? 'ring-2 ring-green-500' : ''}`}>
+    {imageUrl && (
+      <div className="mb-3 overflow-hidden rounded-lg">
+        <img src={imageUrl} alt={title} className="w-full h-32 object-cover" />
+      </div>
+    )}
+    <h3 className="font-semibold text-gray-900 mb-2">{title}</h3>
+    <p className="text-sm text-gray-600 mb-3">{description}</p>
+    {ctaText && ctaLink && (
+      <a 
+        href={ctaLink}
+        className={`inline-block px-4 py-2 rounded-lg text-sm font-medium ${
+          cardType === 'promotion' 
+            ? 'bg-green-600 text-white hover:bg-green-700' 
+            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+        } transition-colors`}
+        onClick={() => trackCardInteraction(title, 'cta_click')}
+      >
+        {ctaText}
+      </a>
+    )}
+  </div>
+);
+
+Builder.registerComponent(EducationalCard, {
+  name: "EducationalCard",
+  inputs: [
+    { name: "title", type: "string" },
+    { name: "description", type: "longText" },
+    { name: "imageUrl", type: "file", allowedFileTypes: ["jpeg", "jpg", "png", "webp"] },
+    { name: "ctaText", type: "string" },
+    { name: "ctaLink", type: "url" },
+    { name: "cardType", type: "select", options: [
+      { label: "Education", value: "education" },
+      { label: "Promotion", value: "promotion" },
+      { label: "Feature", value: "feature" }
+    ]},
+    { name: "priority", type: "select", options: [
+      { label: "Normal", value: "normal" },
+      { label: "High", value: "high" }
+    ]}
+  ]
+});
+```
+
+**Service Promotion Card Component:**
+```tsx
+const ServicePromotionCard = ({
+  serviceName,
+  price,
+  description,
+  features = [],
+  ctaText,
+  ctaLink,
+  badge,
+  testimonial
+}) => (
+  <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white p-6">
+    {badge && (
+      <span className="inline-block px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded-full mb-3">
+        {badge}
+      </span>
+    )}
+    <h3 className="text-xl font-bold text-gray-900 mb-2">{serviceName}</h3>
+    {price && (
+      <div className="text-2xl font-bold text-green-600 mb-3">{price}</div>
+    )}
+    <p className="text-gray-600 mb-4">{description}</p>
+    
+    {features.length > 0 && (
+      <ul className="space-y-2 mb-4">
+        {features.map((feature, index) => (
+          <li key={index} className="flex items-center text-sm text-gray-700">
+            <CheckIcon className="w-4 h-4 text-green-500 mr-2" />
+            {feature}
+          </li>
+        ))}
+      </ul>
+    )}
+    
+    {testimonial && (
+      <blockquote className="text-sm italic text-gray-600 border-l-2 border-green-200 pl-3 mb-4">
+        "{testimonial}"
+      </blockquote>
+    )}
+    
+    <a 
+      href={ctaLink}
+      className="block w-full text-center bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+      onClick={() => trackCardInteraction(serviceName, 'service_cta_click')}
+    >
+      {ctaText || "Learn More"}
+    </a>
+  </div>
+);
+
+Builder.registerComponent(ServicePromotionCard, {
+  name: "ServicePromotionCard",
+  inputs: [
+    { name: "serviceName", type: "string" },
+    { name: "price", type: "string" },
+    { name: "description", type: "longText" },
+    { name: "features", type: "list", subFields: [{ name: "feature", type: "string" }] },
+    { name: "ctaText", type: "string" },
+    { name: "ctaLink", type: "url" },
+    { name: "badge", type: "string" },
+    { name: "testimonial", type: "longText" }
+  ]
+});
+```
+
+#### Dashboard Integration Implementation
+
+**Dashboard Card Container:**
+```tsx
+const DashboardBuilderCards = ({ userContext, maxCards = 3 }) => {
+  const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchCards = async () => {
+      try {
+        // Request context-aware cards from Builder.io
+        const content = await builder.getAll("dashboard-card", {
+          limit: maxCards,
+          query: {
+            "data.targetTags": { $in: userContext.tags }
+          }
+        });
+        
+        setCards(content || []);
+      } catch (error) {
+        console.error("Failed to load Builder.io cards:", error);
+        setCards([]); // Fallback to empty state, shows static cards
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchCards();
+  }, [userContext.tags, maxCards]);
+  
+  if (loading) {
+    return <DashboardCardsSkeleton />;
+  }
+  
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {cards.length > 0 ? (
+        cards.map((card, index) => (
+          <BuilderComponent 
+            key={card.id} 
+            model="dashboard-card" 
+            content={card}
+          />
+        ))
+      ) : (
+        <FallbackDashboardCards userContext={userContext} />
+      )}
+    </div>
+  );
+};
+```
+
+**Analytics Integration:**
+```tsx
+const trackCardInteraction = (cardTitle, action, additionalData = {}) => {
+  // Analytics tracking for card effectiveness
+  analytics.track("Dashboard Card Interaction", {
+    cardTitle,
+    action, // 'view', 'cta_click', 'dismiss', 'expand'
+    timestamp: Date.now(),
+    userContext: getCurrentUserContext(),
+    ...additionalData
+  });
+  
+  // Also send to Builder.io analytics if available
+  if (window.builderIoAnalytics) {
+    window.builderIoAnalytics.track("Card Interaction", {
+      card: cardTitle,
+      action,
+      ...additionalData
+    });
+  }
+};
+```
+
+#### Fallback Content Strategy
+
+**Static Fallback Cards:**
+When Builder.io content is unavailable, the dashboard displays pre-built React components that provide essential information:
+
+1. **Getting Started Card** (for new users)
+2. **Add Your First Asset Card** (for users with 0 assets)
+3. **Platform Security Card** (highlighting trust and compliance)
+4. **Estate Capture Service Card** (core service promotion)
+5. **Help & Support Card** (contact information and resources)
+
+**Graceful Degradation:**
+- **Partial Failure:** If some Builder.io cards load but others fail, mix Builder.io and fallback content
+- **Slow Loading:** Show skeleton loading states, then fallback content after 3-second timeout
+- **Network Issues:** Cache last successful Builder.io content in localStorage for offline display
+- **Content Errors:** Log errors for marketing team visibility while displaying fallback content
+
+### Flow 15: Multi-Language Support & Localization System
 
 **User Goal:** Access the Forward platform in Spanish with culturally appropriate content, while maintaining full functionality across all features and professional service integrations
 
@@ -1162,6 +2898,53 @@ Base Asset Fields (ASSETS entity)     +  Specific Asset Fields (e.g., REAL_ESTAT
 
 **Usage Guidelines:** Make enhancement feel optional and valuable, not mandatory. Provide clear data source attribution. Handle conflicts transparently with user control.
 
+#### Quiltt Banking Connection Interface
+
+**Purpose:** Seamless bank account connection through Quiltt with graceful fallback to manual entry
+
+**Variants:**
+- **Connection Method Selector:** Primary "Connect Bank Account" vs secondary "Enter Manually" options
+- **Quiltt Connector Wrapper:** React component that takes over screen during bank authentication
+- **Bank Institution Picker:** Searchable list of 5,000+ supported financial institutions
+- **Account Selection Interface:** Multi-select for choosing which accounts to connect
+- **Connection Status Dashboard:** Real-time sync status and connection health monitoring
+
+**States:**
+- **Method Selection:** Clear choice between automated connection and manual entry
+- **Connecting:** Quiltt connector active with progress indicators and branding
+- **Bank Authentication:** Secure OAuth flow with bank's authentication system
+- **Account Selection:** Multi-account selection with descriptions and balance previews
+- **Connection Success:** Confirmation of connected accounts with next steps
+- **Connection Failed:** Error state with fallback to manual entry option
+- **Sync Active:** Real-time balance updates with last sync timestamp
+- **Sync Error:** Connection issues with retry and reconnection options
+
+**Usage Guidelines:** Emphasize security and automatic updates as primary value proposition. Provide clear fallback options at every step. Show connection status prominently on connected accounts. Use consistent branding between Forward and Quiltt interfaces.
+
+#### HEI Asset Management Suite
+
+**Purpose:** Specialized interface components for Home Equity Investment asset management
+
+**Variants:**
+- **HEI Registration Question:** Progressive disclosure question during signup with helpful explanations
+- **HEI Lookup Interface:** Multiple search methods (loan number, property address, applicant name)
+- **HEI Match Confirmation:** Display potential matches with verification questions
+- **HEI Dashboard Cards:** Specialized cards for real estate and HEI loan assets with linking
+- **HEI Document Library:** Categorized document management with PII protection
+- **Property Valuation Display:** Timeline of property values with source attribution
+
+**States:**
+- **Registration Integration:** Seamless HEI question integration without disrupting standard flow
+- **Lookup Active:** Search interface with real-time validation and suggestions
+- **Match Found:** Confirmation interface with property and loan details preview
+- **Multiple Matches:** Selection interface for disambiguating similar HEI records
+- **No Match:** Clear "not found" state with alternative options and support contact
+- **Verification Pending:** Identity verification process with security questions
+- **HEI Connected:** Successful linking with immediate access to HEI assets and documents
+- **HEI Dashboard:** Complete asset view with real estate, loan, and document components
+
+**Usage Guidelines:** Keep HEI integration optional and non-disruptive for standard users. Provide clear explanations of HEI concepts. Use progressive disclosure to avoid overwhelming users. Maintain consistent visual hierarchy between HEI and standard assets. Ensure document access respects PII protection and user permissions.
+
 ### Subscription & Payment Components
 
 #### Service Marketplace Card
@@ -1295,6 +3078,109 @@ Base Asset Fields (ASSETS entity)     +  Specific Asset Fields (e.g., REAL_ESTAT
 - **Audit Mode:** Special interface during active audit periods
 
 **Usage Guidelines:** Transparency builds trust but avoid exposing security vulnerabilities. Use clear, non-technical language for customer-facing content. Provide actionable information for compliance teams.
+
+### Builder.io CMS Integration Components
+
+#### Builder.io Card Components
+
+**Purpose:** Provide marketing team with drag-and-drop card components for landing pages and dashboard content management
+
+**Variants:**
+- **Hero Section Card:** Landing page hero with customizable title, subtitle, CTA, and background image
+- **Feature Showcase Card:** Platform feature highlighting with icon, description, and link
+- **Service Promotion Card:** Estate Capture Service and other service offerings with pricing and features
+- **Educational Content Card:** HEI education, estate planning guides, and platform tutorials
+- **Testimonial Card:** Customer testimonials with photos, quotes, and company information
+- **FAQ Accordion Card:** Expandable frequently asked questions with rich text content
+- **Trust Indicator Card:** Security badges, compliance certifications, and customer logos
+- **Call-to-Action Card:** Sign-up prompts and conversion-focused messaging
+
+**States:**
+- **Design Mode:** Visual editor interface for marketing team content creation
+- **Preview Mode:** Multi-device preview with real-time content updates
+- **Published State:** Live content rendering with performance optimization
+- **Fallback State:** Static content display when Builder.io unavailable
+
+**Usage Guidelines:** Register all components with Builder.io SDK including proper input definitions and validation. Ensure components follow Forward design system patterns while providing marketing flexibility. Include analytics tracking for all user interactions.
+
+#### Builder.io Content Management Interface
+
+**Purpose:** Seamless integration between Builder.io CMS and React application with graceful fallback handling
+
+**Variants:**
+- **BuilderComponent Wrapper:** React component that fetches and renders Builder.io content
+- **Landing Page Builder:** Full-page Builder.io integration for marketing-controlled landing pages
+- **Dashboard Card Container:** Context-aware card content based on user segmentation
+- **Content Loading States:** Skeleton loaders and progressive content rendering
+- **Fallback Content Provider:** Static content display when Builder.io unavailable
+
+**States:**
+- **Loading:** Skeleton animation while fetching Builder.io content
+- **Content Available:** Successfully rendered Builder.io content with all components
+- **Partial Failure:** Mix of Builder.io and fallback content when some components fail
+- **Complete Fallback:** Static React components when Builder.io entirely unavailable
+- **Error State:** Clear error messaging with retry options for content failures
+
+**Usage Guidelines:** Always implement fallback content for graceful degradation. Cache Builder.io content locally for improved performance. Respect user context for personalized content delivery. Track content performance for marketing optimization.
+
+#### Landing Page Builder Integration
+
+**Purpose:** Enable marketing team to manage landing page content independently through Builder.io visual editor
+
+**Technical Implementation:**
+```tsx
+// Initialize Builder.io SDK
+import { builder, BuilderComponent, Builder } from "@builder.io/react";
+
+builder.init(process.env.NEXT_PUBLIC_BUILDER_API_KEY);
+
+// Landing page with fallback
+const LandingPageWithFallback = ({ url }) => {
+  const [content, setContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const timeout = setTimeout(() => setLoading(false), 3000);
+    
+    builder.get("page", { url })
+      .toPromise()
+      .then(content => {
+        setContent(content);
+        setLoading(false);
+        clearTimeout(timeout);
+      })
+      .catch(() => {
+        setLoading(false);
+        clearTimeout(timeout);
+      });
+    
+    return () => clearTimeout(timeout);
+  }, [url]);
+  
+  if (loading) return <LandingPageSkeleton />;
+  
+  return content ? (
+    <BuilderComponent model="page" content={content} />
+  ) : (
+    <StaticLandingPageFallback />
+  );
+};
+```
+
+**Content Management Features:**
+- **Visual Editor:** Drag-and-drop interface for non-technical marketing team members
+- **Component Library:** Pre-registered Forward components available for content creation
+- **Preview & Testing:** Multi-device preview with content validation before publishing
+- **A/B Testing:** Version comparison and performance tracking capabilities
+- **Scheduling:** Content publication timing and campaign coordination
+- **Version Control:** Content history and rollback capabilities
+
+**Performance Optimization:**
+- **CDN Distribution:** Builder.io content served via global CDN for fast loading
+- **Local Caching:** 10-minute browser cache for content stability and performance
+- **Lazy Loading:** Builder.io SDK loaded only when needed to minimize bundle size
+- **Image Optimization:** Automatic image compression and responsive sizing
+- **Graceful Degradation:** Fallback content ensures site functionality regardless of Builder.io status
 
 ### Multi-Language Support Components
 
@@ -1468,15 +3354,39 @@ Base Asset Fields (ASSETS entity)     +  Specific Asset Fields (e.g., REAL_ESTAT
    - Reduced vs Advanced attribute architecture implementation
    - Category-specific form generation and validation
    - Progressive disclosure for complex asset types
-   - API integration points for Quillt and HEI data
+   - API integration points for Quiltt and HEI data
 
-2. **Subscription & Payment Platform** - Core business model implementation
+2. **Enhanced Quiltt Financial Asset Flow** - Core banking integration feature
+   - Quiltt React connector integration with fallback to manual entry
+   - Multi-account connection and individual asset creation
+   - Real-time balance sync with connection status monitoring
+   - Error handling and graceful degradation to manual entry
+
+3. **HEI Integration & Asset Management** - Strategic HEI customer onboarding
+   - External HEI API ingestion with automatic asset creation
+   - HEI customer self-registration and lookup functionality
+   - Linked real estate and HEI loan asset management
+   - HEI-specific document library with PII protection
+
+4. **Enhanced Registration Flow with HEI Integration** - Streamlined onboarding
+   - Progressive HEI detection question during standard registration
+   - HEI lookup and verification interface
+   - Seamless account linking to existing HEI assets and FFC
+   - Dual path experience for HEI vs. standard users
+
+5. **Builder.io CMS Integration** - Marketing independence and content management
+   - Builder.io React SDK integration with component registration
+   - Landing page content management for marketing team autonomy
+   - Dashboard educational and marketing cards with context-aware targeting
+   - Fallback content strategy for graceful degradation when Builder.io unavailable
+
+6. **Subscription & Payment Platform** - Core business model implementation
    - Free unlimited plan onboarding (no payment barriers)
    - $299 Estate Capture Service marketplace integration
    - Stripe payment processing with receipt generation
    - Dynamic UI configuration based on plan type
 
-3. **Enhanced Security Flows** - Required for enterprise adoption
+7. **Enhanced Security Flows** - Required for enterprise adoption
    - Dual-channel verification (email + SMS) complete implementation
    - Owner approval workflow with real-time notifications
    - PII processing status display with confidence scoring
@@ -1551,6 +3461,12 @@ Base Asset Fields (ASSETS entity)     +  Specific Asset Fields (e.g., REAL_ESTAT
 
 #### MVP Success Criteria:
 - **Asset Creation Completion Rate**: >90% of users successfully create their first asset using reduced attribute set
+- **Quiltt Integration Success Rate**: >85% of banking connections complete successfully with fallback <5%
+- **HEI Customer Onboarding Rate**: >85% of HEI customers successfully link to existing assets during registration
+- **HEI Lookup Accuracy**: >95% of valid HEI identifiers result in correct asset linking
+- **Builder.io Landing Page Performance**: Landing pages load with Builder.io content in <2 seconds, fallback <3 seconds
+- **Builder.io Dashboard Card Engagement**: >60% of users interact with at least one Builder.io dashboard card per session
+- **Marketing Content Independence**: Marketing team updates landing page content within 15 minutes without developer assistance
 - **Service Marketplace Engagement**: >15% of free users view Estate Capture Service details
 - **Search Effectiveness**: Users find target assets/documents within 30 seconds in 95% of cases
 - **Multi-Generational Usability**: 80+ year old users complete core tasks with <2 support contacts
@@ -1563,17 +3479,30 @@ Base Asset Fields (ASSETS entity)     +  Specific Asset Fields (e.g., REAL_ESTAT
 
 ---
 
-**Document Status:** ✅ **Complete - 100% PRD Epic Coverage Achieved**
+**Document Status:** ✅ **Complete - Enhanced with Builder.io CMS Integration**
 
-This comprehensive specification now addresses all gaps identified in the original audit and provides complete coverage of all PRD Epic requirements while maintaining the excellent mobile-first card-based foundation. The specification is ready for technical architecture validation, stakeholder review, and phased implementation planning.
+This comprehensive specification has been enhanced with Builder.io integration requirements and three critical user flows based on detailed requirements analysis:
+
+**✅ Builder.io Landing Page Management (Flow 13)** - Complete marketing independence through visual CMS integration including component registration, content management workflows, performance optimization, and graceful fallback strategies.
+
+**✅ Builder.io Dashboard Cards Integration (Flow 14)** - Context-aware educational and marketing cards with user segmentation, content targeting, analytics integration, and seamless fallback to static content.
+
+**✅ Enhanced Quiltt Financial Asset Flow** - Complete bank connectivity integration with React connector, multi-account management, real-time sync, and graceful fallback to manual entry.
+
+**✅ HEI Integration & Asset Management** - Comprehensive Home Equity Investment customer onboarding including external API ingestion, customer self-registration with lookup, and specialized HEI asset management interfaces.
+
+**✅ Enhanced Registration Flow with HEI Integration** - Streamlined registration experience with progressive HEI detection, lookup verification, and seamless account linking.
+
+The specification now provides complete coverage of all PRD Epic requirements plus Builder.io CMS integration for marketing independence while maintaining the excellent mobile-first card-based foundation. The specification is ready for technical architecture validation, stakeholder review, and phased implementation planning.
 
 **Coverage Summary:**
-- **Epic 1:** Marketing Foundation ✅ (Original spec + Builder.io integration)
+- **Epic 1:** Marketing Foundation ✅ (Enhanced with comprehensive Builder.io CMS integration)
 - **Epic 2:** FFC Onboarding ✅ (Enhanced with dual-channel verification)
 - **Epic 3:** Asset Management ✅ (Complete 13 categories + reduced/advanced attributes)
 - **Epic 4:** Advanced Features ✅ (Search, reporting, bulk operations, integrations)
 - **Epic 5:** Multi-Language ✅ (Spanish localization with cultural adaptation)
 - **Epic 6:** SOC 2 Compliance ✅ (Trust center + automated compliance)
 - **Epic 7:** Performance Optimization ✅ (Responsive design + performance targets)
+- **Builder.io Integration:** ✅ (Landing page management + dashboard cards + marketing independence)
 
 **Ready for:** Strategic review, technical architecture alignment, and immediate implementation planning.

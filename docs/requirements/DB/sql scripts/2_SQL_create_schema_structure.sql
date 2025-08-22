@@ -126,7 +126,8 @@ CREATE TYPE asset_type_enum AS ENUM (
     'recurring_income',
     'digital_assets',
     'ownership_interests',
-    'loans'
+    'loans',
+    'hei'
 );
 
 -- Personal property related enums
@@ -273,6 +274,11 @@ CREATE TYPE loan_type_enum AS ENUM (
 CREATE TYPE loan_status_enum AS ENUM ('active', 'paid_off', 'defaulted', 'in_forbearance', 'refinanced');
 CREATE TYPE interest_type_enum AS ENUM ('fixed', 'variable', 'hybrid');
 
+-- HEI enums
+CREATE TYPE hei_valuation_method_enum AS ENUM ('avm', 'bpo', 'appraisal', 'broker_opinion', 'market_analysis');
+CREATE TYPE hei_funding_method_enum AS ENUM ('ach', 'wire', 'check');
+CREATE TYPE hei_status_enum AS ENUM ('active', 'matured', 'sold', 'bought_out', 'defaulted');
+
 -- Audit and logging enums
 CREATE TYPE audit_action_enum AS ENUM (
     'create',
@@ -312,7 +318,7 @@ CREATE TYPE webhook_status_enum AS ENUM ('pending', 'delivered', 'failed', 'retr
 
 -- UI Collection Mask enums
 CREATE TYPE collection_requirement AS ENUM ('mandatory', 'optional');
-CREATE TYPE ui_field_type AS ENUM ('text','int','real','phone','zip','email','date','year','currency','currency_code','enum');
+CREATE TYPE ui_field_type AS ENUM ('text','int','real','phone','zip','email','date','year','currency','currency_code','enum','percentage','asset_reference','datetime');
 
 -- ================================================================
 -- TABLE DEFINITIONS (Without Foreign Key Constraints)
@@ -2022,7 +2028,77 @@ CREATE TABLE loans (
     CONSTRAINT valid_maturity CHECK (maturity_date IS NULL OR maturity_date > origination_date)
 );
 
--- Table 39: user_sessions
+-- Table 39: hei_assets
+-- Home Equity Investment assets - 14th Asset Category
+CREATE TABLE hei_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    asset_id UUID NOT NULL UNIQUE,
+    
+    -- HEI terms
+    amount_funded DECIMAL(15, 2) NOT NULL,
+    equity_share_pct DECIMAL(5, 2) NOT NULL CHECK (equity_share_pct >= 0 AND equity_share_pct <= 100),
+    effective_date DATE NOT NULL,
+    maturity_terms TEXT,
+    
+    -- Property relationship
+    property_asset_id UUID NOT NULL, -- References real estate asset
+    
+    -- Capital stack information
+    first_mortgage_balance DECIMAL(15, 2),
+    junior_liens_balance DECIMAL(15, 2),
+    cltv_at_close DECIMAL(5, 2) CHECK (cltv_at_close >= 0 AND cltv_at_close <= 100),
+    
+    -- Valuation
+    valuation_amount DECIMAL(15, 2) NOT NULL,
+    valuation_method hei_valuation_method_enum NOT NULL,
+    valuation_effective_date DATE NOT NULL,
+    
+    -- Recording information
+    jurisdiction TEXT,
+    instrument_number TEXT,
+    book_page TEXT,
+    recorded_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Funding information
+    funding_method hei_funding_method_enum,
+    destination_account_last4 VARCHAR(4),
+    funded_at TIMESTAMP WITH TIME ZONE,
+    
+    -- External system tracking
+    source_system TEXT NOT NULL,
+    external_id TEXT,
+    source_application_id TEXT NOT NULL,
+    
+    -- Servicing
+    monitoring_policy TEXT,
+    notification_contacts JSONB,
+    
+    -- Documentation
+    hei_agreement_document_id UUID,
+    deed_of_trust_document_id UUID,
+    closing_disclosure_document_id UUID,
+    title_document_id UUID,
+    appraisal_document_id UUID,
+    
+    -- Status
+    hei_status hei_status_enum NOT NULL DEFAULT 'active',
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_by UUID,
+    updated_by UUID,
+    
+    -- Constraints
+    CONSTRAINT hei_valid_amounts CHECK (
+        amount_funded > 0 AND
+        valuation_amount > 0
+    ),
+    CONSTRAINT hei_valid_dates CHECK (valuation_effective_date <= effective_date),
+    CONSTRAINT unique_source_application UNIQUE (source_system, source_application_id)
+);
+
+-- Table 40: user_sessions
 -- Purpose: Track active user sessions
 CREATE TABLE user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2059,7 +2135,7 @@ CREATE TABLE user_sessions (
     CONSTRAINT valid_expiration CHECK (expires_at > created_at)
 );
 
--- Table 40: user_mfa_settings
+-- Table 41: user_mfa_settings
 -- Purpose: Multi-factor authentication settings
 CREATE TABLE user_mfa_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2102,7 +2178,7 @@ CREATE TABLE user_mfa_settings (
     CONSTRAINT unique_user_mfa UNIQUE (user_id)
 );
 
--- Table 41: password_reset_tokens
+-- Table 42: password_reset_tokens
 -- Purpose: Secure password reset tokens
 CREATE TABLE password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2136,7 +2212,7 @@ CREATE TABLE password_reset_tokens (
     )
 );
 
--- Table 42: user_login_history
+-- Table 43: user_login_history
 -- Purpose: Track login attempts and history
 CREATE TABLE user_login_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2168,7 +2244,7 @@ CREATE TABLE user_login_history (
     CONSTRAINT valid_risk_score CHECK (risk_score BETWEEN 0 AND 100 OR risk_score IS NULL)
 );
 
--- Table 43: audit_log
+-- Table 44: audit_log
 -- Purpose: Comprehensive audit trail
 CREATE TABLE audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2202,7 +2278,7 @@ CREATE TABLE audit_log (
     metadata JSONB DEFAULT '{}'
 );
 
--- Table 44: audit_events
+-- Table 45: audit_events
 -- Purpose: System-wide audit events
 CREATE TABLE audit_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2238,7 +2314,7 @@ CREATE TABLE audit_events (
     CONSTRAINT valid_severity CHECK (severity IN ('info', 'warning', 'error', 'critical'))
 );
 
--- Table 45: pii_detection_rules
+-- Table 46: pii_detection_rules
 -- Purpose: Rules for detecting and handling PII
 CREATE TABLE pii_detection_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2273,7 +2349,7 @@ CREATE TABLE pii_detection_rules (
     updated_by UUID
 );
 
--- Table 46: pii_processing_jobs
+-- Table 47: pii_processing_jobs
 -- Purpose: Track PII scanning and processing jobs
 CREATE TABLE pii_processing_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2310,7 +2386,7 @@ CREATE TABLE pii_processing_jobs (
     CONSTRAINT valid_job_status CHECK (status IN ('pending', 'running', 'completed', 'failed'))
 );
 
--- Table 47: masking_configurations
+-- Table 48: masking_configurations
 -- Purpose: Configure data masking rules
 CREATE TABLE masking_configurations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2347,7 +2423,7 @@ CREATE TABLE masking_configurations (
     CONSTRAINT unique_masking_rule UNIQUE (tenant_id, table_name, column_name)
 );
 
--- Table 48: pii_access_logs
+-- Table 49: pii_access_logs
 -- Purpose: Track access to PII data
 CREATE TABLE pii_access_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2390,7 +2466,7 @@ CREATE TABLE pii_access_logs (
     CONSTRAINT valid_column_names CHECK (array_length(column_names, 1) > 0)
 );
 
--- Table 49: translations
+-- Table 50: translations
 -- Purpose: Multi-language support for UI and content
 CREATE TABLE translations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1026,7 +1026,8 @@ INSERT INTO asset_categories (name, code, description, sort_order) VALUES
 ('Recurring Income', 'recurring_income', 'Royalties and recurring income streams', 10),
 ('Digital Assets', 'digital_assets', 'Intellectual Property, Digital Assets', 11),
 ('Ownership Interests', 'ownership_interests', 'Business and Franchise ownership', 12),
-('Loans', 'loans', 'HEI and Interfamily Loans', 13);
+('Loans', 'loans', 'Interfamily and Traditional Loans', 13),
+('HEI', 'hei', 'Home Equity Investment assets', 14);
 
 -- Insert default free plan for Forward tenant
 INSERT INTO plans (
@@ -1128,7 +1129,8 @@ INSERT INTO ui_entity (entity_code, table_name) VALUES
   ('INCOME', 'recurring_income'),
   ('DIGITAL', 'digital_assets'),
   ('INTERESTS', 'ownership_interests'),
-  ('LOANS', 'loans')
+  ('LOANS', 'loans'),
+  ('HEI', 'hei_assets')
 ON CONFLICT DO NOTHING;
 
 -- Main Assets Table UI Mask
@@ -1309,7 +1311,7 @@ INSERT INTO ui_collection_mask (entity_code, column_name, requirement, field_typ
 
 -- Loans UI Mask
 INSERT INTO ui_collection_mask (entity_code, column_name, requirement, field_type, display_order, note) VALUES
-  ('LOANS', 'loan_type', 'mandatory', 'enum', 1, 'hei|interfamily|mortgage|personal|business|student|auto'),
+  ('LOANS', 'loan_type', 'mandatory', 'enum', 1, 'interfamily|mortgage|personal|business|student|auto'),
   ('LOANS', 'lender_name', 'mandatory', 'text', 2, 'Lender name'),
   ('LOANS', 'borrower_name', 'mandatory', 'text', 3, 'Borrower name'),
   ('LOANS', 'loan_amount', 'mandatory', 'currency', 4, 'Original loan amount'),
@@ -1321,6 +1323,27 @@ INSERT INTO ui_collection_mask (entity_code, column_name, requirement, field_typ
   ('LOANS', 'maturity_date', 'mandatory', 'date', 10, 'Loan end date'),
   ('LOANS', 'lender_contact_email_address', 'mandatory', 'email', 11, 'Lender email contact (normalized)'),
   ('LOANS', 'lender_contact_phone_number', 'mandatory', 'phone', 12, 'Lender phone contact (normalized)');
+
+-- HEI UI Mask
+INSERT INTO ui_collection_mask (entity_code, column_name, requirement, field_type, display_order, note) VALUES
+  ('HEI', 'amount_funded', 'mandatory', 'currency', 1, 'HEI amount funded'),
+  ('HEI', 'equity_share_pct', 'mandatory', 'percentage', 2, 'Equity share percentage'),
+  ('HEI', 'effective_date', 'mandatory', 'date', 3, 'HEI effective date'),
+  ('HEI', 'property_asset_id', 'mandatory', 'asset_reference', 4, 'Link to property asset'),
+  ('HEI', 'valuation_amount', 'mandatory', 'currency', 5, 'Property valuation amount'),
+  ('HEI', 'valuation_method', 'mandatory', 'enum', 6, 'avm|bpo|appraisal|broker_opinion|market_analysis'),
+  ('HEI', 'valuation_effective_date', 'mandatory', 'date', 7, 'Valuation date'),
+  ('HEI', 'source_system', 'mandatory', 'text', 8, 'External source system'),
+  ('HEI', 'source_application_id', 'mandatory', 'text', 9, 'External application ID'),
+  ('HEI', 'maturity_terms', 'optional', 'text', 10, 'HEI maturity terms'),
+  ('HEI', 'first_mortgage_balance', 'optional', 'currency', 11, 'First mortgage balance'),
+  ('HEI', 'junior_liens_balance', 'optional', 'currency', 12, 'Junior liens balance'),
+  ('HEI', 'cltv_at_close', 'optional', 'percentage', 13, 'CLTV at closing'),
+  ('HEI', 'jurisdiction', 'optional', 'text', 14, 'Recording jurisdiction'),
+  ('HEI', 'instrument_number', 'optional', 'text', 15, 'Recording instrument number'),
+  ('HEI', 'funding_method', 'optional', 'enum', 16, 'ach|wire|check'),
+  ('HEI', 'funded_at', 'optional', 'datetime', 17, 'HEI funding date'),
+  ('HEI', 'hei_status', 'mandatory', 'enum', 18, 'active|matured|sold|bought_out|defaulted');
 
 -- ================================================================
 -- VIEWS FOR DATA VALIDATION

@@ -98,7 +98,7 @@
   - [Twilio API](#twilio-api)
   - [SendGrid API](#sendgrid-api)
   - [Quiltt API](#quiltt-api)
-  - [HEI API (Home Equity Investment)](#hei-api-home-equity-investment)
+  - [HEI Asset Category & Ingestion API](#hei-asset-category--ingestion-api)
   - [Real Estate Valuation API](#real-estate-valuation-api-phase-2---provider-tbd)
   - [Vanta API](#vanta-api)
   - [AWS Services (Native Integration)](#aws-services-native-integration)
@@ -3254,12 +3254,109 @@ export function BankingConnectionFlow() {
 - **Authentication:** OAuth 2.0 with client credentials
 - **Rate Limits:** 100 requests/minute per connection
 
-### HEI API (Home Equity Investment)
-- **Purpose:** Read-only access to HEI loan information
-- **Documentation:** *To be provided by HEI partner*
-- **Base URL(s):** *TBD*
-- **Authentication:** API Key or OAuth 2.0 (TBD)
-- **Rate Limits:** *TBD*
+### HEI Asset Category & Ingestion API
+
+#### Overview
+HEI (Home Equity Investment) is implemented as the **14th Asset Category** in the Forward platform, providing complete flexibility for HEI-specific workflows without affecting the loans section.
+
+#### Architecture Pattern
+- **Asset Category:** Dedicated 'HEI' category with specialized fields
+- **Database Design:** `hei_assets` table linked to base `assets` table
+- **Document Processing:** Reuses existing document pipeline with HEI context
+- **Property Linking:** HEI assets reference associated real estate assets
+
+#### API Endpoints
+
+**HEI Ingestion**
+- **Endpoint:** `POST /ingest/hei`
+- **Purpose:** External HEI system ingestion for completed deals
+- **Authentication:** API Key
+- **Idempotency:** Required via `Idempotency-Key` header
+- **Rate Limits:** 100 requests/minute
+
+**Document Upload**
+- **Endpoint:** `POST /ingest/hei/{heiAssetId}/documents`
+- **Purpose:** Attach HEI-specific documents
+- **Content-Type:** multipart/form-data
+- **Processing:** Sync document processing via NestJS cache
+
+#### Data Model
+```sql
+-- 14th Asset Category
+INSERT INTO asset_categories (name, code, description, sort_order) VALUES
+('HEI', 'hei', 'Home Equity Investment assets', 14);
+
+-- HEI-specific table
+CREATE TABLE hei_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    asset_id UUID NOT NULL UNIQUE REFERENCES assets(id),
+    
+    -- HEI terms
+    amount_funded DECIMAL(15,2) NOT NULL,
+    equity_share_pct DECIMAL(5,2) NOT NULL,
+    effective_date DATE NOT NULL,
+    maturity_terms TEXT,
+    
+    -- Property relationship
+    property_asset_id UUID REFERENCES assets(id),
+    
+    -- External tracking
+    source_system TEXT,
+    external_id TEXT,
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### Entity Creation Flow
+1. **Real Estate Asset:** Create/find property asset (category: real_estate)
+2. **HEI Asset:** Create HEI investment asset (category: hei)
+3. **Persona & FFC:** Create owner persona and family circle
+4. **Ownership Links:** Link both assets to persona/FFC via asset_persona
+5. **Document Processing:** Cache and process HEI documents
+6. **User Invitation:** Send FFC invitation email
+
+#### User Experience Benefits
+- **Clean Separation:** HEI and loans remain independent
+- **Flexible Management:** HEI-specific permissions and workflows
+- **Clear UI:** Distinct asset categories in dashboard
+- **Future Extensibility:** HEI features (buyouts, refinancing) contained
+
+#### Implementation Services
+```typescript
+// HEI Asset Service
+class HEIAssetService {
+  async createHEIAsset(heiData: HEIData, propertyAssetId: string) {
+    // Create base asset
+    const asset = await this.createAsset({
+      category: 'hei',
+      name: `HEI Investment - ${heiData.property_address}`,
+      value: heiData.amount_funded
+    })
+    
+    // Create HEI-specific record
+    await this.createHEISpecificRecord(asset.id, heiData, propertyAssetId)
+    
+    return asset
+  }
+}
+
+// Document Processing
+class HEIDocumentService {
+  async processHEIDocuments(heiAssetId: string, documents: File[]) {
+    // Store in NestJS cache
+    await this.cache.set(`hei-docs-${heiAssetId}`, documents)
+    
+    // Process using existing pipeline
+    for (const doc of documents) {
+      await this.documentService.processDocument(
+        doc, 'hei', heiAssetId, 'HEI Investment'
+      )
+    }
+  }
+}
+```
 
 ### Real Estate Valuation API (Phase 2 - Provider TBD)
 - **Purpose:** Automated property valuations and market data

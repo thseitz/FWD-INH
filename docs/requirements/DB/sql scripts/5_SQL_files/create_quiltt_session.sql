@@ -22,6 +22,12 @@ INSERT INTO quiltt_sessions (
     $3::TEXT,
     $4::TIMESTAMPTZ
 )
+ON CONFLICT (persona_id) WHERE NOT is_used
+DO UPDATE SET
+    session_token = EXCLUDED.session_token,
+    expires_at = EXCLUDED.expires_at,
+    is_used = FALSE,
+    used_at = NULL
 RETURNING 
     id,
     persona_id,

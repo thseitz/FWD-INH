@@ -66,7 +66,11 @@ b)Franchise
 
 
 13. Loans
-a) HEI
-b) Interfamily Loans
+a) Interfamily Loans
+b) Traditional Loans
+
+14. HEI (Home Equity Investment)
+a) HEI Investments
+b) Property-linked investments
 
      

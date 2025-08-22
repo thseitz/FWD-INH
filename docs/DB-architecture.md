@@ -20,6 +20,7 @@
    - [Digital Assets Enums](#digital-assets-enums)
    - [Business Enums](#business-enums)
    - [Loan Enums](#loan-enums)
+   - [HEI Enums](#hei-enums)
    - [Subscription and Payment Enums](#subscription-and-payment-enums)
    - [Security and Audit Enums](#security-and-audit-enums)
    - [Language and Localization Enums](#language-and-localization-enums)
@@ -126,7 +127,7 @@ The database uses the following PostgreSQL extensions:
 - `trust_role_enum`: 'grantor', 'trustee', 'successor_trustee', 'beneficiary', 'trust_protector', 'trust_advisor'
 
 ### Asset Category Enums
-- `asset_type_enum`: 'personal_directives', 'trust', 'will', 'personal_property', 'operational_property', 'inventory', 'real_estate', 'life_insurance', 'financial_accounts', 'recurring_income', 'digital_assets', 'ownership_interests', 'loans'
+- `asset_type_enum`: 'personal_directives', 'trust', 'will', 'personal_property', 'operational_property', 'inventory', 'real_estate', 'life_insurance', 'financial_accounts', 'recurring_income', 'digital_assets', 'ownership_interests', 'loans', 'hei'
 
 ### Personal Property Enums
 - `personal_property_type_enum`: 'jewelry', 'precious_metals', 'collectibles', 'art', 'furniture', 'pets_animals', 'memorabilia', 'other'
@@ -161,6 +162,11 @@ The database uses the following PostgreSQL extensions:
 - `loan_type_enum`: 'mortgage', 'heloc', 'personal', 'business', 'auto', 'student', 'family_loan', 'hard_money', 'other'
 - `loan_status_enum`: 'active', 'paid_off', 'defaulted', 'in_forbearance', 'refinanced'
 - `interest_type_enum`: 'fixed', 'variable', 'hybrid'
+
+### HEI Enums
+- `hei_valuation_method_enum`: 'avm', 'bpo', 'appraisal', 'broker_opinion', 'market_analysis'
+- `hei_funding_method_enum`: 'ach', 'wire', 'check'
+- `hei_status_enum`: 'active', 'matured', 'sold', 'bought_out', 'defaulted'
 
 ### Subscription and Payment Enums
 - `plan_type_enum`: 'free', 'paid', 'sponsored'
@@ -635,6 +641,24 @@ Loans receivable, family loans, business loans owed to the persona.
 - Documentation (loan_agreement_document_id, promissory_note_document_id, payment_history_document_id)
 - Status (loan_status)
 - Collection information (is_in_collections, collection_agency_contact_id)
+- Standard audit fields
+
+#### hei_assets
+Home Equity Investment assets - 14th Asset Category with specialized HEI fields.
+
+**Columns:**
+- `id` (UUID, PRIMARY KEY)
+- `asset_id` (UUID, NOT NULL, UNIQUE)
+- HEI terms (amount_funded, equity_share_pct, effective_date, maturity_terms)
+- Property relationship (property_asset_id - references real estate asset)
+- Capital stack (first_mortgage_balance, junior_liens_balance, cltv_at_close)
+- Valuation (valuation_amount, valuation_method, valuation_effective_date)
+- Recording (jurisdiction, instrument_number, book_page, recorded_at)
+- Funding (funding_method, destination_account_last4, funded_at)
+- External tracking (source_system, external_id, source_application_id)
+- Servicing (monitoring_policy, notification_contacts)
+- Documentation (hei_agreement_document_id, deed_of_trust_document_id, closing_disclosure_document_id)
+- Status (hei_status)
 - Standard audit fields
 
 ### Contact and External Entity Tables

@@ -59,7 +59,10 @@ Forward is building a family-first inheritance and wealth transfer SaaS platform
   - [Story 3.3: Document & Photo Management with PII Protection](#story-33-document--photo-management-with-pii-protection)
   - [Story 3.4: Individual Asset Permissions](#story-34-individual-asset-permissions)
   - [Story 3.5: Asset Dashboard & Visualization](#story-35-asset-dashboard--visualization)
-  - [Story 3.6: HEI Integration (Read-Only)](#story-36-hei-integration-read-only)
+  - [Story 3.6: 14th Asset Category - HEI Management](#story-36-14th-asset-category---hei-management)
+    - [Story 3.6.1: HEI Asset Category Infrastructure](#story-361-hei-asset-category-infrastructure)
+    - [Story 3.6.2: HEI API Ingestion System](#story-362-hei-api-ingestion-system)
+    - [Story 3.6.3: Customer HEI Self-Registration](#story-363-customer-hei-self-registration)
   - [Story 3.7: Free Plan Onboarding](#story-37-free-plan-onboarding)
   - [Story 3.8: One-Time Service Purchase](#story-38-one-time-service-purchase)
   - [Story 3.9: Dynamic UI for Plan Types](#story-39-dynamic-ui-for-plan-types)
@@ -152,8 +155,9 @@ Empower families to make informed inheritance decisions through transparency, co
 | Family Collaboration | ✓ Full | Basic | Partial | Limited |
 | Marketing Independence | ✓ Builder.io | Limited | Limited | None |
 | Advisor Network | ✓ Built-in | Partner-only | None | Limited |
-| HEI Integration | ✓ Native | None | None | None |
-| Asset Diversity | ✓ 13 types | 5 types | 7 types | 9 types |
+| HEI Integration | ✓ **Full Lifecycle** | None | None | None |
+| HEI API Ingestion | ✓ **Native** | None | None | None |
+| Asset Diversity | ✓ **14 types** | 5 types | 7 types | 9 types |
 | Individual Asset Control | ✓ Granular | Basic | Basic | Limited |
 
 ### User Research Insights
@@ -334,7 +338,7 @@ Based on market research and industry studies:
 - **Owner Approval Required** for all new members
 
 ##### 3. Comprehensive Asset Management System
-- **All 13 Asset Categories** available for management
+- **All 14 Asset Categories** available for management
 - **Asset-Persona Ownership Model** with percentage allocations
 - **Document & Photo Management** with PII protection
 - **Individual Asset Permissions** for granular access control
@@ -571,7 +575,7 @@ Based on market research and industry studies:
 
 ### Epic 3: Comprehensive Asset Management System
 
-**Epic Goal**: Enable secure tracking and management of all 13 asset categories with document support and PII protection.
+**Epic Goal**: Enable secure tracking and management of all 14 asset categories with document support and PII protection.
 
 **Business Value**: Provide core platform value proposition - comprehensive family wealth tracking with enterprise-grade security and privacy protection, enabling informed financial decision-making.
 
@@ -587,7 +591,7 @@ Based on market research and industry studies:
 **So that** users can track all types of family wealth
 
 **Acceptance Criteria**:
-- All 13 asset categories implemented
+- All 14 asset categories implemented
 - Category-specific database schemas
 - Dynamic form generation per category
 - Validation rules per asset type
@@ -754,17 +758,253 @@ This serverless approach ensures scalability, security, and compliance without m
 - 🔗 [Epic 7: Performance Optimization](#epic-7-performance-optimization-advanced-caching) - Dashboard performance optimization
 - 🔗 [Success Metrics](#success-metrics) - Dashboard engagement tracking
 
-#### Story 3.6: HEI Integration (Read-Only)
-**As a** family with HEI loans  
-**I want** to see loan information in our asset dashboard  
-**So that** we have a complete financial picture
+#### Story 3.6: 14th Asset Category - HEI Management
+**As a** family with Home Equity Investment loans  
+**I want** to manage my HEI as a dedicated asset category with specialized fields and document management  
+**So that** I have complete visibility and control over my HEI investment
+
+**Epic Goal**: Enable comprehensive HEI lifecycle management within the Forward platform through a dedicated 14th asset category, supporting both external ingestion and customer self-service workflows.
+
+**Business Value**: Provide industry-leading HEI integration capabilities, capturing high-value HEI customers through seamless onboarding and comprehensive asset management.
+
+**Duration**: 3 weeks (Phase 1B, integrated with Epic 3)
+
+**Strategic Priority**: High - Critical competitive differentiator and high-value customer segment
+
+##### Story 3.6.1: HEI Asset Category Infrastructure
+**As a** system architect  
+**I want** robust HEI-specific asset category support  
+**So that** HEI customers can track their complete HEI investment details
 
 **Acceptance Criteria**:
-- HEI API integration for loan data
-- Read-only display in loan category
-- Automatic data synchronization
-- Integration with permission system
-- Loan performance metrics display
+- 14th asset category "HEI" added to asset categories
+- HEI-specific database schema with specialized fields
+- Dynamic form generation for HEI asset creation
+- Integration with existing asset management infrastructure
+- Category icons and HEI-specific descriptions
+
+##### Story 3.6.2: HEI API Ingestion System
+**As an** external HEI processing system  
+**I want** to ingest completed HEI snapshots via API  
+**So that** HEI customers are automatically onboarded to the platform
+
+**Acceptance Criteria**:
+- `/ingest/hei` endpoint for external HEI data ingestion
+- Automatic creation of Real Estate asset, HEI asset, Persona, and FFC
+- Document upload and attachment to HEI assets
+- Idempotency protection for repeated ingestions
+- Integration with existing invitation system
+
+##### Story 3.6.3: Customer HEI Self-Registration
+**As a** new user with an existing HEI  
+**I want** to claim my HEI during registration  
+**So that** I can immediately access my HEI information on the platform
+
+**Acceptance Criteria**:
+- Registration flow includes "Have you completed an HEI?" option
+- HEI lookup by loan number or identifier
+- Automatic linking to existing HEI assets and FFC
+- Seamless access to HEI dashboard post-registration
+- FFC renaming capability
+
+**Related Concepts**:
+- 🔗 [Story 3.1: Asset Category Infrastructure](#story-31-asset-category-infrastructure) - Leverages existing infrastructure
+- 🔗 [Story 3.3: Document & Photo Management](#story-33-document--photo-management-with-pii-protection) - Uses existing PII protection
+- 🔗 [Story 2.3: Enhanced Member Invitation System](#story-23-enhanced-member-invitation-system) - Integrates with invitation system
+- 🔗 [Epic 4: Advanced Features & Integrations](#epic-4-advanced-features--integrations) - API framework foundation
+
+**Database Implementation**: All database operations for HEI asset management leverage existing infrastructure documented in DB-architecture.md
+
+**Security Implementation**: Uses existing document encryption, PII protection pipeline, and FFC-scoped access controls
+
+#### HEI User Journey Flows
+
+##### Flow A: External HEI Completion → Platform Onboarding
+
+**Sequence**:
+1. **External HEI System** → `POST /ingest/hei` (snapshot payload + Idempotency-Key)
+2. **Forward Platform** validates and creates:
+   - Real Estate asset with property details
+   - HEI loan asset (loan_type='hei') linked to property
+   - Persona record for homeowner
+   - FFC with default name: "HEI Circle - [Applicant Name]"
+   - Asset-Persona ownership links
+3. **Document Upload** → `POST /ingest/hei/{hei_id}/documents` (multipart files)
+4. **Auto-Generated Invite** sent to persona's email
+5. **User Journey**:
+   - Receives invitation email with claim link
+   - Clicks invite → Sign up/Sign in flow
+   - Claims FFC and gains access (RBAC: FFC-scoped)
+   - Optional: Rename FFC to custom name
+   - Dashboard ready with Real Estate + HEI + Documents
+
+##### Flow B: Customer Self-Registration → HEI Linking
+
+**Sequence**:
+1. **New User** signs up on platform
+2. **Registration Question**: "Have you completed an HEI with us already?" (Yes/No)
+3. **If YES**: User provides loan number or property address
+4. **Platform Lookup**: Search existing HEI records by identifier
+5. **Match Resolution**:
+   - **Found**: Link user account ↔ existing persona ↔ FFC
+   - **Not Found**: Continue standard registration (no HEI linking)
+6. **Access Granted**: User immediately sees HEI dashboard with full data
+
+#### HEI API Specifications
+
+##### POST /ingest/hei
+
+**Required Headers**:
+- `Idempotency-Key`: Unique key (source_system + application_id)
+- `Content-Type`: application/json
+
+**Payload Structure**:
+```json
+{
+  "source": {
+    "system": "string",
+    "application_id": "string"
+  },
+  "property": {
+    "address": {
+      "line1": "string",
+      "city": "string", 
+      "state": "string",
+      "postal_code": "string"
+    },
+    "parcel_number": "string"
+  },
+  "hei": {
+    "amount_funded": "number",
+    "equity_share_pct": "number", 
+    "effective_date": "date",
+    "maturity_terms": "string"
+  },
+  "owners": [
+    {
+      "persona_external_id": "string",
+      "legal_name": "string",
+      "email": "string"
+    }
+  ],
+  "valuation": {
+    "amount": "number",
+    "method": "avm|bpo|appraisal",
+    "effective_date": "date"
+  }
+}
+```
+
+**Response**: 
+- 200: `{ asset_id, hei_id, ffc_id, status: "ingested" }`
+- 400: Validation errors
+- 409: Duplicate ingestion (idempotency conflict)
+
+##### POST /ingest/hei/{hei_id}/documents
+
+**Content-Type**: multipart/form-data
+
+**Document Types**:
+- **Required**: `hei_agreement`, `deed_of_trust_final`, `closing_disclosure`
+- **Optional**: `tax_bill`, `hoa_statement`, `appraisal_report`
+
+#### HEI Data Schema Mapping
+
+**Real Estate Asset**:
+- Table: `assets` + `real_estate`
+- Fields: address, parcel_number, property_type
+- Ownership: `asset_persona` (ownership_type='owner')
+
+**HEI Loan Asset**:
+- Table: `loans` (loan_type='hei')
+- Fields: amount_funded, equity_share_pct, effective_date
+- Linked to: Real Estate asset via asset_id
+
+**HEI Documents**:
+- Table: `media_storage` + `document_metadata`
+- Metadata: `entity_type='hei'`, `entity_id=hei_id`
+- Access: FFC-scoped permissions only
+
+#### Business Rules & Validation
+
+**Idempotency Rules**:
+- Key: `source_system + application_id`
+- Safe to re-run ingestion with same key
+- Updates existing records if found
+
+**Required Fields Validation**:
+- HEI: amount_funded, equity_share_pct, effective_date
+- Property: address (line1, city, state, postal_code)
+- Owner: legal_name, email
+- Documents: At minimum `hei_agreement`
+
+**Linking Rules**:
+- 1 HEI loan → 1 Real Estate property
+- 1 Applicant persona → 1 FFC (auto-created)
+- Multiple documents → 1 HEI loan
+- FFC name always user-customizable
+
+**Access Control**:
+- All HEI data: FFC-scoped access only
+- Document encryption: KMS at rest + TLS in transit
+- No cross-FFC data leakage
+
+#### Success Metrics
+
+**Onboarding Performance**:
+- HEI customer successful onboarding rate: >85%
+- Time-to-first-login (ingestion → user signup): <48 hours
+- HEI linking accuracy (low support tickets): >95%
+
+**User Engagement**:
+- FFC renaming rate: >60% within first week
+- Document viewing rate: >80% within first session
+- Member invitation rate: Average 2+ per HEI FFC
+
+**Technical Performance**:
+- API ingestion success rate: >99%
+- Document upload success rate: >98%
+- Average ingestion processing time: <30 seconds
+
+#### Open Questions for Resolution
+
+1. **FFC Naming Convention**:
+   - Option A: "HEI Circle - [Last Name]" (personalized)
+   - Option B: "My HEI Circle" (generic)
+   - **Recommendation**: Option A for better user connection
+
+2. **Joint Applicants Handling**:
+   - How to handle multiple personas for same HEI?
+   - Should both personas be FFC owners or one owner + one member?
+   - **Recommendation**: Both as co-owners with equal permissions
+
+3. **Admin Override Capabilities**:
+   - Support rep ability to re-send invites?
+   - Manual re-linking if user registers with different email?
+   - **Recommendation**: Admin panel with override functions
+
+4. **Future Event Handling**:
+   - Valuation updates, property sales, refinancing detection
+   - Real-time sync vs batch updates
+   - **Recommendation**: Phase 2 - webhook-based real-time updates
+
+#### Implementation Checklist
+
+**Manual Admin Process** (for quality assurance):
+1. ✓ Create Real Estate asset with property details
+2. ✓ Create Persona record with owner information  
+3. ✓ Create FFC with default naming convention
+4. ✓ Link owner via asset_persona (ownership_type='owner')
+5. ✓ Insert HEI loan record with terms
+6. ✓ Upload and tag all required documents
+7. ✓ Send invitation email to owner
+
+**Validation Requirements**:
+- ✓ Enforce idempotency protection
+- ✓ Validate all required fields present
+- ✓ Ensure FFC-scoped document access
+- ✓ Verify minimal KYC flags (no full PII storage)
+- ✓ Test end-to-end user journey flows
 
 #### Story 3.7: Free Plan Onboarding
 **As a** new FFC owner  
@@ -1908,7 +2148,7 @@ const preloadAssets = () => {
 
 ### Key Components:
 - **Multi-Tenant Core Schemas**: Tenants, Personas, FFCs, Contact/Communication
-- **Enhanced Asset Management**: 13 asset categories with ownership and permissions
+- **Enhanced Asset Management**: 14 asset categories with ownership and permissions
 - **Invitation & Verification**: Dual-channel verification system
 - **Audit & Compliance**: Comprehensive audit trails and security measures
 - **Performance Indexes**: Optimized for multi-tenant operations

@@ -13,18 +13,18 @@
 
 ## Overview
 
-The Forward Inheritance Platform's asset management system is built around **15 specialized tables** that handle the diverse range of assets families need to track for inheritance planning. The system supports everything from real estate and financial accounts to digital assets and legal documents.
+The Forward Inheritance Platform's asset management system is built around **16 specialized tables** that handle the diverse range of assets families need to track for inheritance planning. The system supports everything from real estate and financial accounts to digital assets, legal documents, and HEI investments.
 
 ### Asset Management Architecture
 - **Base Asset Table**: Common properties for all assets
-- **Asset Categories**: 13 predefined categories matching business requirements
+- **Asset Categories**: 14 predefined categories matching business requirements
 - **Specialized Tables**: One table per asset category for specific attributes
 - **Ownership Junction**: Flexible persona-asset ownership relationships
 - **Inheritance Model**: Clear inheritance chains from base to specialized tables
 
 ### Key Statistics
-- **Total Tables**: 15 (1 base + 1 junction + 13 category tables)
-- **Asset Categories**: 13 predefined categories with extensible metadata
+- **Total Tables**: 16 (1 base + 1 junction + 14 category tables)
+- **Asset Categories**: 14 predefined categories with extensible metadata
 - **Ownership Types**: 4 types (owner, beneficiary, trustee, executor)
 - **Supported Currencies**: Multi-currency support with default USD
 
@@ -45,7 +45,8 @@ assets (base table)
 ├── trusts
 ├── wills
 ├── personal_directives
-└── recurring_income
+├── recurring_income
+└── hei_assets
 ```
 
 ### Ownership Model
@@ -418,6 +419,74 @@ CREATE TABLE loans (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
     created_by UUID,
     updated_by UUID
+);
+```
+
+### hei_assets table
+Home Equity Investment assets - 14th Asset Category with specialized HEI fields and property linking.
+
+```sql
+CREATE TABLE hei_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    asset_id UUID NOT NULL UNIQUE,
+    
+    -- HEI terms
+    amount_funded DECIMAL(15, 2) NOT NULL,
+    equity_share_pct DECIMAL(5, 2) NOT NULL CHECK (equity_share_pct >= 0 AND equity_share_pct <= 100),
+    effective_date DATE NOT NULL,
+    maturity_terms TEXT,
+    
+    -- Property relationship
+    property_asset_id UUID NOT NULL, -- References real estate asset
+    
+    -- Capital stack information
+    first_mortgage_balance DECIMAL(15, 2),
+    junior_liens_balance DECIMAL(15, 2),
+    cltv_at_close DECIMAL(5, 2) CHECK (cltv_at_close >= 0 AND cltv_at_close <= 100),
+    
+    -- Valuation
+    valuation_amount DECIMAL(15, 2) NOT NULL,
+    valuation_method hei_valuation_method_enum NOT NULL,
+    valuation_effective_date DATE NOT NULL,
+    
+    -- Recording information
+    jurisdiction TEXT,
+    instrument_number TEXT,
+    book_page TEXT,
+    recorded_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Funding information
+    funding_method hei_funding_method_enum,
+    destination_account_last4 VARCHAR(4),
+    funded_at TIMESTAMP WITH TIME ZONE,
+    
+    -- External system tracking
+    source_system TEXT NOT NULL,
+    external_id TEXT,
+    source_application_id TEXT NOT NULL,
+    
+    -- Servicing
+    monitoring_policy TEXT,
+    notification_contacts JSONB,
+    
+    -- Documentation
+    hei_agreement_document_id UUID,
+    deed_of_trust_document_id UUID,
+    closing_disclosure_document_id UUID,
+    title_document_id UUID,
+    appraisal_document_id UUID,
+    
+    -- Status
+    hei_status hei_status_enum NOT NULL DEFAULT 'active',
+    
+    -- System fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    created_by UUID,
+    updated_by UUID,
+    
+    -- Constraints
+    CONSTRAINT unique_source_application UNIQUE (source_system, source_application_id)
 );
 ```
 

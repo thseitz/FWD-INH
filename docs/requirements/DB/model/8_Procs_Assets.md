@@ -12,7 +12,7 @@
 
 ## Overview
 
-The Asset Management system has been modernized with most operations converted from stored procedures to individual SQL queries using pgTyped and Slonik. These operations handle all asset-related functionality across all 15 asset tables.
+The Asset Management system has been modernized with most operations converted from stored procedures to individual SQL queries using pgTyped and Slonik. These operations handle all asset-related functionality across all 16 asset tables.
 
 ### Migration Status
 - **Converted to SQL**: 9 of 10 procedures (90%)

@@ -102,6 +102,12 @@ function generateTestParams(fileName: string, content: string, testData: any): a
       params.push('primary');
     } else if (content.includes(`$${i}::phone_usage_type_enum`)) {
       params.push('primary');
+    } else if (content.includes(`$${i}::hei_valuation_method_enum`)) {
+      params.push('avm');
+    } else if (content.includes(`$${i}::hei_funding_method_enum`)) {
+      params.push('ach');
+    } else if (content.includes(`$${i}::hei_status_enum`)) {
+      params.push('active');
     } else if (content.includes(`$${i}::UUID[]`)) {
       // Check UUID arrays before simple UUID - moved up
       // Array of UUIDs - optional parameters can be null
@@ -149,6 +155,12 @@ function generateTestParams(fileName: string, content: string, testData: any): a
         params.push(testData.paymentMethodId);
       } else if (paramName.includes('quiltt') && paramName.includes('integration')) {
         params.push(testData.quilttIntegrationId);
+      } else if (paramName.includes('hei') && paramName.includes('asset')) {
+        params.push(testData.heiAssetId);
+      } else if (paramName.includes('property') && paramName.includes('asset')) {
+        params.push(testData.propertyAssetId);
+      } else if (paramName.includes('hei') && paramName.includes('id')) {
+        params.push(testData.heiDetailId);
       } else {
         // Default to userId for unknown UUIDs
         params.push(testData.userId);
@@ -234,6 +246,34 @@ function generateTestParams(fileName: string, content: string, testData: any): a
       } else if (fileName.includes('ui_mask_by_entity_code')) {
         // UI collection mask query by entity code
         params.push('ASSETS');  // Use known entity code
+      } else if (fileName.includes('lookup_hei') && content.includes('identifier')) {
+        // HEI lookup identifier - can be loan number, external ID, or address
+        const identifiers = [
+          'HEI-' + faker.string.alphanumeric(8),
+          faker.location.streetAddress(),
+          'APP-' + faker.string.alphanumeric(6)
+        ];
+        params.push(faker.helpers.arrayElement(identifiers));
+      } else if (fileName.includes('ingest_hei') && (content.includes('source_system') || i === 5)) {
+        params.push('test_hei_system');
+      } else if (fileName.includes('ingest_hei') && (content.includes('source_application_id') || i === 6)) {
+        params.push('APP-' + faker.string.alphanumeric(8));
+      } else if (fileName.includes('update_hei') && content.includes('notes')) {
+        params.push('Status updated via test');
+      } else if (fileName.includes('seat_invitation')) {
+        // For seat invitation, we need valid IDs that exist in the database
+        if (i === 1) {
+          // Use the created invitation ID
+          params.push(testData.invitationId);
+        } else if (i === 2) {
+          // Use subscription ID from database
+          params.push(testData.subscriptionId);
+        } else if (i === 3) {
+          // Use persona ID from database  
+          params.push(testData.personaId);
+        } else {
+          params.push('pro'); // seat_type
+        }
       } else {
         params.push(faker.lorem.word());
       }
@@ -270,6 +310,43 @@ function generateTestParams(fileName: string, content: string, testData: any): a
       // Check if it's for PII types which should be an array
       if (fileName.includes('pii') && content.includes('p_pii_types')) {
         params.push(JSON.stringify(['email', 'phone', 'ssn']));
+      } else if (fileName.includes('ingest_hei')) {
+        // HEI ingestion JSONB parameters - check position first
+        if (i === 2) {
+          // $2: property_data 
+          params.push(JSON.stringify({
+            address_line1: faker.location.streetAddress(),
+            city: faker.location.city(),
+            state: faker.location.state({ abbreviated: true }),
+            postal_code: faker.location.zipCode(),
+            parcel_number: 'APN' + faker.string.alphanumeric(8)
+          }));
+        } else if (i === 3) {
+          // $3: hei_data
+          params.push(JSON.stringify({
+            amount_funded: faker.number.float({ min: 50000, max: 500000, fractionDigits: 2 }),
+            equity_share_pct: faker.number.float({ min: 10, max: 30, fractionDigits: 2 }),
+            effective_date: '2024-01-15',
+            valuation_amount: faker.number.float({ min: 300000, max: 800000, fractionDigits: 2 }),
+            valuation_method: 'avm',
+            valuation_effective_date: '2024-01-10',
+            maturity_terms: {
+              term_years: faker.number.int({ min: 5, max: 15 }),
+              buyout_options: ['full_buyout', 'partial_buyout']
+            },
+            first_mortgage_balance: faker.number.float({ min: 200000, max: 400000, fractionDigits: 2 }),
+            junior_liens_balance: faker.number.float({ min: 0, max: 50000, fractionDigits: 2 }),
+            cltv_at_close: faker.number.float({ min: 70, max: 90, fractionDigits: 2 })
+          }));
+        } else if (i === 4) {
+          // $4: owner_data
+          params.push(JSON.stringify({
+            legal_name: faker.person.fullName(),
+            email: faker.internet.email()
+          }));
+        } else {
+          params.push(JSON.stringify({ test: true, data: faker.lorem.word() }));
+        }
       } else {
         params.push(JSON.stringify({ test: true, data: faker.lorem.word() }));
       }
@@ -341,6 +418,33 @@ async function testSqlFiles() {
     // Get quiltt integration ID
     const qiResult = await client.query('SELECT id FROM quiltt_integrations LIMIT 1');
     testData.quilttIntegrationId = qiResult.rows[0]?.id;
+    
+    // Get HEI-specific test data
+    const heiAssetResult = await client.query('SELECT id FROM assets WHERE category_id = (SELECT id FROM asset_categories WHERE code = \'hei\') LIMIT 1');
+    testData.heiAssetId = heiAssetResult.rows[0]?.id;
+    
+    const realEstateAssetResult = await client.query('SELECT id FROM assets WHERE category_id = (SELECT id FROM asset_categories WHERE code = \'real_estate\') LIMIT 1');
+    testData.propertyAssetId = realEstateAssetResult.rows[0]?.id;
+    
+    const heiDetailResult = await client.query('SELECT id FROM hei_assets LIMIT 1');
+    testData.heiDetailId = heiDetailResult.rows[0]?.id;
+    
+    // Create test invitation for seat invitation tests
+    const invitationResult = await client.query(`
+      INSERT INTO ffc_invitations (
+        tenant_id, ffc_id, inviter_user_id, invitee_email_id, invitee_phone_id, invitee_name,
+        proposed_role, status, sent_at, approved_at, approved_by_user_id,
+        seat_type, subscription_id, created_by, updated_by
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $3, $9, $10, $3, $3
+      ) 
+      ON CONFLICT DO NOTHING
+      RETURNING id
+    `, [
+      testData.tenantId, testData.ffcId, testData.userId, testData.emailId, testData.phoneId,
+      'Test Invitee', 'beneficiary', 'approved', 'pro', testData.subscriptionId
+    ]);
+    testData.invitationId = invitationResult.rows[0]?.id || faker.string.uuid();
     
     // Read all SQL files
     const files = fs.readdirSync(SQL_FILES_DIR)

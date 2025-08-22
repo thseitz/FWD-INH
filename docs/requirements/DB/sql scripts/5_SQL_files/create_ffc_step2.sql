@@ -34,6 +34,8 @@ FROM personas p
 WHERE p.user_id = $3::UUID
   AND p.tenant_id = $1::INTEGER
 LIMIT 1
+ON CONFLICT (ffc_id, persona_id) DO UPDATE SET
+    updated_at = NOW()
 RETURNING 
     ffc_id,
     persona_id,
