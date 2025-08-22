@@ -82,7 +82,7 @@ Replace VARCHAR fields with PostgreSQL enums where possible:
 
 ### 3. **Simplified Asset Category Design**
 Instead of complex normalized asset structures:
-- **One Table Per Asset Category**: 13 specialized asset tables (real_estate, financial_accounts, etc.)
+- **One Table Per Asset Category**: 14 specialized asset tables (real_estate, financial_accounts, etc.)
 - **Common Base**: All assets share a common `assets` table for basic properties
 - **Flexible Metadata**: JSONB fields for category-specific attributes
 - **Easy Querying**: Direct relationships without complex joins

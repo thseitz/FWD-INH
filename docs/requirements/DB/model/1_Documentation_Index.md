@@ -60,8 +60,8 @@ This comprehensive database documentation suite provides complete coverage of th
 **Key Features**: Normalized contact storage, multiple usage contexts, verification support
 
 ### 7. 🏦 [Asset Management Tables](./7_Tables_Assets.md)
-**Purpose**: Comprehensive asset tracking across 13 specialized categories  
-**Key Tables**: `assets` (base), 13 specialized asset tables, `asset_persona` (ownership)  
+**Purpose**: Comprehensive asset tracking across 14 specialized categories  
+**Key Tables**: `assets` (base), 14 specialized asset tables, `asset_persona` (ownership)  
 **Asset Categories**: Real estate, financial accounts, vehicles, insurance, legal documents, business interests, digital assets
 
 ### 8. 📊 [Asset Management Procedures](./8_Procs_Assets.md)
@@ -134,7 +134,7 @@ Application Layer
 ```
 Base Asset → Specialized Tables → Ownership Junction → Personas
 ```
-- 15 total tables supporting 13 asset categories
+- 15 total tables supporting 14 asset categories
 - Flexible ownership with percentages and roles
 - Complete inheritance chain tracking
 

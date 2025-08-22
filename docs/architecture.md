@@ -486,13 +486,251 @@ services:
       - postgres_data:/var/lib/postgresql/data
 ```
 
+### Phase 0 Project Creation & Setup
+
+#### Step 1: NX Monorepo Initialization
+```bash
+# Create NX monorepo workspace
+npx create-nx-workspace@latest fwd-inh --preset=empty --packageManager=npm
+cd fwd-inh
+
+# Install required NX plugins
+npm install -D @nx/react @nx/node @nx/vite @nx/playwright @nx/docker
+```
+
+#### Step 2: Frontend Application (Vite + React)
+```bash
+# Generate React app with Vite
+nx generate @nx/react:application frontend --bundler=vite --style=css --routing=true --unitTestRunner=vitest --e2eTestRunner=playwright
+
+# Add TypeScript and required dependencies
+npm install @types/react@^18.2.0 @types/react-dom@^18.2.0
+npm install react-router-dom@^6.20.0 
+npm install tailwindcss@^3.4.0 @tailwindcss/forms @tailwindcss/typography
+npm install @radix-ui/react-* lucide-react class-variance-authority clsx tailwind-merge
+npm install @tanstack/react-query axios @hookform/resolvers zod react-hook-form
+npm install @builder.io/react @builder.io/sdk
+```
+
+#### Step 3: Backend Application (NestJS)
+```bash
+# Generate NestJS application
+nx generate @nx/node:application api --framework=nestjs
+
+# Add backend dependencies
+npm install @nestjs/common @nestjs/core @nestjs/platform-express
+npm install @nestjs/config @nestjs/jwt @nestjs/passport
+npm install slonik @slonik/typegen @slonik/interceptor-preset
+npm install pgtyped @pgtyped/cli @pgtyped/runtime
+npm install bcrypt argon2 uuid class-validator class-transformer
+npm install @aws-sdk/client-s3 @aws-sdk/client-cognito-identity-provider
+npm install @aws-sdk/client-step-functions @aws-sdk/client-ses
+```
+
+#### Step 4: Database Layer (pgTyped + Slonik)
+```bash
+# Create database directories
+mkdir -p apps/api/src/database/{queries,types,migrations}
+mkdir -p apps/api/src/database/sql/{procedures,functions,views}
+
+# Setup pgTyped configuration
+echo '{
+  "transforms": [
+    {
+      "mode": "sql",
+      "include": "apps/api/src/database/queries/**/*.sql", 
+      "emitTemplate": "apps/api/src/database/types/{{name}}.types.ts"
+    }
+  ]
+}' > pgtyped.config.json
+```
+
+#### Step 5: Shared Package (Types & Utilities)
+```bash
+# Generate shared library
+nx generate @nx/js:library shared --buildable=true
+
+# Create shared type definitions
+mkdir -p libs/shared/src/types/{assets,personas,ffc,auth}
+mkdir -p libs/shared/src/utils/{validation,formatting,constants}
+```
+
+#### Step 6: Infrastructure as Code (Pulumi)
+```bash
+# Create infrastructure directory structure
+mkdir -p infra/pulumi/{00-account-foundation,10-network-dev-open}
+mkdir -p infra/pulumi/{20-data-dev,30-ecr-ecs-api,40-frontend-amplify}
+mkdir -p infra/pulumi/{50-auth-cognito,55-api-gateway,60-queues-workers}
+mkdir -p infra/pulumi/{70-cdn-cloudfront,80-monitoring-logging}
+mkdir -p infra/docker/{frontend,backend,database}
+
+# Install Pulumi dependencies
+cd infra/pulumi
+npm init -y
+npm install @pulumi/pulumi @pulumi/aws @pulumi/awsx
+npm install @pulumi/docker @pulumi/random @pulumi/tls
+```
+
+#### Step 7: Testing Setup (Playwright + Vitest)
+```bash
+# Setup Playwright for E2E testing
+nx generate @nx/playwright:configuration --project=frontend-e2e
+
+# Create testing directory structure
+mkdir -p apps/frontend-e2e/src/{fixtures,page-objects,utils}
+mkdir -p apps/api-e2e/src/{test-data,mocks,integration}
+
+# Add testing dependencies
+npm install -D @playwright/test @vitest/ui jsdom
+npm install -D @testing-library/react @testing-library/jest-dom
+npm install -D supertest @types/supertest
+```
+
+#### Step 8: Docker Configuration
+```bash
+# Create Docker configurations
+mkdir -p infra/docker/{frontend,backend,database}
+
+# Frontend Dockerfile
+echo 'FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "run", "preview"]' > infra/docker/frontend/Dockerfile
+
+# Backend Dockerfile  
+echo 'FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+EXPOSE 4000
+CMD ["npm", "run", "start:prod"]' > infra/docker/backend/Dockerfile
+```
+
+#### Step 9: Complete Directory Structure
+```
+fwd-inh/
+├── apps/
+│   ├── frontend/                    # React + Vite SPA
+│   │   ├── src/
+│   │   │   ├── components/          # Reusable UI components
+│   │   │   │   ├── ui/              # shadcn/ui base components
+│   │   │   │   ├── forms/           # Form components
+│   │   │   │   ├── charts/          # Financial data visualization
+│   │   │   │   └── cards/           # Asset & family cards
+│   │   │   ├── features/            # Feature-based organization
+│   │   │   │   ├── auth/            # Authentication flows
+│   │   │   │   ├── assets/          # Asset management (14 categories)
+│   │   │   │   ├── ffc/             # Family Circle features
+│   │   │   │   ├── personas/        # Family member management
+│   │   │   │   └── documents/       # Document management
+│   │   │   ├── hooks/               # Custom React hooks
+│   │   │   ├── services/            # API integration layer
+│   │   │   ├── utils/               # Frontend utilities
+│   │   │   └── types/               # Frontend-specific types
+│   │   ├── public/                  # Static assets
+│   │   └── e2e/                     # Playwright E2E tests
+│   │
+│   ├── api/                         # NestJS Backend
+│   │   ├── src/
+│   │   │   ├── modules/             # Feature modules
+│   │   │   │   ├── auth/            # Authentication & authorization
+│   │   │   │   ├── assets/          # Asset management (14 categories)
+│   │   │   │   ├── ffc/             # Family Circle operations
+│   │   │   │   ├── personas/        # Family member operations  
+│   │   │   │   ├── documents/       # Document storage & retrieval
+│   │   │   │   ├── builder/         # Builder.io integration
+│   │   │   │   └── integrations/    # External API integrations
+│   │   │   ├── database/            # Database layer
+│   │   │   │   ├── queries/         # SQL queries (.sql files)
+│   │   │   │   ├── types/           # pgTyped generated types
+│   │   │   │   ├── migrations/      # Database migrations
+│   │   │   │   └── client/          # Slonik connection setup
+│   │   │   ├── common/              # Shared backend utilities
+│   │   │   │   ├── guards/          # Auth & permission guards
+│   │   │   │   ├── decorators/      # Custom decorators
+│   │   │   │   ├── filters/         # Exception filters
+│   │   │   │   └── interceptors/    # Request/response interceptors
+│   │   │   └── config/              # Environment configuration
+│   │   └── test/                    # Integration tests
+│   │
+│   └── frontend-e2e/                # E2E test application
+│       └── src/
+│           ├── fixtures/            # Test data fixtures
+│           ├── page-objects/        # Page object models
+│           └── specs/               # Test specifications
+│
+├── libs/                            # Shared libraries
+│   └── shared/
+│       ├── src/
+│       │   ├── types/               # Shared TypeScript interfaces
+│       │   │   ├── assets/          # Asset type definitions
+│       │   │   ├── personas/        # Family member types
+│       │   │   ├── ffc/             # Family Circle types
+│       │   │   ├── auth/            # Authentication types
+│       │   │   └── api/             # API request/response types
+│       │   ├── utils/               # Shared utilities
+│       │   │   ├── validation/      # Zod schemas
+│       │   │   ├── formatting/      # Data formatting
+│       │   │   └── constants/       # Shared constants
+│       │   └── config/              # Shared configuration
+│       └── README.md
+│
+├── infra/                           # Infrastructure as Code
+│   ├── pulumi/                      # Pulumi infrastructure definitions
+│   │   ├── 00-account-foundation/   # Root account setup, IAM roles
+│   │   ├── 10-network-dev-open/     # VPC, subnets, security groups
+│   │   ├── 20-data-dev/             # RDS PostgreSQL, S3 buckets
+│   │   ├── 30-ecr-ecs-api/          # Container registry, ECS service
+│   │   ├── 40-frontend-amplify/     # Amplify hosting, CloudFront
+│   │   ├── 50-auth-cognito/         # Cognito user pools, identity
+│   │   ├── 55-api-gateway/          # API Gateway, Lambda functions
+│   │   ├── 60-queues-workers/       # SQS queues, Step Functions
+│   │   ├── 70-cdn-cloudfront/       # CDN, static asset distribution
+│   │   └── 80-monitoring-logging/   # CloudWatch, logging, alerts
+│   │
+│   └── docker/                      # Docker configurations
+│       ├── frontend/                # Frontend container setup
+│       ├── backend/                 # Backend container setup
+│       └── database/                # Database container setup
+│
+├── tools/                           # Development tooling
+│   ├── scripts/                     # Build & deployment scripts
+│   └── generators/                  # NX generators for consistency
+│
+├── docs/                            # Project documentation
+│   ├── architecture.md              # This document
+│   ├── prd.md                       # Product requirements
+│   ├── front-end-spec.md            # UI/UX specifications
+│   └── requirements/                # Detailed requirements
+│
+├── .github/                         # GitHub configurations
+│   └── workflows/                   # CI/CD pipelines
+│
+├── nx.json                          # NX workspace configuration
+├── package.json                     # Root package configuration
+├── tsconfig.base.json              # Base TypeScript configuration
+├── pgtyped.config.json             # pgTyped configuration
+├── docker-compose.yml              # Local development stack
+├── tailwind.config.js              # Tailwind CSS configuration
+└── README.md                       # Project setup instructions
+```
+
 ### Development Workflow
 
-1. **Database Setup**: Run SQL schema scripts to create tables and functions
-2. **Type Generation**: pgTyped generates TypeScript types from SQL files
-3. **Backend Start**: NestJS server with Slonik database client
-4. **Frontend Start**: Vite dev server with React
-5. **Local Testing**: Full stack runs locally for development
+1. **Project Initialization**: Complete NX monorepo setup with all directory structures
+2. **Database Setup**: Run SQL schema scripts to create 72 tables and functions  
+3. **Type Generation**: pgTyped generates TypeScript types from SQL files
+4. **Container Setup**: Docker Compose orchestrates local development stack
+5. **Backend Start**: NestJS server with Slonik database client
+6. **Frontend Start**: Vite dev server with React and hot module replacement
+7. **Testing**: Playwright E2E tests and Vitest unit tests
+8. **Local Development**: Full stack runs locally with live reload
 
 ### Key Differences from Production
 
@@ -2467,7 +2705,7 @@ interface FinancialAccount extends Asset {
   // ... 20+ additional fields in actual implementation
 }
 
-// Pattern continues for all 13 asset types
+// Pattern continues for all 14 asset types
 ```
 
 **Implementation Note for AI Agents:** When implementing these interfaces, reference the database schema in `DB-architecture.md` to include ALL fields from the corresponding tables. The stored procedures will return complete data which the Node.js layer processes according to business rules before sending to the frontend.
@@ -10678,11 +10916,11 @@ This section maps Product Requirements Document (PRD) requirements to specific a
 
 ---
 
-#### Asset Management (13 Categories) - PRD Section 3.3
-**Requirement**: "All 13 asset categories implemented from Day 1 with individual ownership rights"
+#### Asset Management (14 Categories) - PRD Section 3.3
+**Requirement**: "All 14 asset categories implemented from Day 1 with individual ownership rights"
 
 **Architecture Implementation**:
-- **Asset Categories**: Complete type system for all 13 categories → [Data Models](#data-models)
+- **Asset Categories**: Complete type system for all 14 categories → [Data Models](#data-models)
 - **Ownership Model**: Asset-persona direct ownership links → [Complete Example: RealEstateAsset](#complete-example-realestateasset)
 - **Permissions**: Granular asset-level permissions independent of FFC ownership → [Authentication and Authorization Guards](#authentication-and-authorization-guards)
 - **Database Design**: Polymorphic asset tables with category-specific schemas → [Database Schema](#database-schema)

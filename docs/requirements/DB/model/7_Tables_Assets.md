@@ -99,7 +99,7 @@ CREATE TABLE assets (
 - **Extensible Metadata**: Future-proof design for evolving requirements
 
 ### asset_categories table
-Defines the 13 predefined asset categories that drive the specialized table structure.
+Defines the 14 predefined asset categories that drive the specialized table structure.
 
 ```sql
 CREATE TABLE asset_categories (

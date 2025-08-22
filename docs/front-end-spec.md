@@ -45,7 +45,7 @@ This document defines the user experience goals, information architecture, user 
 - **Mobile-first Collaboration:** Family members can view and update assets seamlessly on mobile
 - **Error Prevention:** No accidental asset transfers or permission changes
 - **Professional Integration:** Advisors can manage multiple families efficiently
-- **Comprehensive Data Management:** All 13 asset categories fully supported from Day 1
+- **Comprehensive Data Management:** All 14 asset categories fully supported from Day 1
 
 #### Design Principles
 
@@ -689,7 +689,7 @@ graph TD
 
 ### Flow 8: Asset Category Infrastructure (Story 3.1)
 
-**User Goal:** Create and manage assets using progressive data collection across all 13 asset categories with reduced and advanced attribute sets
+**User Goal:** Create and manage assets using progressive data collection across all 14 asset categories with reduced and advanced attribute sets
 
 **Entry Points:**
 - Dashboard "Add Asset" quick action
@@ -1174,7 +1174,7 @@ graph TD
 - **Validation**: Real-time feedback with field-specific error messages
 
 **Cross-Category Consistency:**
-- All 13 asset categories follow identical interaction patterns
+- All 14 asset categories follow identical interaction patterns
 - Consistent field types ensure predictable user experience
 - Same progressive disclosure structure across all forms
 - Unified enhancement and API connection workflows
@@ -1321,7 +1321,7 @@ graph TD
 **Free Unlimited Plan (Default):**
 - No payment required at signup
 - Unlimited family members (no seat restrictions)
-- All 13 asset categories available
+- All 14 asset categories available
 - Basic document storage and PII protection
 - Standard support via help documentation
 
@@ -2702,7 +2702,7 @@ When Builder.io content is unavailable, the dashboard displays pre-built React c
 
 **UI Translation Coverage:**
 - **Navigation & Core Interface:** All menus, buttons, form labels, and error messages
-- **Asset Categories:** Culturally appropriate translations for all 13 asset categories
+- **Asset Categories:** Culturally appropriate translations for all 14 asset categories
 - **Financial Terminology:** Accurate Spanish financial and legal terms for estate planning
 - **Help Documentation:** Complete Spanish translation of help articles and onboarding guides
 - **Professional Service Content:** Service descriptions, pricing, and deliverables in Spanish
@@ -2756,7 +2756,7 @@ When Builder.io content is unavailable, the dashboard displays pre-built React c
 
 #### Progressive Asset Form Builder
 
-**Purpose:** Dynamic form generation for all 13 asset categories with reduced vs advanced attribute support using the UI Collection Mask system
+**Purpose:** Dynamic form generation for all 14 asset categories with reduced vs advanced attribute support using the UI Collection Mask system
 
 #### UI Collection Mask Implementation
 
@@ -2808,7 +2808,7 @@ Base Asset Fields (ASSETS entity)     +  Specific Asset Fields (e.g., REAL_ESTAT
    - Collapsible after completion
 
 **Variants:**
-- **Category Selector:** Visual selection interface for all 13 asset types with descriptions and icons
+- **Category Selector:** Visual selection interface for all 14 asset types with descriptions and icons
 - **Merged Dynamic Form:** Base + type-specific fields rendered according to UI Collection Mask configuration
 - **Progressive Disclosure Form:** Mandatory fields always visible, optional fields expandable
 - **Field Type Adaptation:** Each field renders with appropriate UI control based on field_type
@@ -2825,7 +2825,7 @@ Base Asset Fields (ASSETS entity)     +  Specific Asset Fields (e.g., REAL_ESTAT
 - **Enhancement Available:** API connection opportunities highlighted contextually
 
 **User Experience Flow:**
-1. **Asset Type Selection**: User selects from 13 asset categories
+1. **Asset Type Selection**: User selects from 14 asset categories
 2. **Form Configuration**: Single API call fetches merged UI Collection Mask
 3. **Mandatory Fields First**: User completes all required base and type-specific fields
 4. **Progressive Disclosure**: "Show Advanced Fields" reveals optional fields in organized groups
@@ -3448,7 +3448,7 @@ const LandingPageWithFallback = ({ url }) => {
 - [x] Performance goals established for financial data handling
 
 **Complete Epic Coverage:**
-- [x] **Complete 13 asset categories** - UI specifications for all asset types with reduced/advanced attribute architecture
+- [x] **Complete 14 asset categories** - UI specifications for all asset types with reduced/advanced attribute architecture
 - [x] **Subscription & payment platform** - Free plan, service marketplace, payment processing interfaces
 - [x] **Advanced search system** - Global search, OCR content search, filtering, and analytics
 - [x] **Comprehensive reporting** - Report builder, analytics dashboard, export capabilities

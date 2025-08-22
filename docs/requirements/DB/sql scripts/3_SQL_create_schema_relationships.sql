@@ -1012,7 +1012,7 @@ ALTER TABLE ffc_invitations
 INSERT INTO tenants (id, name, display_name, primary_color, secondary_color, is_active) VALUES
 (1, 'forward-inheritance', 'Forward Inheritance Platform', '#1f2937', '#3b82f6', true);
 
--- Insert the 13 asset categories
+-- Insert the 14 asset categories
 INSERT INTO asset_categories (name, code, description, sort_order) VALUES
 ('Personal Directives', 'personal_directives', 'Power of Attorney, Healthcare Directive/Living will, Letter of Intent/Family Directive, HIPAA Authorization', 1),
 ('Trust', 'trust', 'Trust documents and agreements', 2),
