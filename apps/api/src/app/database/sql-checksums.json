@@ -1,0 +1,726 @@
+{
+  "generated": "2025-08-24T06:13:50.576Z",
+  "totalFiles": 120,
+  "checksums": {
+    "apps\\api\\src\\app\\database\\queries\\00_test\\simple-test.sql": {
+      "hash": "5656e5ea0932e7255c4c493a243633a8daf5abf8b73c53ef222e12de5c8679fd",
+      "file": "simple-test.sql",
+      "lastModified": "2025-08-23T00:40:11.442Z",
+      "size": 117
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\add_persona_to_ffc.sql": {
+      "hash": "cb0a50422a523c4bb489ecdd57efe512d815dd1cf7194859018c8171c13af2c3",
+      "file": "add_persona_to_ffc.sql",
+      "lastModified": "2025-08-23T00:59:04.120Z",
+      "size": 1227
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\call_sp_create_ffc_with_subscription.sql": {
+      "hash": "2531b34b9eaa9cbaff18acde5b4be2dd03ffb6f9a1a8c6cf9e1f6e141fc898a6",
+      "file": "call_sp_create_ffc_with_subscription.sql",
+      "lastModified": "2025-08-23T01:25:57.773Z",
+      "size": 968
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\create_ffc_step1.sql": {
+      "hash": "0bf9d3fa57bd0c8982cca5392f5fd0a8cb61f32e010f1d55c512fcdafbb872e3",
+      "file": "create_ffc_step1.sql",
+      "lastModified": "2025-08-23T00:59:04.113Z",
+      "size": 959
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\create_ffc_step2.sql": {
+      "hash": "2c1d4ce9c613faa39cdaa23d97947797f140846480ac5c202182ba316aa57cc4",
+      "file": "create_ffc_step2.sql",
+      "lastModified": "2025-08-23T00:59:04.115Z",
+      "size": 1101
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\get_ffc_summary.sql": {
+      "hash": "b8b47c628148ab9035ead2f3147f77d8a51fd8d1b88e312af6f27ff2cfeb6877",
+      "file": "get_ffc_summary.sql",
+      "lastModified": "2025-08-23T00:59:04.116Z",
+      "size": 1467
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\is_ffc_member.sql": {
+      "hash": "4dab574ddd6a56e5ddba2ab9bef5685f7261fc902f33c5614df8b98dfe4f0420",
+      "file": "is_ffc_member.sql",
+      "lastModified": "2025-08-23T00:59:04.117Z",
+      "size": 1061
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\remove_ffc_member.sql": {
+      "hash": "6d925a668546835902306812b664dff18fa0602b83f8efb65624f49a02d9ba4a",
+      "file": "remove_ffc_member.sql",
+      "lastModified": "2025-08-23T01:25:57.777Z",
+      "size": 937
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\family_circles\\update_ffc_member_role.sql": {
+      "hash": "03e4184405f604fc65de7d746d500669cfeb96806beb8a3cf3839159c4129e2a",
+      "file": "update_ffc_member_role.sql",
+      "lastModified": "2025-08-23T01:25:57.778Z",
+      "size": 1227
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\personas\\get_persona_by_quiltt_user_id.sql": {
+      "hash": "06dd654b83256ed2959842aec6fcfccd8041e65469c23158263bdad5bca0179b",
+      "file": "get_persona_by_quiltt_user_id.sql",
+      "lastModified": "2025-08-23T01:25:57.778Z",
+      "size": 817
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\personas\\get_persona_ffc.sql": {
+      "hash": "01f66f3bad75d9aac0e5c621d29b5484f471977e99d95b462678712028a61f35",
+      "file": "get_persona_ffc.sql",
+      "lastModified": "2025-08-23T00:59:04.112Z",
+      "size": 668
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\tenants\\current_tenant_id.sql": {
+      "hash": "f6606025dc4fc791b415662a7bbd8054b133257d480ee1920fccf8f2010fd4e7",
+      "file": "current_tenant_id.sql",
+      "lastModified": "2025-08-23T00:59:04.109Z",
+      "size": 773
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\tenants\\get_tenant_payer.sql": {
+      "hash": "7d4ab302bd0970a82f6eae5def600225247286cb05a161a86893d4bbe2ce3a74",
+      "file": "get_tenant_payer.sql",
+      "lastModified": "2025-08-23T00:59:04.111Z",
+      "size": 672
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\tenants\\get_tenant_subscription.sql": {
+      "hash": "0075001c3929d9030a7b05939b80db8bbb1a819244258e9115e59baf8a3fe665",
+      "file": "get_tenant_subscription.sql",
+      "lastModified": "2025-08-23T01:25:57.780Z",
+      "size": 704
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\users\\call_sp_create_user_from_cognito.sql": {
+      "hash": "0a34408f9b8aa3460c3f5628f76ca4359ae5a80627e392bfe19fb339ecda34d8",
+      "file": "call_sp_create_user_from_cognito.sql",
+      "lastModified": "2025-08-23T01:25:57.780Z",
+      "size": 1602
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\users\\current_user_id.sql": {
+      "hash": "3fe60b54c7c89bbbfd0231e86a53ec523e960ba6115228e0039c1f9e93f3bac8",
+      "file": "current_user_id.sql",
+      "lastModified": "2025-08-23T00:56:55.818Z",
+      "size": 760
+    },
+    "apps\\api\\src\\app\\database\\queries\\01_core\\users\\update_user_profile.sql": {
+      "hash": "75ba264bec98ef1f4dacfcbde54e91737953ff92b0498b661ed5458a717d4351",
+      "file": "update_user_profile.sql",
+      "lastModified": "2025-08-23T00:59:04.108Z",
+      "size": 1474
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\categories\\create_asset_category.sql": {
+      "hash": "cd0ee19d3f40a74a4ac2cfc892aaf0606400acdd14fca519c222c61f03b6a2fe",
+      "file": "create_asset_category.sql",
+      "lastModified": "2025-08-23T01:25:57.781Z",
+      "size": 1107
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\categories\\get_asset_categories.sql": {
+      "hash": "7873f5f102934d91b9c461bed32a3bc0ac4c9b45ba2ba9e4d6a711f01ac54e0b",
+      "file": "get_asset_categories.sql",
+      "lastModified": "2025-08-23T01:25:57.783Z",
+      "size": 921
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\management\\call_sp_create_asset.sql": {
+      "hash": "885df18fc499ef149595424e3e83b5b88ab42a73d414980ca14b804408aeb67e",
+      "file": "call_sp_create_asset.sql",
+      "lastModified": "2025-08-23T01:25:57.783Z",
+      "size": 1245
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\management\\get_asset_details.sql": {
+      "hash": "ab52363709ddf816c38b1383c9001720f39444f3a3e93c3fbb4a1279244f9b4c",
+      "file": "get_asset_details.sql",
+      "lastModified": "2025-08-23T00:59:04.120Z",
+      "size": 2171
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\management\\ingest_hei_asset.sql": {
+      "hash": "6642f82e644e04bfb555e170586df09b525804d38c8b74cb094b67577fb4c591",
+      "file": "ingest_hei_asset.sql",
+      "lastModified": "2025-08-23T01:25:57.784Z",
+      "size": 5756
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\management\\soft_delete_asset.sql": {
+      "hash": "b990c5925c3eb2b768d6102c9618135b76655b9a3806732e7d00617a833276d0",
+      "file": "soft_delete_asset.sql",
+      "lastModified": "2025-08-23T01:25:57.785Z",
+      "size": 1150
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\management\\update_asset_details.sql": {
+      "hash": "925c0c476105c257625df8a2876131e59067a58a684abb7b5d71cbb920816495",
+      "file": "update_asset_details.sql",
+      "lastModified": "2025-08-23T00:59:04.122Z",
+      "size": 1669
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\management\\update_asset_value.sql": {
+      "hash": "51776f1f6e0e09b69b0ca1713656bbc9d177039d6ada83a035d3f405509d056c",
+      "file": "update_asset_value.sql",
+      "lastModified": "2025-08-23T01:25:57.786Z",
+      "size": 2460
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\ownership\\assign_asset_to_persona_upsert.sql": {
+      "hash": "d9d2f8a128ba370e63409d0772284aeafe10e610525082fe966ffe3d7c2b16fb",
+      "file": "assign_asset_to_persona_upsert.sql",
+      "lastModified": "2025-08-23T01:25:57.787Z",
+      "size": 2405
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\ownership\\check_asset_ownership_total.sql": {
+      "hash": "88239732e0e46189af89d2ce97cb100ce0e28f4ad01d3d1a7f564ec21379fbca",
+      "file": "check_asset_ownership_total.sql",
+      "lastModified": "2025-08-23T01:25:57.787Z",
+      "size": 850
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\ownership\\get_asset_ownership.sql": {
+      "hash": "8bab8d0bfec066063a670ea71c20bc99bb7e07eb11270739840255b06b641986",
+      "file": "get_asset_ownership.sql",
+      "lastModified": "2025-08-23T00:59:04.123Z",
+      "size": 626
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\ownership\\transfer_ownership_add_target.sql": {
+      "hash": "5597ec6268217f8a64958c7f431073cfc12d16cd97c926a28d4c4fc232660dd1",
+      "file": "transfer_ownership_add_target.sql",
+      "lastModified": "2025-08-23T01:25:57.788Z",
+      "size": 2013
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\ownership\\transfer_ownership_reduce_source.sql": {
+      "hash": "f2c4b30408ebcd60c65abfdcd9a6c80bfe8b649367db83f06f8bc894e452fbdd",
+      "file": "transfer_ownership_reduce_source.sql",
+      "lastModified": "2025-08-23T01:25:57.789Z",
+      "size": 1207
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\ownership\\transfer_ownership_remove_source.sql": {
+      "hash": "8371e7b8b9c81f17781e805cdca98d1de269b3697ed8c307c5789c7d7af56b16",
+      "file": "transfer_ownership_remove_source.sql",
+      "lastModified": "2025-08-23T01:25:57.790Z",
+      "size": 721
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\ownership\\unset_other_primary_owners.sql": {
+      "hash": "c5bf916ea40983752edee4412dd94a1397e455242da76d3fcc40a6781f3002a6",
+      "file": "unset_other_primary_owners.sql",
+      "lastModified": "2025-08-23T01:25:57.791Z",
+      "size": 1228
+    },
+    "apps\\api\\src\\app\\database\\queries\\02_assets\\search\\search_assets.sql": {
+      "hash": "d8315831f463f1ffe4eddceeb41e34a10b210d62f66a98f365d3b3e216999717",
+      "file": "search_assets.sql",
+      "lastModified": "2025-08-23T00:59:04.124Z",
+      "size": 2543
+    },
+    "apps\\api\\src\\app\\database\\queries\\03_financial\\accounts\\create_financial_account_from_quiltt.sql": {
+      "hash": "32cce98187a720b5a68d22178f95681bdcd87868392239db4ed3578679009fd9",
+      "file": "create_financial_account_from_quiltt.sql",
+      "lastModified": "2025-08-23T01:25:57.792Z",
+      "size": 1544
+    },
+    "apps\\api\\src\\app\\database\\queries\\03_financial\\accounts\\get_quiltt_connected_accounts.sql": {
+      "hash": "4d98dc407444b5030562f0468e8e4173c5ee4be9dfee851dc7ea44ddb3a3e026",
+      "file": "get_quiltt_connected_accounts.sql",
+      "lastModified": "2025-08-23T01:25:57.792Z",
+      "size": 1152
+    },
+    "apps\\api\\src\\app\\database\\queries\\03_financial\\ledger\\create_ledger_entry.sql": {
+      "hash": "5550d85e76df83b73b0f949e9cd4c6b2b5a13d6cc2b7aece7dabd67400000042",
+      "file": "create_ledger_entry.sql",
+      "lastModified": "2025-08-23T01:25:57.793Z",
+      "size": 1729
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\billing\\check_payment_method_owner.sql": {
+      "hash": "f83aa5fd5734454b305274e9f46be010e7b669098ae41759981453828d7a7f40",
+      "file": "check_payment_method_owner.sql",
+      "lastModified": "2025-08-23T00:59:04.126Z",
+      "size": 955
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\billing\\check_payment_method_usage.sql": {
+      "hash": "2c8c60beb2e29ef169c5b6eece7403d4331e694133d6fa34f9be076b02460dca",
+      "file": "check_payment_method_usage.sql",
+      "lastModified": "2025-08-23T01:25:57.794Z",
+      "size": 697
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\billing\\create_invoice_payment.sql": {
+      "hash": "e846d54503b2f366cbb996de6e24ab96eb9132fb434f874b4c91acb6cbd5ad54",
+      "file": "create_invoice_payment.sql",
+      "lastModified": "2025-08-23T01:25:57.794Z",
+      "size": 1304
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\billing\\delete_payment_method.sql": {
+      "hash": "d26ab6397b778dbab6ac1776a9bc10fb1141459c3c4475e01eeea49503332a8d",
+      "file": "delete_payment_method.sql",
+      "lastModified": "2025-08-23T01:25:57.795Z",
+      "size": 887
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\billing\\update_payment_failed.sql": {
+      "hash": "3ba79f60be235ca656c86c6f7808fe55132daaf199e2f4af0a2c04c822650747",
+      "file": "update_payment_failed.sql",
+      "lastModified": "2025-08-23T01:25:57.796Z",
+      "size": 831
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\billing\\update_payment_succeeded.sql": {
+      "hash": "4941b1249ed95f2c0b845efd614b449b88ff78db3030e58d4c1b6b54acbec5a1",
+      "file": "update_payment_succeeded.sql",
+      "lastModified": "2025-08-23T01:25:57.797Z",
+      "size": 744
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\billing\\update_subscription_billing.sql": {
+      "hash": "fa7b5d490634fb4f34b21a3540996cb18a5136b0f008cf0e10d379fdb55607e4",
+      "file": "update_subscription_billing.sql",
+      "lastModified": "2025-08-23T01:25:57.798Z",
+      "size": 742
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\cancellations\\cancel_subscription.sql": {
+      "hash": "0011e8d8495726f5beda0af91cb449744081544f1dbb4d284482da49eb5bdfa9",
+      "file": "cancel_subscription.sql",
+      "lastModified": "2025-08-23T01:25:57.798Z",
+      "size": 758
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\cancellations\\get_subscription_for_cancel.sql": {
+      "hash": "0f025e2e92ef392bf0a2e78167b183e5c0edabce6d50d9b3f3e3e933af8bf5e0",
+      "file": "get_subscription_for_cancel.sql",
+      "lastModified": "2025-08-23T01:25:57.799Z",
+      "size": 583
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\cancellations\\log_subscription_cancellation.sql": {
+      "hash": "fe5d17814a24271d86204bb2e19e2205f2f719b24b751e041ac92e6480cdabfb",
+      "file": "log_subscription_cancellation.sql",
+      "lastModified": "2025-08-23T01:25:57.799Z",
+      "size": 1007
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\cancellations\\record_subscription_transition.sql": {
+      "hash": "f3b30dc6f71d169252c7f2bad1d2c9e95e8f54807c1173a6756e84670b8efe64",
+      "file": "record_subscription_transition.sql",
+      "lastModified": "2025-08-23T01:25:57.800Z",
+      "size": 1174
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\plans\\get_new_plan_details.sql": {
+      "hash": "708d8867fe291c2332049e5b39e47b662ce8cf1bde52801322b0798bd8dc8c73",
+      "file": "get_new_plan_details.sql",
+      "lastModified": "2025-08-23T01:25:57.801Z",
+      "size": 603
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\plans\\get_subscription_plan.sql": {
+      "hash": "31043da3157d700f2e9473924f1f71517ebf0e51cffc1dd8876e12eb03a22906",
+      "file": "get_subscription_plan.sql",
+      "lastModified": "2025-08-23T00:59:04.125Z",
+      "size": 624
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\plans\\update_subscription_plan.sql": {
+      "hash": "4eb4b40fe5feaafdab6cb93b9cd40fe26aceaeb9805c321341b9e7883514945e",
+      "file": "update_subscription_plan.sql",
+      "lastModified": "2025-08-23T01:25:57.801Z",
+      "size": 664
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\seats\\calculate_seat_availability.sql": {
+      "hash": "0965991146c6c5248b4cfd3994dbce06bdc33d43ba51b34172acaac5b6aa1eaa",
+      "file": "calculate_seat_availability.sql",
+      "lastModified": "2025-08-23T01:25:57.802Z",
+      "size": 1673
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\seats\\call_sp_process_seat_invitation.sql": {
+      "hash": "9d4e9bcfad324f7673fed076daa5ad0c97451a5c69bae562d38bb289d91f55cc",
+      "file": "call_sp_process_seat_invitation.sql",
+      "lastModified": "2025-08-23T01:25:57.803Z",
+      "size": 906
+    },
+    "apps\\api\\src\\app\\database\\queries\\04_subscriptions\\seats\\suspend_subscription_seats.sql": {
+      "hash": "8d9a38e787fd9e19c38c6909051b2954077de719fcaaf0c0e2d80c41194e4d5e",
+      "file": "suspend_subscription_seats.sql",
+      "lastModified": "2025-08-23T01:25:57.803Z",
+      "size": 626
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\builder_io\\call_sp_refresh_builder_content.sql": {
+      "hash": "da50f51d49ea110f195420cef08ae6fb6739865bec0f306b3c83e65561099f5b",
+      "file": "call_sp_refresh_builder_content.sql",
+      "lastModified": "2025-08-23T01:25:57.803Z",
+      "size": 774
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\builder_io\\configure_builder_io.sql": {
+      "hash": "522fd2166560d0883c7bb36a33953afcb0ad95d66ac776fad3adb5eed8fbd3a9",
+      "file": "configure_builder_io.sql",
+      "lastModified": "2025-08-23T01:25:57.805Z",
+      "size": 1593
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\builder_io\\get_builder_content_status.sql": {
+      "hash": "ec3e48dbacd4e653f85613fca1538d549ae06cfb3a980d4e1160b95a96b95ff3",
+      "file": "get_builder_content_status.sql",
+      "lastModified": "2025-08-23T01:25:57.805Z",
+      "size": 1358
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\health_checks\\check_health_builder.sql": {
+      "hash": "fae00da42083188f046405cac10d3848f23cbb12bff0ef2f2d0b6cc9345c047b",
+      "file": "check_health_builder.sql",
+      "lastModified": "2025-08-23T01:25:57.806Z",
+      "size": 1080
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\health_checks\\check_health_quiltt.sql": {
+      "hash": "d34ac102c5d5c1b1f7c87c911a8e0a8d94b2416324ff9f37356f842e464e800a",
+      "file": "check_health_quiltt.sql",
+      "lastModified": "2025-08-23T01:25:57.807Z",
+      "size": 1636
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\health_checks\\check_health_real_estate.sql": {
+      "hash": "9b9766caa0f6e2058bc349a6c66aa4c369bd8f367d183346063882f63c84a955",
+      "file": "check_health_real_estate.sql",
+      "lastModified": "2025-08-23T01:25:57.807Z",
+      "size": 1742
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\health_checks\\log_integration_retry.sql": {
+      "hash": "00ec71dc631c8ecc2c4ed9349ddbf87a40a8c215da1916d05ccc8c2fdacb982a",
+      "file": "log_integration_retry.sql",
+      "lastModified": "2025-08-23T01:25:57.808Z",
+      "size": 1468
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\call_sp_sync_quiltt_data.sql": {
+      "hash": "7dce0c4396b93502acb3e0bf92c964e7cb66e5ff1a8bb81071811347c051f74b",
+      "file": "call_sp_sync_quiltt_data.sql",
+      "lastModified": "2025-08-23T01:25:57.809Z",
+      "size": 888
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\configure_quiltt_integration.sql": {
+      "hash": "f3964c154d67b376ead0280ed9df3915f09172cff30797838d825fc3248b7623",
+      "file": "configure_quiltt_integration.sql",
+      "lastModified": "2025-08-23T01:25:57.809Z",
+      "size": 2118
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\create_quiltt_integration.sql": {
+      "hash": "e6f93eb99d63bdfabf998b014f8e8c29f9d66931b91b03654fd2e168573f0e4f",
+      "file": "create_quiltt_integration.sql",
+      "lastModified": "2025-08-23T01:25:57.810Z",
+      "size": 1537
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\create_quiltt_session.sql": {
+      "hash": "243704eac7b1acc46105b20f47145531ef51b25dd0bc10738b30ef9bcef50831",
+      "file": "create_quiltt_session.sql",
+      "lastModified": "2025-08-23T01:25:57.810Z",
+      "size": 1037
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\get_quiltt_sync_status.sql": {
+      "hash": "8c5edcd9840ba1deeb319388ef5def14031259339f374f36bbbf77e2d5e7fa6b",
+      "file": "get_quiltt_sync_status.sql",
+      "lastModified": "2025-08-23T01:25:57.811Z",
+      "size": 2766
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\mark_quiltt_session_used.sql": {
+      "hash": "93d80eda2f964ad44cef37c73943c9b633a8b8521b264862bb81332cf8603daa",
+      "file": "mark_quiltt_session_used.sql",
+      "lastModified": "2025-08-23T01:25:57.812Z",
+      "size": 654
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\retry_quiltt_integration.sql": {
+      "hash": "93ada4c2ab2cb9a68aba6ab18336f9328adb22df22b10c67372c070e384bdd17",
+      "file": "retry_quiltt_integration.sql",
+      "lastModified": "2025-08-23T01:25:57.813Z",
+      "size": 852
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\update_quiltt_sync_status.sql": {
+      "hash": "0fc03e59f9a5d019367a754004b3fea312c8f7f3c95cf2445e9640a42999a515",
+      "file": "update_quiltt_sync_status.sql",
+      "lastModified": "2025-08-23T01:25:57.814Z",
+      "size": 971
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\validate_quiltt_deactivate_expired.sql": {
+      "hash": "cafa2c059a01ec6e09608c8caae714b24973f471604a59bb404656afbf400dac",
+      "file": "validate_quiltt_deactivate_expired.sql",
+      "lastModified": "2025-08-23T01:25:57.814Z",
+      "size": 714
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\quiltt\\validate_quiltt_get_integration.sql": {
+      "hash": "fc4d1041b42053331d015d1b0f08b495811cb40d361d0565fb0e1280d1873530",
+      "file": "validate_quiltt_get_integration.sql",
+      "lastModified": "2025-08-23T01:25:57.815Z",
+      "size": 761
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\real_estate\\call_sp_sync_real_estate_data.sql": {
+      "hash": "e277f0d48d8d980180e15e0bba7aaadc17dea75a478a14b6757fd21e83832ca7",
+      "file": "call_sp_sync_real_estate_data.sql",
+      "lastModified": "2025-08-23T01:25:57.815Z",
+      "size": 907
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\real_estate\\check_hei_idempotency.sql": {
+      "hash": "7d6e6adf34ca8c494e42b4c56cc634e1086d575254a42bb041d42407b2f4125f",
+      "file": "check_hei_idempotency.sql",
+      "lastModified": "2025-08-23T01:25:57.816Z",
+      "size": 1201
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\real_estate\\get_real_estate_sync_history.sql": {
+      "hash": "e649f54573219bebbf7b40c546fd4ada569f6f9232a9ad9874e15ddfa04b3b06",
+      "file": "get_real_estate_sync_history.sql",
+      "lastModified": "2025-08-23T01:25:57.817Z",
+      "size": 1237
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\real_estate\\lookup_hei_by_identifier.sql": {
+      "hash": "834d8f9f114482f04be8aa2d13b5b9b64fec8806f5bd4936e3d98d343ee3b5fb",
+      "file": "lookup_hei_by_identifier.sql",
+      "lastModified": "2025-08-23T01:25:57.818Z",
+      "size": 1575
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\real_estate\\retry_real_estate_sync.sql": {
+      "hash": "401435204d9be4d189666de5b69dca264576c0ebecda52a408472dfb63a743bb",
+      "file": "retry_real_estate_sync.sql",
+      "lastModified": "2025-08-23T01:25:57.818Z",
+      "size": 702
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\real_estate\\update_hei_status.sql": {
+      "hash": "896b685385d8db1f1ade92cad8619687de7160817852c0f35eb285fbb592e13d",
+      "file": "update_hei_status.sql",
+      "lastModified": "2025-08-23T01:25:57.819Z",
+      "size": 799
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\stripe\\call_sp_process_stripe_webhook.sql": {
+      "hash": "dcee76ae69223ead6ac8e9d58d79afb876ae0ec7dd7ac70d5ad0166780c62bc4",
+      "file": "call_sp_process_stripe_webhook.sql",
+      "lastModified": "2025-08-23T01:25:57.819Z",
+      "size": 698
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\stripe\\call_sp_purchase_service.sql": {
+      "hash": "4c7a198fc37465be52b68d310c611f75ff01f078fa40baf25d64af6d6bbe2743",
+      "file": "call_sp_purchase_service.sql",
+      "lastModified": "2025-08-23T01:25:57.820Z",
+      "size": 947
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\stripe\\mark_stripe_event_processed.sql": {
+      "hash": "20591ed5888eb5532aac881f18f9b76189b61d2b2a66ad93740630aa6e71c2ee",
+      "file": "mark_stripe_event_processed.sql",
+      "lastModified": "2025-08-23T01:25:57.821Z",
+      "size": 805
+    },
+    "apps\\api\\src\\app\\database\\queries\\05_integrations\\stripe\\update_service_purchase_succeeded.sql": {
+      "hash": "aab2c0ae1c39b36523f08d8a6845be24abeab4f4d2523475e8658ba6b4aa2032",
+      "file": "update_service_purchase_succeeded.sql",
+      "lastModified": "2025-08-23T01:25:57.821Z",
+      "size": 783
+    },
+    "apps\\api\\src\\app\\database\\queries\\06_communications\\emails\\create_email_if_not_exists.sql": {
+      "hash": "b56dcff5a2ecc7c6e43f979d27abd1164e9bf83a6482df965e30c2296bd57ae7",
+      "file": "create_email_if_not_exists.sql",
+      "lastModified": "2025-08-23T01:25:57.822Z",
+      "size": 1194
+    },
+    "apps\\api\\src\\app\\database\\queries\\06_communications\\emails\\link_email_to_persona.sql": {
+      "hash": "b733d1d01dcbef447490a175e23a5f4680a0814dae90c9781bd64e0cd996456b",
+      "file": "link_email_to_persona.sql",
+      "lastModified": "2025-08-23T01:25:57.823Z",
+      "size": 1374
+    },
+    "apps\\api\\src\\app\\database\\queries\\06_communications\\emails\\unset_other_primary_emails.sql": {
+      "hash": "9085bc90b2a13db6f4f786aa442d01e8dff5f106084560c19cba0e4c33365ac6",
+      "file": "unset_other_primary_emails.sql",
+      "lastModified": "2025-08-23T01:25:57.824Z",
+      "size": 804
+    },
+    "apps\\api\\src\\app\\database\\queries\\06_communications\\invitations\\create_invitation.sql": {
+      "hash": "08833c0c9f6a2b34a52e476baf3ad37979f4ab661e237ddef150f1348d3f73da",
+      "file": "create_invitation.sql",
+      "lastModified": "2025-08-23T01:25:57.824Z",
+      "size": 1532
+    },
+    "apps\\api\\src\\app\\database\\queries\\06_communications\\phones\\create_phone_if_not_exists.sql": {
+      "hash": "8446325d93b827405427e3b70c2162bd3db42fe06f1b8df1c3fcc33ecfc572d3",
+      "file": "create_phone_if_not_exists.sql",
+      "lastModified": "2025-08-23T01:27:52.518Z",
+      "size": 1524
+    },
+    "apps\\api\\src\\app\\database\\queries\\06_communications\\phones\\link_phone_to_persona.sql": {
+      "hash": "a5000d4c364b147de84740d17fe1c4799c8284bcc25b3e1e4593b055ed9767af",
+      "file": "link_phone_to_persona.sql",
+      "lastModified": "2025-08-23T01:25:57.826Z",
+      "size": 1371
+    },
+    "apps\\api\\src\\app\\database\\queries\\06_communications\\phones\\unset_other_primary_phones.sql": {
+      "hash": "780d12abaedbc52c3bb59474f167cc80e1b3a2e3a6bcda8f2a40d4d0f81abaf5",
+      "file": "unset_other_primary_phones.sql",
+      "lastModified": "2025-08-23T01:25:57.827Z",
+      "size": 803
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\pii_detection\\create_pii_detection_job.sql": {
+      "hash": "9a22c43588b28c458decff3840474fefe77f770cad3a700a6e426be89533945e",
+      "file": "create_pii_detection_job.sql",
+      "lastModified": "2025-08-23T01:25:57.827Z",
+      "size": 1437
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\pii_detection\\detect_pii_patterns.sql": {
+      "hash": "c5429070bb16114fbcb28d5274aee7f27b07fefcf81491ac0769f30732a06e74",
+      "file": "detect_pii_patterns.sql",
+      "lastModified": "2025-08-23T01:25:57.828Z",
+      "size": 2987
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\pii_detection\\update_pii_detection_job.sql": {
+      "hash": "b59bfeb16e500abfa5750c2f82850564fac8bedef67f588e5e9c2715f78cd3ae",
+      "file": "update_pii_detection_job.sql",
+      "lastModified": "2025-08-23T01:25:57.828Z",
+      "size": 1209
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\pii_detection\\update_pii_job_status.sql": {
+      "hash": "54a849b53718787b4f5d1206bc99816d67594ea40fd6d9d78b002778efa4de63",
+      "file": "update_pii_job_status.sql",
+      "lastModified": "2025-08-23T01:25:57.829Z",
+      "size": 1724
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\session\\clear_session_context.sql": {
+      "hash": "8743e8b07e7c158c310d8c3aa3a2ffd9919339267b7c97b8f270c7d0018faa3a",
+      "file": "clear_session_context.sql",
+      "lastModified": "2025-08-23T01:01:41.585Z",
+      "size": 630
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\session\\clear_tenant_context.sql": {
+      "hash": "a4154ade5603c5072b5047f2447e8d9b7a6ca893c1cd4922eb2275ffe2cc6e10",
+      "file": "clear_tenant_context.sql",
+      "lastModified": "2025-08-23T01:01:46.267Z",
+      "size": 575
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\session\\set_session_context.sql": {
+      "hash": "8f63d0549b48c249d713bc53c33228846e772e639bf5d80da336760114d43bec",
+      "file": "set_session_context.sql",
+      "lastModified": "2025-08-23T01:02:44.250Z",
+      "size": 708
+    },
+    "apps\\api\\src\\app\\database\\queries\\07_security\\session\\set_tenant_context.sql": {
+      "hash": "75d0915fe27d2b63b9901704b9b1a75a2835b5a8748a92ef7735980a1fbb91b3",
+      "file": "set_tenant_context.sql",
+      "lastModified": "2025-08-23T01:00:43.216Z",
+      "size": 622
+    },
+    "apps\\api\\src\\app\\database\\queries\\08_audit\\compliance\\compliance_report_stats.sql": {
+      "hash": "98a0d4dcfe0a7eff7566d44fbaac7a8403bfdceaeb2af1feba205b751fb346f1",
+      "file": "compliance_report_stats.sql",
+      "lastModified": "2025-08-23T01:25:57.831Z",
+      "size": 2516
+    },
+    "apps\\api\\src\\app\\database\\queries\\08_audit\\compliance\\compliance_report_user_activity.sql": {
+      "hash": "d9e48065afda9d87ae795c919b225966350f6372f46aaac26f8f3926aece1d42",
+      "file": "compliance_report_user_activity.sql",
+      "lastModified": "2025-08-23T01:25:57.832Z",
+      "size": 1403
+    },
+    "apps\\api\\src\\app\\database\\queries\\08_audit\\events\\create_audit_event.sql": {
+      "hash": "e1f87010078a304c60e3f2cc291aae70c7e8b4ac35c2b33d44a393c5a89b6d16",
+      "file": "create_audit_event.sql",
+      "lastModified": "2025-08-23T00:59:04.128Z",
+      "size": 2509
+    },
+    "apps\\api\\src\\app\\database\\queries\\08_audit\\events\\get_audit_trail.sql": {
+      "hash": "a02fa1afff537f62a42c611a812b6f0a9828c6527371db75d762d6756e868b79",
+      "file": "get_audit_trail.sql",
+      "lastModified": "2025-08-23T00:59:04.129Z",
+      "size": 1744
+    },
+    "apps\\api\\src\\app\\database\\queries\\08_audit\\events\\log_audit_event.sql": {
+      "hash": "307f9f3f29e7acf75655a0ac558022431e0ce9b1ead6f5ed8f8623a470bb6a6b",
+      "file": "log_audit_event.sql",
+      "lastModified": "2025-08-23T01:25:57.833Z",
+      "size": 2292
+    },
+    "apps\\api\\src\\app\\database\\queries\\09_event_sourcing\\events\\append_event.sql": {
+      "hash": "55fbf574049b664e9dd38914d61704e16dee7406e1d516db38ad64125a773a60",
+      "file": "append_event.sql",
+      "lastModified": "2025-08-23T00:59:04.130Z",
+      "size": 1629
+    },
+    "apps\\api\\src\\app\\database\\queries\\09_event_sourcing\\events\\get_current_event_version.sql": {
+      "hash": "2584ac136bfc3de7adb6827ed92023d997656ba186026279830c8de0b76947b7",
+      "file": "get_current_event_version.sql",
+      "lastModified": "2025-08-23T00:59:04.132Z",
+      "size": 545
+    },
+    "apps\\api\\src\\app\\database\\queries\\09_event_sourcing\\events\\get_next_event_version.sql": {
+      "hash": "ece3a3e3a23c0c8fd13841501af61ab03ea54188463a9efe4bcc92f2ae57d015",
+      "file": "get_next_event_version.sql",
+      "lastModified": "2025-08-23T00:59:04.133Z",
+      "size": 531
+    },
+    "apps\\api\\src\\app\\database\\queries\\09_event_sourcing\\projections\\call_sp_rebuild_projection.sql": {
+      "hash": "4a928bfb0a1439fa7d1523a4f0940d686c2aa0a75855a82134fb76c8d143d312",
+      "file": "call_sp_rebuild_projection.sql",
+      "lastModified": "2025-08-23T01:25:57.834Z",
+      "size": 733
+    },
+    "apps\\api\\src\\app\\database\\queries\\09_event_sourcing\\replay\\replay_events.sql": {
+      "hash": "a80e88584393487495302118e14c954a8969924e2cc7f9320fad5b73cd13a74d",
+      "file": "replay_events.sql",
+      "lastModified": "2025-08-23T01:25:57.834Z",
+      "size": 851
+    },
+    "apps\\api\\src\\app\\database\\queries\\09_event_sourcing\\snapshots\\cleanup_old_snapshots.sql": {
+      "hash": "e32578139f754bb1b6eacfa026d37434236d0dcabdc6cc5dd830fa4ae9876763",
+      "file": "cleanup_old_snapshots.sql",
+      "lastModified": "2025-08-23T01:25:57.836Z",
+      "size": 711
+    },
+    "apps\\api\\src\\app\\database\\queries\\09_event_sourcing\\snapshots\\create_snapshot.sql": {
+      "hash": "4ed5bd7c0a0cd3da1342f9459fc36c662b1a0c47b63885255d052864c09f9228",
+      "file": "create_snapshot.sql",
+      "lastModified": "2025-08-23T01:25:57.837Z",
+      "size": 1174
+    },
+    "apps\\api\\src\\app\\database\\queries\\10_reporting\\dashboards\\get_hei_dashboard_data.sql": {
+      "hash": "5dcf869145f1321f784c3e69602d580dd2e4b277769bdb7e35bf8fbde889229c",
+      "file": "get_hei_dashboard_data.sql",
+      "lastModified": "2025-08-23T01:25:57.837Z",
+      "size": 2803
+    },
+    "apps\\api\\src\\app\\database\\queries\\10_reporting\\dashboards\\get_subscription_details.sql": {
+      "hash": "0b8d938d76b0a0ca5d1aee6eedf7f934bf5a9aefa8663509348128b3df1bb324",
+      "file": "get_subscription_details.sql",
+      "lastModified": "2025-08-23T01:25:57.838Z",
+      "size": 1483
+    },
+    "apps\\api\\src\\app\\database\\queries\\10_reporting\\dashboards\\get_subscription_status.sql": {
+      "hash": "5d0fb7354f4c796c22cab0c0652159d677c8a995df2be9f11b1de0db1914f280",
+      "file": "get_subscription_status.sql",
+      "lastModified": "2025-08-23T01:25:57.839Z",
+      "size": 1297
+    },
+    "apps\\api\\src\\app\\database\\queries\\11_system\\configuration\\update_system_configuration.sql": {
+      "hash": "a02ae3babe16a192a1bae4ad83de88fcebf3a345fd7ff1e5594642ca165e54ae",
+      "file": "update_system_configuration.sql",
+      "lastModified": "2025-08-23T01:25:57.839Z",
+      "size": 2525
+    },
+    "apps\\api\\src\\app\\database\\queries\\11_system\\translations\\create_translation.sql": {
+      "hash": "cd57235605f71408e3fa359c9419176f3369013dfdaa431647d8572b33a1a584",
+      "file": "create_translation.sql",
+      "lastModified": "2025-08-23T01:25:57.840Z",
+      "size": 1948
+    },
+    "apps\\api\\src\\app\\database\\queries\\11_system\\translations\\get_translations.sql": {
+      "hash": "c77125dad3573ff0621078cd91729fa5dac1684c522f192a61895e74a7cefb3e",
+      "file": "get_translations.sql",
+      "lastModified": "2025-08-23T01:25:57.841Z",
+      "size": 1419
+    },
+    "apps\\api\\src\\app\\database\\queries\\11_system\\translations\\update_translation.sql": {
+      "hash": "3fdfd40e381f33b38e8fc5f0f19e6509e8f5ffffcc7dc3a3b5e06e9fddb6aeca",
+      "file": "update_translation.sql",
+      "lastModified": "2025-08-23T01:25:57.841Z",
+      "size": 1879
+    },
+    "apps\\api\\src\\app\\database\\queries\\11_system\\ui_masks\\get_ui_mask_by_entity_code.sql": {
+      "hash": "11878b427a2c6d003619f7e56b6843d29a9cb27adb083b033e7f80da4d6341ad",
+      "file": "get_ui_mask_by_entity_code.sql",
+      "lastModified": "2025-08-23T01:25:57.842Z",
+      "size": 367
+    },
+    "apps\\api\\src\\app\\database\\queries\\11_system\\ui_masks\\get_ui_mask_by_table_name.sql": {
+      "hash": "7f35ba791a34613efd86447275981cb85b3764e57dbed2da5697d0664a38e5f9",
+      "file": "get_ui_mask_by_table_name.sql",
+      "lastModified": "2025-08-23T01:25:57.843Z",
+      "size": 347
+    },
+    "apps\\api\\src\\app\\database\\queries\\12_stored_procedures\\helpers\\create_advisor_company.sql": {
+      "hash": "da5cb7646fdde6e8986d02cdb3595f5442fb7aa6a87767100e12486c744ac31f",
+      "file": "create_advisor_company.sql",
+      "lastModified": "2025-08-23T01:25:57.844Z",
+      "size": 1438
+    },
+    "apps\\api\\src\\app\\database\\queries\\12_stored_procedures\\helpers\\delete_advisor_company.sql": {
+      "hash": "a71ea9e9f21cd536422040642fa839e842afc196d5c6ee3b3e8c5d8ec33eeceb",
+      "file": "delete_advisor_company.sql",
+      "lastModified": "2025-08-23T01:25:57.844Z",
+      "size": 1018
+    },
+    "apps\\api\\src\\app\\database\\queries\\12_stored_procedures\\helpers\\get_advisor_companies.sql": {
+      "hash": "6aac12c0638f2e845458b56177f68b03f3f0afaab7f53028e9c261be84980dbf",
+      "file": "get_advisor_companies.sql",
+      "lastModified": "2025-08-23T01:25:57.846Z",
+      "size": 1932
+    },
+    "apps\\api\\src\\app\\database\\queries\\12_stored_procedures\\helpers\\update_advisor_company.sql": {
+      "hash": "6c41a29dfe123a2e3285e627f394fecd975600bef31efc8ff3ba57cfe420eaa0",
+      "file": "update_advisor_company.sql",
+      "lastModified": "2025-08-23T01:25:57.847Z",
+      "size": 1499
+    }
+  }
+}

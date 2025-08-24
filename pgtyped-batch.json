@@ -1,0 +1,17 @@
+{
+  "db": {
+    "host": "localhost",
+    "port": 5432,
+    "dbName": "fwd_db",
+    "user": "postgres",
+    "password": "FGt!3reGTdt5BG!"
+  },
+  "transforms": [
+    {
+      "mode": "sql",
+      "include": "apps/api/src/app/database/queries/**/*.sql",
+      "emitTemplate": "apps/api/src/app/database/types/{{name}}.types.ts"
+    }
+  ],
+  "srcDir": "."
+}

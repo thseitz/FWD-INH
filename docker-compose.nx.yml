@@ -1,0 +1,47 @@
+# Forward Inheritance Platform - NX Build Testing Configuration
+# Use this for testing NX builds alongside the working setup
+
+services:
+  # Test Backend with NX Build
+  backend-nx:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.nx
+    container_name: fwd-inh-backend-nx-test
+    environment:
+      NODE_ENV: production
+      # Database Configuration - Connect to existing database
+      PGHOST: database
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: FGt!3reGTdt5BG!
+      PGDATABASE: fwd_db
+      PGSSLMODE: disable
+      # API Configuration
+      API_PORT: 3002
+      API_HOST: 0.0.0.0
+      # CORS Configuration  
+      CORS_ORIGIN: http://localhost:4201
+      # JWT Configuration
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      JWT_EXPIRES_IN: 24h
+      # Session Configuration
+      SESSION_SECRET: dev-session-secret-change-in-production
+    ports:
+      - "3002:3002"
+    depends_on:
+      - database
+    networks:
+      - fwd-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  fwd-network:
+    external: true
+    name: fwd-inh_fwd-network

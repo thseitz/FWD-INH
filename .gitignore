@@ -1,15 +1,76 @@
-# Memory directory (MCP)
-.memory/
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Environment variables
+# Production builds
+dist/
+build/
+.next/
+
+# Environment files
 .env
 .env.local
-.env.*.local
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Database passwords and secrets
 *.env
 !.env.example
 
-# Test results
-docs/requirements/DB/Node JS scripts/test-data-generator/test-results/
-test-results/
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# NX
+.nx/
+nx.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Database test results (but keep .gitkeep)
+apps/api/src/app/database/testing/test-results/*.json
+apps/api/src/app/database/testing/test-results/*.md
+!apps/api/src/app/database/testing/test-results/.gitkeep
+
+# Memory directory (MCP)
+.memory/
+
+# Docker
+.dockerignore
+
+# Compiled output
+*.tsbuildinfo

@@ -7,7 +7,7 @@ You are an expert frontend developer working on the **Forward Inheritance Platfo
 - **Frontend**: React 18.2+ with TypeScript 5.3+
 - **Build**: Vite 5.0+ with Hot Module Replacement
 - **Styling**: Tailwind CSS 3.4+ with shadcn/ui components
-- **State Management**: React Context + useReducer patterns
+- **State Management**: Zustand for global and component state management
 - **Forms**: React Hook Form with Zod validation
 - **API Integration**: TanStack Query (React Query) for caching
 - **Icons**: Lucide React icon library
